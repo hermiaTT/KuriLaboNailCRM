@@ -1,15 +1,7 @@
 import { Tabs } from 'expo-router';
-import { Text } from 'react-native';
 
+import { NavTabIcon, TabBarBackground } from '../../components/ui';
 import { colors, radius } from '../../constants/theme';
-
-function TabIcon({ label, focused }: { label: string; focused: boolean }) {
-  return (
-    <Text style={{ color: focused ? colors.ink : colors.muted, fontSize: 16, fontWeight: '800' }}>
-      {label}
-    </Text>
-  );
-}
 
 export default function UserLayout() {
   return (
@@ -18,19 +10,32 @@ export default function UserLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.ink,
         tabBarInactiveTintColor: colors.muted,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
+        tabBarBackground: () => <TabBarBackground />,
+        tabBarShowLabel: false,
+        tabBarItemStyle: {
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: 56,
+          paddingTop: 0,
+        },
+        tabBarIconStyle: {
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: 38,
+          marginTop: 0,
+        },
         tabBarStyle: {
-          marginHorizontal: 18,
+          position: 'absolute',
+          marginHorizontal: 8,
           marginBottom: 18,
-          height: 70,
+          height: 76,
+          paddingTop: 10,
+          paddingBottom: 10,
           borderTopWidth: 0,
           borderRadius: radius.xl,
-          backgroundColor: colors.white,
-          shadowColor: '#ec9fb2',
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.14,
-          shadowRadius: 18,
-          elevation: 4,
+          backgroundColor: 'transparent',
+          elevation: 0,
+          shadowOpacity: 0,
         },
       }}
     >
@@ -38,28 +43,28 @@ export default function UserLayout() {
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ focused }) => <TabIcon focused={focused} label="P" />,
+          tabBarIcon: ({ focused }) => <NavTabIcon focused={focused} icon="☺" label="Profile" />,
         }}
       />
       <Tabs.Screen
         name="collection"
         options={{
           title: 'Collection',
-          tabBarIcon: ({ focused }) => <TabIcon focused={focused} label="C" />,
+          tabBarIcon: ({ focused }) => <NavTabIcon focused={focused} icon="♡" label="Saved" />,
         }}
       />
       <Tabs.Screen
         name="inspiration"
         options={{
           title: 'Inspo',
-          tabBarIcon: ({ focused }) => <TabIcon focused={focused} label="I" />,
+          tabBarIcon: ({ focused }) => <NavTabIcon focused={focused} icon="✿" label="Library" />,
         }}
       />
       <Tabs.Screen
         name="book"
         options={{
           title: 'Book',
-          tabBarIcon: ({ focused }) => <TabIcon focused={focused} label="B" />,
+          tabBarIcon: ({ focused }) => <NavTabIcon focused={focused} icon="▣" label="Book" />,
         }}
       />
       <Tabs.Screen name="appointments" options={{ href: null }} />

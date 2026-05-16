@@ -488,6 +488,21 @@ interface AvailableSlot {
 
 ## 9. UI / Design 风格
 
+### Primary Visual Direction
+
+当前 Kuri Labo 的主要视觉方向参考：
+
+https://solo-surge-31420687.figma.site/
+
+该 Figma prototype 是 Kuri Labo 的视觉 north star。实现时应保留它的整体风格、spacing、mood、iOS aesthetic 和 UX direction。
+
+注意：
+
+- 不要盲目复制 Figma prototype 的每一个 screen
+- 不要为了匹配 prototype 而偏离本 PRD 中定义的真实产品需求
+- 如果 prototype 和 PRD 的功能需求不一致，以 PRD 的产品逻辑为准
+- 视觉层面应尽量保留 prototype 的柔和、精致、移动端优先体验
+
 ### 整体风格
 
 Kuri Labo 的 UI 风格应强调：
@@ -514,7 +529,9 @@ Kuri Labo 的 UI 风格应强调：
 ### 辅助颜色
 
 - White: #ffffff
-- Soft Pink Background: #fff5f7
+- Global App Background: assets/background.png
+- App Background fallback / Warm White: #FFFDFA
+- Soft Pink Background: #fff5f7，仅作为浅粉色 accent surface 使用
 - Light Blue Background: #f0f9ff
 - Soft Gray: #f5f5f5
 
@@ -528,6 +545,11 @@ Kuri Labo 的 UI 风格应强调：
 - 图片比文字更重要
 - Mobile-first
 - iOS-first
+
+### Typography
+
+- 标题 / headings / brand display: Fredoka
+- 正文 / body / metadata / inputs: Nunito
 
 ---
 

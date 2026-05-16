@@ -18,86 +18,76 @@ export const profile: User = {
 export const collectionItems: NailCollectionItem[] = [
   {
     id: 'collection-1',
-    imageUrl:
-      'https://images.unsplash.com/photo-1607779097040-26e80aa78e66?auto=format&fit=crop&w=900&q=80',
+    imageUrl: '',
     date: 'Apr 18, 2026',
-    description: 'Soft milk tea gel with pearl accents',
-    tags: ['gel', 'elegant'],
+    description: 'Glass glitter ribbon set',
+    tags: ['glass', 'ribbon'],
   },
   {
     id: 'collection-2',
-    imageUrl:
-      'https://images.unsplash.com/photo-1632345031435-8727f6897d53?auto=format&fit=crop&w=900&q=80',
+    imageUrl: '',
     date: 'Mar 02, 2026',
-    description: 'Blush pink shimmer set',
-    tags: ['pink', 'short'],
+    description: 'Soft gold french tips',
+    tags: ['gold', 'french'],
   },
 ];
 
 export const inspirations: InspirationImage[] = [
   {
     id: 'inspiration-1',
-    imageUrl:
-      'https://images.unsplash.com/photo-1610992015732-2449b76344bc?auto=format&fit=crop&w=900&q=80',
+    imageUrl: '',
     sourceType: 'admin',
-    title: 'Syrup pink',
-    tags: ['cute', 'simple'],
+    title: 'Glass ribbon',
+    tags: ['glass', 'ribbon'],
   },
   {
     id: 'inspiration-2',
-    imageUrl:
-      'https://images.unsplash.com/photo-1604654894610-df63bc536371?auto=format&fit=crop&w=900&q=80',
+    imageUrl: '',
     sourceType: 'customer',
-    title: 'Blue pearl',
-    tags: ['chrome', 'blue'],
+    title: 'Gold tip',
+    tags: ['gold', 'french'],
   },
   {
     id: 'inspiration-3',
-    imageUrl:
-      'https://images.unsplash.com/photo-1519014816548-bf5fe059798b?auto=format&fit=crop&w=900&q=80',
+    imageUrl: '',
     sourceType: 'admin',
-    title: 'French bow',
-    tags: ['french', 'wedding'],
+    title: 'Dot lace',
+    tags: ['lace', 'minimal'],
   },
   {
     id: 'inspiration-4',
-    imageUrl:
-      'https://images.unsplash.com/photo-1522337660859-02fbefca4702?auto=format&fit=crop&w=900&q=80',
+    imageUrl: '',
     sourceType: 'customer',
-    title: 'Milky ribbon',
-    tags: ['ribbon', 'pink'],
+    title: 'Star french',
+    tags: ['star', 'cute'],
   },
   {
     id: 'inspiration-5',
-    imageUrl:
-      'https://images.unsplash.com/photo-1604902396830-aca29e19b067?auto=format&fit=crop&w=900&q=80',
+    imageUrl: '',
     sourceType: 'admin',
-    title: 'Tiny flower',
-    tags: ['floral', 'cute'],
+    title: 'Mirror sage',
+    tags: ['chrome', 'sage'],
   },
   {
     id: 'inspiration-6',
-    imageUrl:
-      'https://images.unsplash.com/photo-1599206676335-193c82b13c9e?auto=format&fit=crop&w=900&q=80',
+    imageUrl: '',
     sourceType: 'admin',
-    title: 'Blue jelly',
-    tags: ['blue', 'gel'],
+    title: 'Pink knit',
+    tags: ['pink', 'long'],
   },
   {
     id: 'inspiration-7',
-    imageUrl:
-      'https://images.unsplash.com/photo-1610992015855-575f72f5458c?auto=format&fit=crop&w=900&q=80',
+    imageUrl: '',
     sourceType: 'customer',
-    title: 'Pearl blush',
-    tags: ['pearl', 'elegant'],
+    title: 'Silver glass',
+    tags: ['silver', 'glass'],
   },
   {
     id: 'inspiration-8',
-    imageUrl:
-      'https://images.unsplash.com/photo-1605980776566-0486c3ac7617?auto=format&fit=crop&w=900&q=80',
+    imageUrl: '',
     sourceType: 'admin',
-    title: 'Soft chrome',
-    tags: ['chrome', 'short'],
+    title: 'Soft black',
+    tags: ['black', 'minimal'],
   },
 ];
 

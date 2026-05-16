@@ -38,6 +38,11 @@ The app is designed with a cute, soft, minimal aesthetic inspired by Japanese an
 
 # UI Style
 
+Primary visual reference:
+- https://solo-surge-31420687.figma.site/
+
+Use the Figma prototype for visual direction, spacing, mood, and iOS-style UX. Do not blindly copy every screen; adapt the implementation to the product requirements in `PRD.md`.
+
 - Cute aesthetic
 - Minimal design
 - Pastel pink and baby blue
@@ -49,6 +54,12 @@ The app is designed with a cute, soft, minimal aesthetic inspired by Japanese an
 Main colors:
 - #ffc0cb
 - #89CFF0
+- App background: `assets/background.png`
+- Fallback background: #FFFDFA
+
+Typography:
+- Titles: Fredoka
+- Body: Nunito
 
 ---
 

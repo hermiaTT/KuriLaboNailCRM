@@ -1,28 +1,53 @@
-import { Image, StyleSheet, Text, View, type ImageStyle, type ViewStyle } from 'react-native';
+import {
+  Image,
+  StyleSheet,
+  Text,
+  View,
+  type ImageStyle,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 
-import { colors, radius, shadows, spacing } from '../../constants/theme';
+import { colors, fonts, radius, shadows, spacing, typography } from '../../constants/theme';
+import { NailPhotoPlaceholder } from './NailPhotoPlaceholder';
 import { Pill } from './Pill';
+import { StatusBadge } from './StatusBadge';
 
 interface ImageCardProps {
   imageUrl: string;
   title: string;
   subtitle?: string;
   tags?: string[];
-  style?: ViewStyle;
-  imageStyle?: ImageStyle;
+  badgeLabel?: string;
+  imageStyle?: StyleProp<ImageStyle>;
+  style?: StyleProp<ViewStyle>;
 }
 
 export function ImageCard({
+  badgeLabel,
   imageUrl,
+  imageStyle,
   title,
   subtitle,
   tags = [],
   style,
-  imageStyle,
 }: ImageCardProps) {
   return (
     <View style={[styles.card, shadows.soft, style]}>
-      <Image source={{ uri: imageUrl }} style={[styles.image, imageStyle]} />
+      <View>
+        {imageUrl ? (
+          <Image source={{ uri: imageUrl }} style={[styles.image, imageStyle]} />
+        ) : (
+          <View style={[styles.image, imageStyle]}>
+            <NailPhotoPlaceholder />
+          </View>
+        )}
+        {badgeLabel ? (
+          <View style={styles.badge}>
+            <StatusBadge label={badgeLabel} />
+          </View>
+        ) : null}
+      </View>
       <View style={styles.copy}>
         <Text style={styles.title}>{title}</Text>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
@@ -55,13 +80,19 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.ink,
-    fontSize: 16,
-    fontWeight: '800',
+    fontFamily: fonts.titleBold,
+    fontSize: typography.body,
   },
   subtitle: {
     color: colors.muted,
-    fontSize: 13,
+    fontFamily: fonts.body,
+    fontSize: typography.small,
     lineHeight: 18,
+  },
+  badge: {
+    position: 'absolute',
+    left: spacing.sm,
+    bottom: spacing.sm,
   },
   tags: {
     flexDirection: 'row',

@@ -1,44 +1,18 @@
 import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import type { StyleProp, ViewStyle } from 'react-native';
 
-import { colors, spacing } from '../../constants/theme';
+import { ScreenContainer } from './ScreenContainer';
 
 interface AppScreenProps {
   children: ReactNode;
+  contentStyle?: StyleProp<ViewStyle>;
   scroll?: boolean;
 }
 
-export function AppScreen({ children, scroll = true }: AppScreenProps) {
-  const content = <View style={styles.content}>{children}</View>;
-
+export function AppScreen({ children, contentStyle, scroll = true }: AppScreenProps) {
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      {scroll ? (
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {content}
-        </ScrollView>
-      ) : (
-        content
-      )}
-    </SafeAreaView>
+    <ScreenContainer contentStyle={contentStyle} scroll={scroll}>
+      {children}
+    </ScreenContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.softPink,
-  },
-  scrollContent: {
-    paddingBottom: 36,
-  },
-  content: {
-    gap: spacing.lg,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-  },
-});

@@ -4,7 +4,7 @@ export const colors = {
   pastelPink: '#ffc0cb',
   babyBlue: '#89CFF0',
   white: '#ffffff',
-  softPink: '#fff5f7',
+  softPink: '#FFFDFA',
   lightBlue: '#f0f9ff',
   softGray: '#f5f5f5',
   ink: '#2f2a2c',
@@ -33,6 +33,15 @@ export const typography = {
   heading: 22,
   body: 16,
   small: 13,
+};
+
+export const fonts = {
+  title: 'Fredoka_600SemiBold',
+  titleBold: 'Fredoka_700Bold',
+  body: 'Nunito_400Regular',
+  bodyMedium: 'Nunito_600SemiBold',
+  bodyBold: 'Nunito_700Bold',
+  bodyItalic: 'Nunito_400Regular_Italic',
 };
 
 export const shadows = StyleSheet.create({

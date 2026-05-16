@@ -1,67 +1,33 @@
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, type ViewStyle } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 
-import { colors, radius, shadows, spacing } from '../../constants/theme';
+import { KuriButton } from './KuriButton';
 
 interface PrimaryButtonProps {
   children: ReactNode;
+  disabled?: boolean;
   onPress?: () => void;
   variant?: 'pink' | 'blue' | 'ghost';
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 }
 
 export function PrimaryButton({
   children,
+  disabled,
   onPress,
   variant = 'pink',
   style,
 }: PrimaryButtonProps) {
+  const mappedVariant = variant === 'pink' ? 'primary' : variant;
+
   return (
-    <Pressable
+    <KuriButton
+      disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.button,
-        variant === 'blue' && styles.blue,
-        variant === 'ghost' && styles.ghost,
-        variant !== 'ghost' && shadows.soft,
-        pressed && styles.pressed,
-        style,
-      ]}
+      style={style}
+      variant={mappedVariant}
     >
-      <Text style={[styles.label, variant === 'ghost' && styles.ghostLabel]}>
-        {children}
-      </Text>
-    </Pressable>
+      {children}
+    </KuriButton>
   );
 }
-
-const styles = StyleSheet.create({
-  button: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 52,
-    borderRadius: radius.lg,
-    backgroundColor: colors.pastelPink,
-    paddingHorizontal: spacing.lg,
-  },
-  blue: {
-    backgroundColor: colors.babyBlue,
-  },
-  ghost: {
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
-  label: {
-    color: colors.ink,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  ghostLabel: {
-    color: colors.muted,
-  },
-  pressed: {
-    opacity: 0.78,
-    transform: [{ scale: 0.98 }],
-  },
-});

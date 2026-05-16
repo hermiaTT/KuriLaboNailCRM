@@ -1,11 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { AppScreen } from '../../components/ui/AppScreen';
-import { PrimaryButton } from '../../components/ui/PrimaryButton';
-import { SectionHeader } from '../../components/ui/SectionHeader';
-import { SoftCard } from '../../components/ui/SoftCard';
-import { colors, radius, shadows, spacing, typography } from '../../constants/theme';
+import { BrandLogo, KuriButton, ScreenContainer } from '../../components/ui';
+import { colors, fonts, radius, spacing, typography } from '../../constants/theme';
 import { slots } from '../../data/placeholders';
 import type { AvailableSlot, SlotStatus } from '../../types/models';
 
@@ -43,120 +40,94 @@ export default function BookScreen() {
   const selectedSlot = selectedSlots.find((slot) => slot.id === selectedSlotId);
   const weekLabel = `${visibleDays[0].displayDate} - ${visibleDays[visibleDays.length - 1].displayDate}`;
 
+  function goToPreviousWeek() {
+    const previousOffset = Math.max(0, weekOffset - 1);
+    const previousWeek = getVisibleDays(previousOffset);
+
+    setWeekOffset(previousOffset);
+    setSelectedDateKey(previousWeek[0].key);
+    setSelectedSlotId(null);
+  }
+
+  function goToNextWeek() {
+    const nextOffset = weekOffset + 1;
+    const nextWeek = getVisibleDays(nextOffset);
+
+    setWeekOffset(nextOffset);
+    setSelectedDateKey(nextWeek[0].key);
+    setSelectedSlotId(null);
+  }
+
   return (
-    <AppScreen>
-      <SectionHeader eyebrow="Booking" title="Pick your nail day" action="10 AM - 7 PM" />
+    <ScreenContainer contentStyle={styles.screen}>
+      <BrandLogo style={styles.brandLogo} width={150} />
 
-      <SoftCard blue>
-        <Text style={styles.summaryTitle}>MVP schedule</Text>
-        <Text style={styles.summaryText}>
-          Each day has 3 cozy booking blocks. Available times are tappable.
-        </Text>
-      </SoftCard>
-
-      <View style={styles.weekControls}>
+      <View style={styles.weekNav}>
         <Pressable
           disabled={weekOffset === 0}
-          onPress={() => {
-            const previousOffset = Math.max(0, weekOffset - 1);
-            const previousWeek = getVisibleDays(previousOffset);
-
-            setWeekOffset(previousOffset);
-            setSelectedDateKey(previousWeek[0].key);
-            setSelectedSlotId(null);
-          }}
-          style={({ pressed }) => [
-            styles.weekButton,
-            weekOffset === 0 && styles.weekButtonDisabled,
-            pressed && styles.pressed,
-          ]}
+          onPress={goToPreviousWeek}
+          style={({ pressed }) => [styles.arrowHit, pressed && styles.pressed]}
         >
-          <Text style={[styles.weekButtonText, weekOffset === 0 && styles.disabledText]}>
-            Prev
-          </Text>
+          <Text style={[styles.arrow, weekOffset === 0 && styles.arrowDisabled]}>‹</Text>
         </Pressable>
-        <View style={styles.weekLabelWrap}>
+
+        <View style={styles.weekCenter}>
           <Text style={styles.weekLabel}>Future calendar</Text>
           <Text style={styles.weekRange}>{weekLabel}</Text>
         </View>
-        <Pressable
-          onPress={() => {
-            const nextOffset = weekOffset + 1;
-            const nextWeek = getVisibleDays(nextOffset);
 
-            setWeekOffset(nextOffset);
-            setSelectedDateKey(nextWeek[0].key);
-            setSelectedSlotId(null);
-          }}
-          style={({ pressed }) => [styles.weekButton, styles.nextWeekButton, pressed && styles.pressed]}
-        >
-          <Text style={styles.weekButtonText}>Next</Text>
+        <Pressable onPress={goToNextWeek} style={({ pressed }) => [styles.arrowHit, pressed && styles.pressed]}>
+          <Text style={styles.arrowPink}>›</Text>
         </Pressable>
       </View>
 
       <View style={styles.calendarStrip}>
         {visibleDays.map((day) => (
-          <Pressable
+          <DateCard
+            day={day}
             key={day.key}
             onPress={() => {
               setSelectedDateKey(day.key);
               setSelectedSlotId(null);
             }}
-            style={({ pressed }) => [
-              styles.dayCard,
-              day.key === selectedDay.key && styles.selectedDayCard,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Text style={[styles.dayName, day.key === selectedDay.key && styles.selectedDayText]}>
-              {day.weekday}
-            </Text>
-            <Text style={[styles.dayDate, day.key === selectedDay.key && styles.selectedDayText]}>
-              {day.dayOfMonth}
-            </Text>
-            <Text style={[styles.dayMonth, day.key === selectedDay.key && styles.selectedDayText]}>
-              {day.month}
-            </Text>
-          </Pressable>
+            selected={day.key === selectedDay.key}
+          />
         ))}
       </View>
 
-      <SoftCard>
-        <View style={styles.scheduleHeader}>
-          <View>
-            <Text style={styles.scheduleTitle}>{selectedDay.displayDate}</Text>
-            <Text style={styles.scheduleMeta}>Business hours 10:00 AM - 7:00 PM</Text>
-          </View>
-          <StatusDot status="available" label="Open" />
-        </View>
+      <View style={styles.scheduleHeader}>
+        <Text style={styles.scheduleTitle}>{selectedDay.displayDate}</Text>
+        <Text style={styles.scheduleMeta}>Business hours 10:00 AM - 7:00 PM</Text>
+      </View>
 
-        <View style={styles.timeline}>
-          {selectedSlots.map((slot) => (
-            <TimeBlock
-              key={slot.id}
-              onSelect={() => setSelectedSlotId(slot.id)}
-              selected={slot.id === selectedSlotId}
-              slot={slot}
-            />
-          ))}
-        </View>
-      </SoftCard>
+      <View style={styles.timeline}>
+        {selectedSlots.map((slot) => (
+          <TimeBlock
+            key={slot.id}
+            onSelect={() => setSelectedSlotId(slot.id)}
+            selected={slot.id === selectedSlotId}
+            slot={slot}
+          />
+        ))}
+      </View>
 
-      <SoftCard blue>
+      <View style={styles.selectedArea}>
         <Text style={styles.previewLabel}>Selected block</Text>
-        <Text style={styles.previewText}>
-          {selectedSlot
-            ? `${selectedSlot.date}, ${selectedSlot.startTime} - ${selectedSlot.endTime}`
-            : 'Tap an available block to preview your appointment time.'}
-        </Text>
-        <PrimaryButton
-          variant={selectedSlot ? 'pink' : 'ghost'}
-          style={styles.button}
-        >
-          {selectedSlot ? 'Request appointment' : 'Choose a block first'}
-        </PrimaryButton>
-      </SoftCard>
-    </AppScreen>
+        <View style={styles.previewBox}>
+          <Text style={styles.previewText}>
+            {selectedSlot
+              ? `${selectedSlot.date}, ${selectedSlot.startTime} - ${selectedSlot.endTime}`
+              : 'Tap an available block to preview your appointment time.'}
+          </Text>
+          <KuriButton
+            disabled={!selectedSlot}
+            variant={selectedSlot ? 'primary' : 'ghost'}
+          >
+            {selectedSlot ? 'Request appointment' : 'Choose a block first'}
+          </KuriButton>
+        </View>
+      </View>
+    </ScreenContainer>
   );
 }
 
@@ -167,6 +138,77 @@ interface ScheduleDay {
   key: string;
   month: string;
   weekday: string;
+}
+
+function DateCard({
+  day,
+  onPress,
+  selected,
+}: {
+  day: ScheduleDay;
+  onPress: () => void;
+  selected: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.dayCard,
+        selected && styles.selectedDayCard,
+        pressed && styles.pressed,
+      ]}
+    >
+      <Text style={[styles.dayName, selected && styles.selectedDayText]}>{day.weekday}</Text>
+      <Text style={[styles.dayDate, selected && styles.selectedDayText]}>{day.dayOfMonth}</Text>
+      <Text style={[styles.dayMonth, selected && styles.selectedDayText]}>{day.month}</Text>
+    </Pressable>
+  );
+}
+
+function TimeBlock({
+  onSelect,
+  selected,
+  slot,
+}: {
+  onSelect: () => void;
+  selected: boolean;
+  slot: AvailableSlot;
+}) {
+  const disabled = slot.status !== 'available';
+
+  return (
+    <Pressable
+      disabled={disabled}
+      onPress={onSelect}
+      style={({ pressed }) => [
+        styles.block,
+        selected && styles.selectedBlock,
+        disabled && styles.disabledBlock,
+        pressed && styles.pressed,
+      ]}
+    >
+      <View style={styles.blockCopy}>
+        <Text style={[styles.blockTitle, disabled && styles.disabledText]}>
+          <Text style={styles.blockStart}>{slot.startTime}</Text> {getStatusTitle(slot.status)}
+        </Text>
+        <Text style={[styles.blockHint, disabled && styles.disabledText]}>
+          {getStatusHint(slot.status)}
+        </Text>
+        <Text style={[styles.blockEnd, disabled && styles.disabledText]}>{slot.endTime}</Text>
+      </View>
+      <StatusPill status={slot.status} />
+    </Pressable>
+  );
+}
+
+function StatusPill({ status }: { status: SlotStatus }) {
+  return (
+    <View style={[styles.statusPill, status === 'booked' && styles.bookedPill]}>
+      <Text style={[styles.statusText, status === 'booked' && styles.bookedStatusText]}>
+        {status}
+      </Text>
+    </View>
+  );
 }
 
 function getVisibleDays(weekOffset: number): ScheduleDay[] {
@@ -212,71 +254,6 @@ function getMockStatus(date: Date, blockIndex: number): SlotStatus {
   return 'available';
 }
 
-function formatDisplayDate(date: Date) {
-  return `${monthNames[date.getMonth()]} ${date.getDate()}`;
-}
-
-function formatDateKey(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-
-  return `${year}-${month}-${day}`;
-}
-
-function TimeBlock({
-  onSelect,
-  selected,
-  slot,
-}: {
-  onSelect: () => void;
-  selected: boolean;
-  slot: AvailableSlot;
-}) {
-  const disabled = slot.status !== 'available';
-
-  return (
-    <Pressable
-      disabled={disabled}
-      onPress={onSelect}
-      style={({ pressed }) => [
-        styles.block,
-        statusStyles[slot.status],
-        selected && styles.selectedBlock,
-        disabled && styles.disabledBlock,
-        pressed && styles.pressed,
-      ]}
-    >
-      <View style={styles.timeColumn}>
-        <Text style={[styles.blockTime, disabled && styles.disabledText]}>
-          {slot.startTime}
-        </Text>
-        <Text style={[styles.blockEnd, disabled && styles.disabledText]}>
-          {slot.endTime}
-        </Text>
-      </View>
-      <View style={styles.blockCopy}>
-        <Text style={[styles.blockTitle, disabled && styles.disabledText]}>
-          {getStatusTitle(slot.status)}
-        </Text>
-        <Text style={[styles.blockHint, disabled && styles.disabledText]}>
-          {getStatusHint(slot.status)}
-        </Text>
-      </View>
-      <StatusDot status={slot.status} label={slot.status} />
-    </Pressable>
-  );
-}
-
-function StatusDot({ status, label }: { status: SlotStatus; label: string }) {
-  return (
-    <View style={styles.statusPill}>
-      <View style={[styles.dot, dotStyles[status]]} />
-      <Text style={styles.statusText}>{label}</Text>
-    </View>
-  );
-}
-
 function getStatusTitle(status: SlotStatus) {
   if (status === 'available') return 'Available';
   if (status === 'booked') return 'Booked';
@@ -289,226 +266,214 @@ function getStatusHint(status: SlotStatus) {
   return 'Not open for booking';
 }
 
-const statusStyles = StyleSheet.create({
-  available: {
-    backgroundColor: colors.lightBlue,
-    borderColor: '#cbeefd',
-  },
-  booked: {
-    backgroundColor: colors.softGray,
-    borderColor: colors.softGray,
-  },
-  blocked: {
-    backgroundColor: '#f8edf1',
-    borderColor: colors.line,
-  },
-});
+function formatDisplayDate(date: Date) {
+  return `${monthNames[date.getMonth()]} ${date.getDate()}`;
+}
 
-const dotStyles = StyleSheet.create({
-  available: {
-    backgroundColor: colors.babyBlue,
-  },
-  booked: {
-    backgroundColor: '#b9b3b6',
-  },
-  blocked: {
-    backgroundColor: colors.pastelPink,
-  },
-});
+function formatDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
 
 const styles = StyleSheet.create({
-  summaryTitle: {
-    color: colors.ink,
-    fontSize: typography.heading,
-    fontWeight: '900',
+  screen: {
+    gap: spacing.xl,
+    paddingTop: spacing.lg,
   },
-  summaryText: {
-    color: colors.muted,
+  brandLogo: {
+    alignSelf: 'center',
+  },
+  weekNav: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: spacing.lg,
+  },
+  arrowHit: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 42,
+    minHeight: 42,
+  },
+  arrow: {
+    color: '#8f8c8a',
+    fontFamily: fonts.bodyBold,
+    fontSize: 42,
+  },
+  arrowPink: {
+    color: '#e95775',
+    fontFamily: fonts.bodyBold,
+    fontSize: 42,
+  },
+  arrowDisabled: {
+    opacity: 0.35,
+  },
+  weekCenter: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  weekLabel: {
+    color: '#8f8c8a',
+    fontFamily: fonts.bodyMedium,
+    fontSize: 14,
+    textTransform: 'uppercase',
+  },
+  weekRange: {
+    color: colors.ink,
+    fontFamily: fonts.bodyItalic,
     fontSize: typography.body,
-    lineHeight: 23,
   },
   calendarStrip: {
+    alignSelf: 'center',
     flexDirection: 'row',
-    gap: spacing.xs,
+    flexWrap: 'nowrap',
+    justifyContent: 'center',
+    gap: 5,
+    width: '100%',
   },
   dayCard: {
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
-    minHeight: 82,
-    borderRadius: radius.lg,
-    backgroundColor: colors.white,
+    minWidth: 0,
+    minHeight: 74,
+    borderWidth: 1.5,
+    borderColor: '#e8e0dc',
+    borderRadius: 14,
+    backgroundColor: colors.softPink,
     paddingVertical: spacing.sm,
   },
   selectedDayCard: {
-    backgroundColor: colors.pastelPink,
-    ...shadows.soft,
+    borderColor: '#e95775',
+    backgroundColor: '#e95775',
   },
   dayName: {
-    color: colors.muted,
-    fontSize: 12,
-    fontWeight: '800',
+    color: colors.ink,
+    fontFamily: fonts.bodyMedium,
+    fontSize: 11,
   },
   dayDate: {
     color: colors.ink,
-    fontSize: 20,
-    fontWeight: '900',
+    fontFamily: fonts.bodyItalic,
+    fontSize: 18,
+    marginTop: 3,
   },
   dayMonth: {
-    color: colors.muted,
+    color: colors.ink,
+    fontFamily: fonts.bodyBold,
     fontSize: 10,
-    fontWeight: '800',
-    marginTop: 1,
+    marginTop: 0,
   },
   selectedDayText: {
-    color: colors.ink,
+    color: colors.white,
   },
   pressed: {
-    opacity: 0.78,
-    transform: [{ scale: 0.98 }],
+    opacity: 0.72,
+    transform: [{ scale: 0.99 }],
   },
   scheduleHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing.md,
+    gap: spacing.xs,
   },
   scheduleTitle: {
     color: colors.ink,
+    fontFamily: fonts.title,
     fontSize: typography.heading,
-    fontWeight: '900',
   },
   scheduleMeta: {
-    color: colors.muted,
-    fontSize: typography.small,
-    marginTop: 4,
+    color: '#8f8c8a',
+    fontFamily: fonts.body,
+    fontSize: typography.body,
   },
   timeline: {
     gap: spacing.md,
   },
   block: {
-    minHeight: 108,
-    borderWidth: 1,
-    borderRadius: radius.xl,
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: 142,
+    borderWidth: 2,
+    borderColor: '#e8e0dc',
+    borderRadius: 20,
+    backgroundColor: colors.softPink,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
   },
   selectedBlock: {
-    borderColor: colors.pastelPink,
-    backgroundColor: colors.white,
-    ...shadows.soft,
+    borderColor: '#e95775',
   },
   disabledBlock: {
-    opacity: 0.72,
-  },
-  timeColumn: {
-    width: 74,
-    gap: 2,
-  },
-  blockTime: {
-    color: colors.ink,
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  blockEnd: {
-    color: colors.muted,
-    fontSize: 13,
-    fontWeight: '700',
+    opacity: 0.48,
   },
   blockCopy: {
     flex: 1,
-    gap: 4,
+    gap: spacing.xs,
   },
   blockTitle: {
     color: colors.ink,
-    fontSize: 17,
-    fontWeight: '900',
+    fontFamily: fonts.bodyBold,
+    fontSize: typography.body,
+  },
+  blockStart: {
+    fontFamily: fonts.bodyItalic,
+    fontSize: 20,
   },
   blockHint: {
-    color: colors.muted,
-    fontSize: typography.small,
-    lineHeight: 18,
+    color: '#8f8c8a',
+    fontFamily: fonts.body,
+    fontSize: typography.body,
+  },
+  blockEnd: {
+    color: '#8f8c8a',
+    fontFamily: fonts.body,
+    fontSize: typography.body,
   },
   disabledText: {
-    color: '#8d878a',
+    color: '#8f8c8a',
   },
   statusPill: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.xs,
-    borderRadius: radius.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.68)',
-    paddingHorizontal: spacing.sm,
+    borderRadius: 18,
+    backgroundColor: '#ffe9ef',
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
   },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  bookedPill: {
+    backgroundColor: '#f7f4f1',
   },
   statusText: {
-    color: colors.muted,
-    fontSize: 11,
-    fontWeight: '900',
+    color: '#e95775',
+    fontFamily: fonts.bodyBold,
+    fontSize: 12,
     textTransform: 'uppercase',
   },
+  bookedStatusText: {
+    color: '#b7b2af',
+  },
+  selectedArea: {
+    gap: spacing.md,
+    paddingBottom: spacing.xl,
+  },
   previewLabel: {
-    color: colors.muted,
-    fontSize: typography.small,
-    fontWeight: '900',
+    color: colors.ink,
+    fontFamily: fonts.bodyBold,
+    fontSize: typography.body,
     textTransform: 'uppercase',
+  },
+  previewBox: {
+    gap: spacing.md,
+    borderWidth: 2,
+    borderColor: '#e8e0dc',
+    borderRadius: 20,
+    backgroundColor: colors.softPink,
+    padding: spacing.lg,
   },
   previewText: {
     color: colors.ink,
+    fontFamily: fonts.body,
     fontSize: typography.body,
-    fontWeight: '700',
     lineHeight: 23,
-  },
-  weekControls: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  weekButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 44,
-    minWidth: 64,
-    borderRadius: radius.lg,
-    backgroundColor: colors.white,
-    paddingHorizontal: spacing.md,
-  },
-  nextWeekButton: {
-    backgroundColor: colors.pastelPink,
-    ...shadows.soft,
-  },
-  weekButtonDisabled: {
-    backgroundColor: colors.softGray,
-  },
-  weekButtonText: {
-    color: colors.ink,
-    fontSize: typography.small,
-    fontWeight: '900',
-  },
-  weekLabelWrap: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 2,
-  },
-  weekLabel: {
-    color: colors.muted,
-    fontSize: 11,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-  },
-  weekRange: {
-    color: colors.ink,
-    fontSize: typography.small,
-    fontWeight: '800',
-  },
-  button: {
-    marginTop: spacing.xs,
   },
 });

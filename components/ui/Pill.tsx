@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, spacing } from '../../constants/theme';
+import { colors, fonts, radius, spacing } from '../../constants/theme';
 
 interface PillProps {
   label: string;
@@ -37,7 +37,7 @@ const styles = StyleSheet.create({
   },
   label: {
     color: colors.muted,
+    fontFamily: fonts.bodyBold,
     fontSize: 12,
-    fontWeight: '700',
   },
 });

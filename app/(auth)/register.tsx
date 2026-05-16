@@ -5,7 +5,7 @@ import { AppScreen } from '../../components/ui/AppScreen';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { SoftCard } from '../../components/ui/SoftCard';
-import { colors, radius, spacing, typography } from '../../constants/theme';
+import { colors, fonts, radius, spacing, typography } from '../../constants/theme';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -49,14 +49,15 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   cardTitle: {
     color: colors.ink,
+    fontFamily: fonts.title,
     fontSize: typography.heading,
-    fontWeight: '800',
   },
   input: {
     minHeight: 52,
     borderRadius: radius.lg,
     backgroundColor: colors.softGray,
     color: colors.ink,
+    fontFamily: fonts.body,
     fontSize: 16,
     paddingHorizontal: spacing.md,
   },

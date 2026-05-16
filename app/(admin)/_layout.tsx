@@ -1,15 +1,7 @@
 import { Tabs } from 'expo-router';
-import { Text } from 'react-native';
 
+import { NavTabIcon, TabBarBackground } from '../../components/ui';
 import { colors, radius } from '../../constants/theme';
-
-function AdminIcon({ label, focused }: { label: string; focused: boolean }) {
-  return (
-    <Text style={{ color: focused ? colors.ink : colors.muted, fontSize: 15, fontWeight: '900' }}>
-      {label}
-    </Text>
-  );
-}
 
 export default function AdminLayout() {
   return (
@@ -18,19 +10,32 @@ export default function AdminLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.ink,
         tabBarInactiveTintColor: colors.muted,
-        tabBarLabelStyle: { fontSize: 10, fontWeight: '700' },
+        tabBarBackground: () => <TabBarBackground />,
+        tabBarShowLabel: false,
+        tabBarItemStyle: {
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: 56,
+          paddingTop: 0,
+        },
+        tabBarIconStyle: {
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: 38,
+          marginTop: 0,
+        },
         tabBarStyle: {
-          marginHorizontal: 14,
+          position: 'absolute',
+          marginHorizontal: 6,
           marginBottom: 18,
-          height: 70,
+          height: 76,
+          paddingTop: 10,
+          paddingBottom: 10,
           borderTopWidth: 0,
           borderRadius: radius.xl,
-          backgroundColor: colors.white,
-          shadowColor: '#7dbde0',
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.16,
-          shadowRadius: 18,
-          elevation: 4,
+          backgroundColor: 'transparent',
+          elevation: 0,
+          shadowOpacity: 0,
         },
       }}
     >
@@ -38,35 +43,35 @@ export default function AdminLayout() {
         name="dashboard"
         options={{
           title: 'Home',
-          tabBarIcon: ({ focused }) => <AdminIcon focused={focused} label="D" />,
+          tabBarIcon: ({ focused }) => <NavTabIcon focused={focused} icon="⌂" label="Home" />,
         }}
       />
       <Tabs.Screen
         name="users"
         options={{
           title: 'Users',
-          tabBarIcon: ({ focused }) => <AdminIcon focused={focused} label="U" />,
+          tabBarIcon: ({ focused }) => <NavTabIcon focused={focused} icon="☺" label="Users" />,
         }}
       />
       <Tabs.Screen
         name="appointments"
         options={{
           title: 'Appts',
-          tabBarIcon: ({ focused }) => <AdminIcon focused={focused} label="A" />,
+          tabBarIcon: ({ focused }) => <NavTabIcon focused={focused} icon="◷" label="Appts" />,
         }}
       />
       <Tabs.Screen
         name="slots"
         options={{
           title: 'Slots',
-          tabBarIcon: ({ focused }) => <AdminIcon focused={focused} label="S" />,
+          tabBarIcon: ({ focused }) => <NavTabIcon focused={focused} icon="▣" label="Slots" />,
         }}
       />
       <Tabs.Screen
         name="upload"
         options={{
           title: 'Upload',
-          tabBarIcon: ({ focused }) => <AdminIcon focused={focused} label="+" />,
+          tabBarIcon: ({ focused }) => <NavTabIcon focused={focused} icon="+" label="Upload" />,
         }}
       />
       <Tabs.Screen name="inspiration" options={{ href: null }} />

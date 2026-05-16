@@ -2,9 +2,10 @@ import { useRouter } from 'expo-router';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AppScreen } from '../../components/ui/AppScreen';
+import { BrandLogo } from '../../components/ui/BrandLogo';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { SoftCard } from '../../components/ui/SoftCard';
-import { colors, radius, spacing, typography } from '../../constants/theme';
+import { colors, fonts, radius, spacing, typography } from '../../constants/theme';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -12,7 +13,7 @@ export default function LoginScreen() {
   return (
     <AppScreen>
       <View style={styles.hero}>
-        <Text style={styles.logo}>Kuri Labo</Text>
+        <BrandLogo width={220} />
         <Text style={styles.tagline}>Soft nails, easy booking, cozy memories.</Text>
       </View>
 
@@ -51,27 +52,24 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingTop: spacing.xl,
   },
-  logo: {
-    color: colors.ink,
-    fontSize: 42,
-    fontWeight: '900',
-  },
   tagline: {
     maxWidth: 270,
     color: colors.muted,
+    fontFamily: fonts.body,
     fontSize: typography.body,
     lineHeight: 24,
   },
   cardTitle: {
     color: colors.ink,
+    fontFamily: fonts.title,
     fontSize: typography.heading,
-    fontWeight: '800',
   },
   input: {
     minHeight: 52,
     borderRadius: radius.lg,
     backgroundColor: colors.softGray,
     color: colors.ink,
+    fontFamily: fonts.body,
     fontSize: 16,
     paddingHorizontal: spacing.md,
   },
