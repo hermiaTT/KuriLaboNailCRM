@@ -21,19 +21,6 @@ The project should be built using React Native + Expo.
 ---
 # Design Implementation Rules
 
-Primary visual reference:
-- https://solo-surge-31420687.figma.site/
-
-Use the Figma prototype as the primary visual direction for:
-- typography
-- spacing
-- color mood
-- card style
-- rounded corners
-- soft shadows
-- navigation feeling
-- visual hierarchy
-- overall cute, minimal, iOS-first aesthetic
 
 Use PRD.md as the source of truth for product logic:
 - product requirements
@@ -54,9 +41,7 @@ Precedence rules:
 ---
 ## Design Source of Truth
 
-The Figma prototype is the primary visual direction for the project.
 
-However:
 - PRD.md defines product logic
 - AGENTS.md defines engineering and design rules
 
@@ -136,6 +121,10 @@ Default app background:
 - Use `assets/background.png` as the global app background image.
 - Use #FFFDFA as the fallback warm off-white screen background.
 - Use #fff5f7 only as a soft pink accent surface, not as the global app background.
+
+Text color:
+- Use #5c3206 as the primary app text color across titles, body text, metadata, labels, and navigation.
+- Use white text only when required for legibility on dark/photographic surfaces, such as the active navigation pill or image overlays.
 
 Typography:
 - Use Fredoka for titles, section headings, brand text, and expressive display labels.

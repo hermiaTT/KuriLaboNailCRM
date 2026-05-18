@@ -534,6 +534,7 @@ Kuri Labo 的 UI 风格应强调：
 - Soft Pink Background: #fff5f7，仅作为浅粉色 accent surface 使用
 - Light Blue Background: #f0f9ff
 - Soft Gray: #f5f5f5
+- Primary Text Brown: #5c3206, used as the default text color for titles, body copy, metadata, labels, and navigation text. White text is reserved only for contrast on dark or image-backed surfaces.
 
 ### UI 要求
 
