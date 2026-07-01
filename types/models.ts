@@ -3,8 +3,8 @@ export type UserRole = 'user' | 'admin';
 export type AppointmentStatus =
   | 'pending'
   | 'confirmed'
-  | 'cancelled'
-  | 'completed';
+  | 'no_show'
+  | 'done';
 
 export type SlotStatus = 'available' | 'booked' | 'blocked';
 

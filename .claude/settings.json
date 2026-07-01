@@ -5,7 +5,23 @@
       "mcp__supabase__list_projects",
       "Bash(git rm *)",
       "Bash(echo \"EXIT:$?\")",
-      "mcp__supabase__get_advisors"
+      "mcp__supabase__get_advisors",
+      "PowerShell(npx tsc --noEmit 2>&1)",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/typescript/package.json'\\).version\\)\")",
+      "Bash(npm install *)",
+      "Bash(rm -rf node_modules/typescript)",
+      "Bash(echo \"TSC_EXIT_$?\")",
+      "Skill(run)",
+      "Skill(run:*)",
+      "Bash(node \"C:\\\\Users\\\\hermi\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-hermi-OneDrive----KuriLaboCRM\\\\3ec829f5-bbf0-4bac-8774-54e603997c2a\\\\scratchpad\\\\test_embed.mjs\")",
+      "Bash(cp \"C:\\\\Users\\\\hermi\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-hermi-OneDrive----KuriLaboCRM\\\\3ec829f5-bbf0-4bac-8774-54e603997c2a\\\\scratchpad\\\\test_embed.mjs\" \"c:/Users/hermi/OneDrive/桌面/KuriLaboCRM/_tmp_test_embed.mjs\")",
+      "Bash(node _tmp_test_embed.mjs)",
+      "Bash(cp \"C:\\\\Users\\\\hermi\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-hermi-OneDrive----KuriLaboCRM\\\\3ec829f5-bbf0-4bac-8774-54e603997c2a\\\\scratchpad\\\\test_embed2.mjs\" \"c:/Users/hermi/OneDrive/桌面/KuriLaboCRM/_tmp_test_embed2.mjs\")",
+      "Bash(node _tmp_test_embed2.mjs)",
+      "Bash(rm _tmp_test_embed2.mjs)",
+      "Bash(cp \"C:\\\\Users\\\\hermi\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-hermi-OneDrive----KuriLaboCRM\\\\3ec829f5-bbf0-4bac-8774-54e603997c2a\\\\scratchpad\\\\test_client_page.mjs\" \"c:/Users/hermi/OneDrive/桌面/KuriLaboCRM/_tmp_test.mjs\")",
+      "Bash(node _tmp_test.mjs)",
+      "Bash(rm _tmp_test.mjs)"
     ]
   }
 }

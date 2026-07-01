@@ -145,7 +145,7 @@ export default function AdminDashboardScreen() {
             .from('appointments')
             .select('id', { count: 'exact', head: true })
             .in('slot_id', weekSlotIds)
-            .in('status', ['pending', 'confirmed', 'completed'])
+            .in('status', ['pending', 'confirmed', 'done'])
         : Promise.resolve({ count: 0, data: null, error: null }),
 
       supabase

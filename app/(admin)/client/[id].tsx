@@ -46,7 +46,7 @@ type Visit = {
   price: number | null;
   description: string | null;
   created_at: string;
-  nail_images: NailImage[];
+  images: NailImage[];
 };
 
 export default function AdminClientDetailScreen() {
@@ -72,7 +72,7 @@ export default function AdminClientDetailScreen() {
 
   async function fetchAll() {
     setLoading(true);
-    const [clientRes, visitsRes] = await Promise.all([
+    const [clientRes, collectionsRes, doneApptsRes] = await Promise.all([
       supabase
         .from('profiles')
         .select('id, name, email, phone, instagram, notes')
@@ -83,19 +83,70 @@ export default function AdminClientDetailScreen() {
         .select('id, date, price, description, created_at, nail_images(id, image_url, display_order)')
         .eq('client_id', id)
         .order('date', { ascending: false, nullsFirst: false }),
+      // Any appointment marked "done" is a real visit too, regardless of how far in
+      // the past its slot date is — status is the source of truth here, not date.
+      supabase
+        .from('appointments')
+        .select('id, price, note, created_at, slot:available_slots!appointments_slot_id_fkey(date)')
+        .eq('user_id', id)
+        .eq('status', 'done'),
     ]);
 
     if (clientRes.data) {
       setClient(clientRes.data as ClientProfile);
       setNotes(clientRes.data.notes ?? '');
     }
+
+    const fromCollections: Visit[] = (collectionsRes.data ?? []).map((v: any) => ({
+      id: v.id,
+      date: v.date,
+      price: v.price,
+      description: v.description,
+      created_at: v.created_at,
+      images: [...(v.nail_images ?? [])].sort(
+        (a: NailImage, b: NailImage) => a.display_order - b.display_order,
+      ),
+    }));
+
+    const doneAppts = (doneApptsRes.data ?? []).map((a: any) => ({
+      id: a.id,
+      price: a.price,
+      note: a.note,
+      created_at: a.created_at,
+      date: (Array.isArray(a.slot) ? a.slot[0] : a.slot)?.date ?? null,
+    }));
+
+    let fromAppointments: Visit[] = [];
+    const apptIds = doneAppts.map((a) => a.id);
+    if (apptIds.length > 0) {
+      const { data: imgs } = await supabase
+        .from('appointment_images')
+        .select('id, appointment_id, image_url, display_order')
+        .in('appointment_id', apptIds)
+        .order('display_order', { ascending: true });
+
+      const byAppt: Record<string, NailImage[]> = {};
+      for (const img of (imgs ?? []) as any[]) {
+        byAppt[img.appointment_id] = byAppt[img.appointment_id] || [];
+        byAppt[img.appointment_id].push(img);
+      }
+
+      fromAppointments = doneAppts.map((a) => ({
+        id: a.id,
+        date: a.date,
+        price: a.price,
+        description: a.note,
+        created_at: a.created_at,
+        images: byAppt[a.id] ?? [],
+      }));
+    }
+
     setVisits(
-      (visitsRes.data ?? []).map((v: any) => ({
-        ...v,
-        nail_images: [...(v.nail_images ?? [])].sort(
-          (a: NailImage, b: NailImage) => a.display_order - b.display_order,
-        ),
-      })),
+      [...fromCollections, ...fromAppointments].sort((a, b) => {
+        const ad = a.date ?? a.created_at;
+        const bd = b.date ?? b.created_at;
+        return ad < bd ? 1 : ad > bd ? -1 : 0;
+      }),
     );
     setLoading(false);
   }
@@ -190,7 +241,7 @@ export default function AdminClientDetailScreen() {
           ) : (
             <View style={{ gap: 10 }}>
               {visits.map((v) => {
-                const cover = v.nail_images[0];
+                const cover = v.images[0];
                 return (
                   <Pressable key={v.id} onPress={() => setActiveVisit(v)}>
                     <HandRect padding={12} radius={radius.lg}>
@@ -207,7 +258,7 @@ export default function AdminClientDetailScreen() {
                           <Text style={styles.visitMeta}>
                             {v.price != null ? `$${v.price}` : 'no price set'}
                             {'  ·  '}
-                            {v.nail_images.length} photo{v.nail_images.length !== 1 ? 's' : ''}
+                            {v.images.length} photo{v.images.length !== 1 ? 's' : ''}
                           </Text>
                           {v.description && (
                             <Text style={styles.visitDesc} numberOfLines={1}>{v.description}</Text>
@@ -227,7 +278,7 @@ export default function AdminClientDetailScreen() {
       <NailCardModal
         visible={!!activeVisit}
         onClose={() => setActiveVisit(null)}
-        images={activeVisit?.nail_images ?? []}
+        images={activeVisit?.images ?? []}
       />
     </View>
   );

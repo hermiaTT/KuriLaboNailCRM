@@ -103,7 +103,7 @@ export default function ProfileScreen() {
           .from('appointments')
           .select('id', { count: 'exact', head: true })
           .eq('user_id', userId)
-          .in('status', ['confirmed', 'completed']),
+          .in('status', ['confirmed', 'done']),
 
         supabase
           .from('nail_collection_items')
@@ -112,12 +112,14 @@ export default function ProfileScreen() {
 
         supabase
           .from('appointments')
-          .select('id, status, slot:available_slots(date, start_time, end_time)')
+          .select('id, status, slot:available_slots!appointments_slot_id_fkey(date, start_time, end_time)')
           .eq('user_id', userId)
           .in('status', ['pending', 'confirmed'])
           .order('created_at', { ascending: true })
           .limit(10),
       ]);
+
+      if (apptRes.error) console.error('[ProfileScreen] nextAppt fetch error:', apptRes.error);
 
       setData(profileRes.data ?? null);
       setVisitCount(visitsRes.count ?? 0);

@@ -45,8 +45,8 @@ export const colors = {
 export const statusColors = {
   pending:   { bg: colors.pinkSoft, fg: colors.pinkInk, ring: colors.pinkInk },
   confirmed: { bg: colors.blueSoft, fg: colors.blueInk, ring: colors.blueInk },
-  cancelled: { bg: '#EEE7D9',       fg: colors.inkFaint, ring: colors.inkFaint },
-  completed: { bg: '#DDE9D5',       fg: '#6E8A55',       ring: '#6E8A55' },
+  no_show:   { bg: '#EEE7D9',       fg: colors.inkFaint, ring: colors.inkFaint },
+  done:      { bg: '#DDE9D5',       fg: '#6E8A55',       ring: '#6E8A55' },
   available: { bg: colors.creamCard, fg: colors.ink,     ring: colors.ink },
   booked:    { bg: '#EAE0CC',       fg: colors.inkFaint, ring: colors.inkFaint },
   blocked:   { bg: '#E5D6D6',       fg: '#8B6A6A',       ring: '#8B6A6A' },
