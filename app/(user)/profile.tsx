@@ -1,6 +1,6 @@
-import React from 'react';
-import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
   Doodle,
@@ -11,7 +11,6 @@ import {
   ScreenHeader,
   StatusBadge,
 } from '../../components/ui';
-import { profile } from '../../data/placeholders';
 import {
   colors,
   fonts,
@@ -20,49 +19,190 @@ import {
   spacing,
   typeScale,
 } from '../../constants/theme';
+import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabase';
 
-/**
- * Profile screen — reference port. Use this file as the template when
- * migrating Collection / Inspiration / Book / Admin Dashboard.
- *
- * Patterns demonstrated:
- *   - Screen + ScreenHeader + EyebrowTitle scaffold
- *   - Hand-drawn dashed avatar ring with doodle stickers
- *   - Stat tiles with slight rotation + doodle accents
- *   - Info list with dashed dividers (border on inner View)
- *   - Accent card (preferences) with tinted fill + matching ink stroke
- *   - Status row with StatusBadge
- */
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type FullProfile = {
+  name: string;
+  phone: string | null;
+  birthday: string | null;
+  instagram: string | null;
+  preferred_nail_style: string | null;
+  allergy_notes: string | null;
+  created_at: string;
+};
+
+type NextAppt = {
+  id: string;
+  status: string;
+  slot: { date: string; start_time: string; end_time: string } | null;
+};
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function memberSince(iso: string) {
+  return new Date(iso)
+    .toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    .toLowerCase();
+}
+
+function fmtBirthday(iso: string) {
+  return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+function fmtTime(t: string) {
+  const [h, m] = t.split(':');
+  const hour = parseInt(h, 10);
+  return `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`;
+}
+
+function fmtSlotDate(dateStr: string) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return {
+    month: d.toLocaleDateString('en-US', { month: 'short' }).toLowerCase(),
+    day: String(d.getDate()),
+  };
+}
+
+// ─── Screen ──────────────────────────────────────────────────────────────────
+
 export default function ProfileScreen() {
   const router = useRouter();
+  const { session, profile: authProfile, signOut } = useAuth();
+
+  const [data, setData] = useState<FullProfile | null>(null);
+  const [visitCount, setVisitCount] = useState(0);
+  const [savedCount, setSavedCount] = useState(0);
+  const [nextAppt, setNextAppt] = useState<NextAppt | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!authProfile?.id) return;
+      fetchAll(authProfile.id);
+    }, [authProfile?.id]),
+  );
+
+  async function fetchAll(userId: string) {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+
+      const [profileRes, visitsRes, savedRes, apptRes] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('name, phone, birthday, instagram, preferred_nail_style, allergy_notes, created_at')
+          .eq('id', userId)
+          .single(),
+
+        supabase
+          .from('appointments')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .in('status', ['confirmed', 'completed']),
+
+        supabase
+          .from('nail_collection_items')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId),
+
+        supabase
+          .from('appointments')
+          .select('id, status, slot:available_slots(date, start_time, end_time)')
+          .eq('user_id', userId)
+          .in('status', ['pending', 'confirmed'])
+          .order('created_at', { ascending: true })
+          .limit(10),
+      ]);
+
+      setData(profileRes.data ?? null);
+      setVisitCount(visitsRes.count ?? 0);
+      setSavedCount(savedRes.count ?? 0);
+
+      // Supabase returns slot as an array; normalise to single object
+      const upcoming = (apptRes.data ?? [])
+        .map((a) => ({ ...a, slot: Array.isArray(a.slot) ? a.slot[0] ?? null : a.slot }))
+        .filter((a) => a.slot && a.slot.date >= today)
+        .sort((a, b) => (a.slot!.date > b.slot!.date ? 1 : -1))[0] ?? null;
+      setNextAppt(upcoming as NextAppt | null);
+    } catch (e) {
+      console.error('[ProfileScreen] fetchAll error:', e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <Screen>
+        <ScreenHeader trailing={<Pressable style={styles.iconBtn}><Icons.Bell /></Pressable>} />
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator color={colors.pinkInk} />
+        </View>
+      </Screen>
+    );
+  }
+
+  const email = session?.user.email ?? '—';
+  const name = data?.name ?? authProfile?.name ?? '—';
+  const initial = name[0]?.toUpperCase() ?? '?';
+  const since = data?.created_at ? memberSince(data.created_at) : '—';
+
+  const prefBody = [
+    data?.preferred_nail_style,
+    data?.allergy_notes ? `${data.allergy_notes}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ') || 'No preferences set yet';
+
+  const slotDate = nextAppt?.slot ? fmtSlotDate(nextAppt.slot.date) : null;
 
   return (
     <Screen>
-      <ScreenHeader trailing={<Pressable style={styles.iconBtn}><Icons.Bell/></Pressable>}/>
+      <ScreenHeader
+        trailing={
+          <View style={styles.headerActions}>
+            <Pressable style={styles.iconBtn} onPress={() => router.push('/(user)/edit-profile')}>
+              <Icons.Edit color={colors.inkSoft} size={18} />
+            </Pressable>
+            <Pressable style={styles.iconBtn}>
+              <Icons.Bell />
+            </Pressable>
+          </View>
+        }
+      />
 
       {/* Avatar hero */}
       <View style={styles.hero}>
         <View style={styles.avatarRing}>
-          <View style={[styles.avatarRingBorder, StyleSheet.absoluteFillObject]}/>
+          <View style={[styles.avatarRingBorder, StyleSheet.absoluteFillObject]} />
           <View style={styles.avatarInner}>
-            <Text style={styles.avatarInitial}>{profile.name[0]}</Text>
+            <Text style={styles.avatarInitial}>{initial}</Text>
           </View>
           <Doodle kind="flower" size={28} color={colors.yellow}
-            style={{ position: 'absolute', top: -4, right: -4, transform: [{ rotate: '15deg' }] }}/>
+            style={{ position: 'absolute', top: -4, right: -4, transform: [{ rotate: '15deg' }] }} />
           <Doodle kind="sparkle" size={22} color={colors.blue}
-            style={{ position: 'absolute', bottom: 4, left: -6, transform: [{ rotate: '-12deg' }] }}/>
+            style={{ position: 'absolute', bottom: 4, left: -6, transform: [{ rotate: '-12deg' }] }} />
         </View>
-        <Text style={styles.name}>{profile.name}</Text>
-        <Text style={styles.metaWide}>member since march 2024</Text>
+        <Text style={styles.name}>{name}</Text>
+        <Text style={styles.metaWide}>member since {since}</Text>
+        <Pressable onPress={signOut} style={styles.signOutBtn}>
+          <Icons.LogOut color={colors.inkSoft} size={13} />
+          <Text style={styles.signOutText}>sign out</Text>
+        </Pressable>
       </View>
 
       {/* Stats */}
       <View style={styles.row}>
         <View style={styles.statsRow}>
           {[
-            { v: 24, l: 'visits',  d: 'heart',   c: colors.pink,   nav: () => router.push('/(user)/appointments') },
-            { v: 15, l: 'saved',   d: 'star',    c: colors.blue,   nav: () => router.push('/(user)/collection') },
-            { v: 8,  l: 'designs', d: 'sparkle', c: colors.yellow, nav: () => router.push('/(user)/inspiration') },
+            { v: visitCount, l: 'visits',  d: 'heart',   c: colors.pink,   nav: () => router.push('/(user)/appointments') },
+            { v: savedCount, l: 'saved',   d: 'star',    c: colors.blue,   nav: () => router.push('/(user)/collection') },
+            { v: 0,          l: 'designs', d: 'sparkle', c: colors.yellow, nav: () => router.push('/(user)/inspiration') },
           ].map((s, i) => (
             <Pressable
               key={s.l}
@@ -73,7 +213,7 @@ export default function ProfileScreen() {
               ]}
             >
               <HandRect padding={14} radius={radius.md} style={{ alignItems: 'center' }}>
-                <Doodle kind={s.d as any} color={s.c} size={22} style={{ marginBottom: 4 }}/>
+                <Doodle kind={s.d as any} color={s.c} size={22} style={{ marginBottom: 4 }} />
                 <Text style={styles.statValue}>{s.v}</Text>
                 <Text style={styles.statLabel}>{s.l}</Text>
               </HandRect>
@@ -86,10 +226,10 @@ export default function ProfileScreen() {
       <View style={styles.row}>
         <HandRect padding={0} radius={radius.lg}>
           {[
-            { k: 'email',     v: profile.email },
-            { k: 'phone',     v: profile.phone ?? '(604) 555-0188' },
-            { k: 'birthday',  v: 'March 15' },
-            { k: 'instagram', v: profile.instagram ?? '@mina.nails' },
+            { k: 'email',     v: email },
+            { k: 'phone',     v: data?.phone ?? '—' },
+            { k: 'birthday',  v: data?.birthday ? fmtBirthday(data.birthday) : '—' },
+            { k: 'instagram', v: data?.instagram ?? '—' },
           ].map((r, i, a) => (
             <View key={r.k} style={[styles.infoRow, i < a.length - 1 && styles.infoRowDivider]}>
               <Text style={styles.infoKey}>{r.k}</Text>
@@ -105,57 +245,58 @@ export default function ProfileScreen() {
           <View style={styles.prefHead}>
             <View style={{ flex: 1 }}>
               <Text style={styles.prefTitle}>Your preferences</Text>
-              <Text style={styles.prefBody}>Gel · Soft pinks · No allergies noted</Text>
+              <Text style={styles.prefBody}>{prefBody}</Text>
             </View>
-            <View style={styles.editBtn}>
-              <Icons.Edit color={colors.pinkInk}/>
+            <Pressable style={styles.editBtn} onPress={() => router.push('/(user)/edit-profile')}>
+              <Icons.Edit color={colors.pinkInk} />
               <Text style={styles.editLabel}>edit</Text>
-            </View>
-          </View>
-          <View style={styles.prefTags}>
-            {['gel', 'soft pink', 'french', 'no chrome'].map((t) => (
-              <View key={t} style={styles.prefTag}>
-                <Text style={styles.prefTagText}>{t}</Text>
-              </View>
-            ))}
+            </Pressable>
           </View>
         </HandRect>
       </View>
 
       {/* Next visit */}
-      <View style={styles.row}>
-        <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>Next visit</Text>
-          <Text style={styles.sectionMeta}>1 upcoming</Text>
+      {nextAppt && slotDate ? (
+        <View style={styles.row}>
+          <View style={styles.sectionHead}>
+            <Text style={styles.sectionTitle}>Next visit</Text>
+            <Text style={styles.sectionMeta}>1 upcoming</Text>
+          </View>
+          <Pressable onPress={() => router.push('/(user)/appointments')}>
+            <HandRect padding={16} radius={radius.lg}>
+              <View style={styles.visitRow}>
+                <View style={styles.visitDate}>
+                  <Text style={styles.visitDateM}>{slotDate.month}</Text>
+                  <Text style={styles.visitDateD}>{slotDate.day}</Text>
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.visitTime}>
+                    {fmtTime(nextAppt.slot!.start_time)} — {fmtTime(nextAppt.slot!.end_time)}
+                  </Text>
+                  <Text style={styles.visitDesc}>with Kuri</Text>
+                </View>
+                <StatusBadge status={nextAppt.status as any} />
+              </View>
+            </HandRect>
+          </Pressable>
         </View>
-        <Pressable onPress={() => router.push('/(user)/appointments')}>
+      ) : (
+        <View style={styles.row}>
           <HandRect padding={16} radius={radius.lg}>
-            <View style={styles.visitRow}>
-              <View style={styles.visitDate}>
-                <Text style={styles.visitDateM}>may</Text>
-                <Text style={styles.visitDateD}>20</Text>
-              </View>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.visitTime}>4:00 — 7:00 PM</Text>
-                <Text style={styles.visitDesc}>New gel set · with Kuri</Text>
-              </View>
-              <StatusBadge status="confirmed"/>
-            </View>
+            <Text style={styles.emptyText}>No upcoming visits yet · Book one? 🌸</Text>
           </HandRect>
-        </Pressable>
-      </View>
+        </View>
+      )}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   iconBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
-  hero: {
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 6,
-  },
+  hero: { alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: 6 },
   avatarRing: {
     width: 128, height: 128, borderRadius: 64,
     alignItems: 'center', justifyContent: 'center', position: 'relative',
@@ -180,6 +321,14 @@ const styles = StyleSheet.create({
   },
   metaWide: {
     marginTop: 6,
+    fontFamily: fonts.mono, fontSize: 10, color: colors.inkSoft,
+    letterSpacing: letterSpacing.metaWide, textTransform: 'uppercase',
+  },
+  signOutBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    marginTop: 10, paddingVertical: 4, paddingHorizontal: 8,
+  },
+  signOutText: {
     fontFamily: fonts.mono, fontSize: 10, color: colors.inkSoft,
     letterSpacing: letterSpacing.metaWide, textTransform: 'uppercase',
   },
@@ -224,14 +373,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.mono, fontSize: 10, color: colors.pinkInk,
     letterSpacing: letterSpacing.meta, textTransform: 'uppercase',
   },
-  prefTags: { flexDirection: 'row', gap: 6, marginTop: 12, flexWrap: 'wrap' },
-  prefTag: {
-    paddingHorizontal: 10, paddingVertical: 3,
-    borderRadius: radius.pill,
-    backgroundColor: colors.creamCard,
-    borderWidth: 1, borderColor: colors.pinkInk,
-  },
-  prefTagText: { fontFamily: fonts.mono, fontSize: 10, color: colors.pinkInk, letterSpacing: 0.4 },
 
   sectionHead: {
     flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between',
@@ -265,8 +406,10 @@ const styles = StyleSheet.create({
     fontFamily: fonts.display, fontSize: typeScale.section, color: colors.ink,
     letterSpacing: letterSpacing.display,
   },
-  visitDesc: {
-    marginTop: 2,
-    fontFamily: fonts.body, fontSize: 12, color: colors.inkSoft,
+  visitDesc: { marginTop: 2, fontFamily: fonts.body, fontSize: 12, color: colors.inkSoft },
+
+  emptyText: {
+    fontFamily: fonts.body, fontSize: 13, color: colors.inkSoft,
+    textAlign: 'center', paddingVertical: 4,
   },
 });

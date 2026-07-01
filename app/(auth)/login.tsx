@@ -19,11 +19,28 @@ import {
   spacing,
   typeScale,
 } from '../../constants/theme';
+import { useAuth } from '../../context/AuthContext';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function handleSignIn() {
+    if (!email || !password) {
+      setError('Please enter your email and password.');
+      return;
+    }
+    setError(null);
+    setLoading(true);
+    const { error } = await signIn(email, password);
+    setLoading(false);
+    if (error) setError(error);
+    // On success, _layout.tsx handles the redirect automatically
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
@@ -71,20 +88,16 @@ export default function LoginScreen() {
               />
             </View>
 
-            <View style={{ gap: 10, marginTop: 18 }}>
+            {error && <Text style={styles.errorText}>{error}</Text>}
+
+            <View style={{ marginTop: 18 }}>
               <HandButton
                 color={colors.pinkInk}
                 full
-                onPress={() => router.replace('/(user)/profile')}
+                onPress={handleSignIn}
+                disabled={loading}
               >
-                Continue as User
-              </HandButton>
-              <HandButton
-                color={colors.blueInk}
-                full
-                onPress={() => router.replace('/(admin)/dashboard')}
-              >
-                Continue as Admin
+                {loading ? 'Signing in…' : 'Sign in'}
               </HandButton>
             </View>
 
@@ -132,6 +145,13 @@ const styles = StyleSheet.create({
   welcome: {
     fontFamily: fonts.display, fontSize: typeScale.section, color: colors.ink,
     letterSpacing: letterSpacing.display,
+  },
+  errorText: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    color: '#e05c5c',
+    marginTop: 10,
+    textAlign: 'center',
   },
   forgot: { marginTop: 14, alignSelf: 'center' },
   forgotText: {

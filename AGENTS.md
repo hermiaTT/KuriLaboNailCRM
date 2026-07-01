@@ -191,15 +191,59 @@ Avoid:
 
 ---
 
+# Backend Rules
+
+## Supabase
+
+- Use Supabase for all backend logic: auth, database, and image storage.
+- The Supabase project is already created and connected.
+- All DB access goes through `lib/supabase.ts` which exports the `supabase` client.
+- Never bypass RLS policies. All data access must respect row-level security.
+- Store images in Supabase Storage, not as base64 or local files.
+
+## Auth
+
+- Auth state is managed in `context/AuthContext.tsx`.
+- Use `useAuth()` hook to access `session`, `profile`, `loading`, `signIn`, `signUp`, `signOut`.
+- Never access `supabase.auth` directly in screens — always go through `useAuth()`.
+- `profile.role` determines routing: `'user'` → user tabs, `'admin'` → admin tabs.
+- Auth redirects are handled in `app/_layout.tsx` (RootNavigator) via `useEffect` watching `session` + `profile`.
+- Do not add manual navigation after sign in/sign up — the layout handles it automatically.
+
+## Database Schema
+
+Tables (all in `public` schema, all with RLS enabled):
+- `profiles` — extends `auth.users`. Contains: id, name, phone, birthday, instagram, role, notes, preferred_nail_style, allergy_notes.
+- `nail_collection_items` — nail photos per user: user_id, image_url, date, description, tags[], show_in_inspiration.
+- `inspiration_images` — gallery: image_url, source_type ('customer'|'admin'), collection_item_id, title, tags[].
+- `available_slots` — bookable time blocks: date, start_time, end_time, status ('available'|'booked'|'blocked'), appointment_id.
+- `appointments` — bookings: user_id, slot_id, status ('pending'|'confirmed'|'cancelled'|'completed'), note.
+
+RLS summary:
+- `profiles`: all authenticated users can read; own row to update.
+- `nail_collection_items`: users see own + admin sees all; admin-only write.
+- `inspiration_images`: all authenticated can read; admin-only write.
+- `available_slots`: all authenticated can read; admin-only write.
+- `appointments`: users see own; admin sees all; users can insert own; admin can update/delete.
+
+## Creating Admin Users
+
+Admin accounts are created manually:
+1. Register via the app (creates `role: 'user'` by default).
+2. Go to Supabase → Table Editor → `profiles` → change `role` to `'admin'`.
+
+---
+
 # Current MVP Scope
 
 User:
 - Login
-- Register
+- Register (with name, email, phone, birthday, password)
 - Profile
 - Collection
 - Inspiration
 - Book
+- My Appointments
 
 Admin:
 - Dashboard
@@ -207,6 +251,23 @@ Admin:
 - Appointment management
 - Slot management
 - Image upload
+
+## Development Phase Status
+
+- Phase 1 (Setup): ✅ Done
+- Phase 2 (Auth): ✅ Done — Supabase Auth connected, register/login/signOut working, role-based routing working
+- Phase 3 (User Pages): 🔄 In progress — UI done, needs Supabase data integration
+- Phase 4 (Admin Pages): 🔄 In progress — UI done, needs Supabase data integration
+- Phase 5 (Polish): ⏳ Not started
+
+---
+
+# Date Handling
+
+- All dates stored in Supabase as ISO format strings (`YYYY-MM-DD`).
+- Birthday uses the iOS native DateTimePicker (`@react-native-community/datetimepicker`, `display="spinner"`).
+- Format dates for display using `toLocaleDateString('en-US', ...)`.
+- Never store dates as full ISO timestamps (with time) for date-only fields.
 
 ---
 

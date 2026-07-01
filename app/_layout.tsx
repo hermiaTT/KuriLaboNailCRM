@@ -10,34 +10,35 @@ import {
 } from '@expo-google-fonts/quicksand';
 import { SpecialElite_400Regular } from '@expo-google-fonts/special-elite';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import React, { useEffect } from 'react';
 import { View } from 'react-native';
 
 import { Wobble } from '../components/ui';
+import { AuthProvider, useAuth } from '../context/AuthContext';
 import { colors } from '../constants/theme';
 
-export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
-    // Default set
-    SpecialElite_400Regular,
-    Quicksand_400Regular,
-    Quicksand_500Medium,
-    Quicksand_600SemiBold,
-    Quicksand_700Bold,
-    DMMono_500Medium,
-    // Alt sets (only required if you ship the font-set switcher)
-    PatrickHand_400Regular,
-    Fraunces_400Regular,
-    Nunito_400Regular,
-  });
+function RootNavigator() {
+  const { session, profile, loading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
 
-  if (!fontsLoaded) return null;
+  useEffect(() => {
+    if (loading) return;
+    const inAuth = segments[0] === '(auth)';
+
+    if (!session) {
+      if (!inAuth) router.replace('/(auth)/login');
+    } else if (profile) {
+      if (inAuth) {
+        router.replace(profile.role === 'admin' ? '/(admin)/dashboard' : '/(user)/profile');
+      }
+    }
+  }, [session, profile, loading, segments]);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
-      {/* Mount once — provides the SVG wobble filter defs to every
-          HandRect / HandChip / HandButton in the tree. */}
       <Wobble />
       <StatusBar style="dark" backgroundColor={colors.cream} />
       <Stack
@@ -47,5 +48,27 @@ export default function RootLayout() {
         }}
       />
     </View>
+  );
+}
+
+export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    SpecialElite_400Regular,
+    Quicksand_400Regular,
+    Quicksand_500Medium,
+    Quicksand_600SemiBold,
+    Quicksand_700Bold,
+    DMMono_500Medium,
+    PatrickHand_400Regular,
+    Fraunces_400Regular,
+    Nunito_400Regular,
+  });
+
+  if (!fontsLoaded) return null;
+
+  return (
+    <AuthProvider>
+      <RootNavigator />
+    </AuthProvider>
   );
 }

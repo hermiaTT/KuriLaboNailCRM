@@ -110,4 +110,28 @@ export const Icons = {
       <Path {...baseProps(color)} d="M14.5 6l3.2 3.2"/>
     </Svg>
   ),
+
+  LogOut: ({ color, size = 18 }: IconProps) => (
+    <Svg viewBox="0 0 24 24" width={size} height={size}>
+      <Path {...baseProps(color)} d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+      <Path {...baseProps(color)} d="M16 17l5-5-5-5"/>
+      <Path {...baseProps(color)} d="M21 12H9"/>
+    </Svg>
+  ),
+
+  Photos: ({ color, size = 22 }: IconProps) => (
+    <Svg viewBox="0 0 24 24" width={size} height={size}>
+      <Rect {...baseProps(color)} x="2.5" y="4.5" width="19" height="15" rx="2.5"/>
+      <Path {...baseProps(color)} d="M2.5 15.5l5-5 3.5 3.5 3-3 5.5 5.5"/>
+      <Circle {...baseProps(color)} cx="8" cy="9.5" r="1.5"/>
+    </Svg>
+  ),
+
+  Trash: ({ color, size = 18 }: IconProps) => (
+    <Svg viewBox="0 0 24 24" width={size} height={size}>
+      <Path {...baseProps(color)} d="M4.5 7.5h15M10 7.5V5.5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"/>
+      <Path {...baseProps(color)} d="M6 7.5l1 12a1.5 1.5 0 0 0 1.5 1.5h7A1.5 1.5 0 0 0 17 19.5l1-12"/>
+      <Path {...baseProps(color)} d="M10 11.5v5M14 11.5v5"/>
+    </Svg>
+  ),
 };

@@ -80,7 +80,15 @@ export default function AdminTabsLayout() {
           ),
         }}
       />
-      <Tabs.Screen name="inspiration" options={{ href: null }} />
+      <Tabs.Screen
+        name="inspiration"
+        options={{
+          title: 'Gallery',
+          tabBarIcon: ({ focused }) => (
+            <TabBarIcon focused={focused} icon={(c, s) => <Icons.Photos color={c} size={s}/>} label="Gallery"/>
+          ),
+        }}
+      />
     </Tabs>
   );
 }
