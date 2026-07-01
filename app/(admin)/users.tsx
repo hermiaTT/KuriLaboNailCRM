@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
@@ -41,6 +41,7 @@ type Client = {
 };
 
 export default function AdminUsersScreen() {
+  const router = useRouter();
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -107,7 +108,7 @@ export default function AdminUsersScreen() {
           {filtered.map((c, i) => {
             const tone = TONES[i % TONES.length];
             return (
-              <Pressable key={c.id}>
+              <Pressable key={c.id} onPress={() => router.push(`/(admin)/client/${c.id}`)}>
                 <HandRect padding={14} radius={radius.lg}>
                   <View style={styles.userRow}>
                     <View style={[styles.avatar, { backgroundColor: getToneBg(tone) }]}>

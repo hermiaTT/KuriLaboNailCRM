@@ -7,9 +7,9 @@ import { colors } from '../../constants/theme';
 /**
  * Admin-side tab bar.
  *
- * 5 tabs (Home, Users, Schedule, Slots, Upload). The 6th admin route
- * (`inspiration`) is hidden via `href: null` — it's reached from the
- * dashboard or upload screen.
+ * 5 tabs (Home, Users, Schedule, Slots, Upload). `inspiration` and
+ * `client/[id]` are hidden via `href: null` — reached from the
+ * dashboard/upload screen and the client list, respectively.
  */
 export default function AdminTabsLayout() {
   const insets = useSafeAreaInsets();
@@ -89,6 +89,7 @@ export default function AdminTabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen name="client/[id]" options={{ href: null }} />
     </Tabs>
   );
 }

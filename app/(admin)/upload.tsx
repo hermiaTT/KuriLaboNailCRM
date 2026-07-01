@@ -34,6 +34,12 @@ import { supabase, supabaseAnonKey, supabaseUrl } from '../../lib/supabase';
 
 type Client = { id: string; name: string; email: string | null };
 type PickedImage = { uri: string };
+type PastVisit = {
+  id: string;
+  date: string | null;
+  price: number | null;
+  nail_images: { image_url: string }[];
+};
 
 const TAG_OPTIONS = ['glass', 'french', 'chrome', 'gel', 'soft', 'minimal', 'peach', 'sage'];
 const STORAGE_BUCKET = 'images';
@@ -49,6 +55,11 @@ export default function AdminUploadScreen() {
   const [clientSearch, setClientSearch] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [showClientList, setShowClientList] = useState(false);
+
+  // Visit picker (which past visit these photos belong to, once a client is selected)
+  const [pastVisits, setPastVisits] = useState<PastVisit[]>([]);
+  const [selectedVisitId, setSelectedVisitId] = useState<string | null>(null);
+  const [price, setPrice] = useState('');
 
   // Form fields
   const [titleOrDate, setTitleOrDate] = useState('');
@@ -72,7 +83,27 @@ export default function AdminUploadScreen() {
 
   useEffect(() => {
     if (success) setSuccess(false);
-  }, [images, titleOrDate, desc, tags, selectedClient]);
+  }, [images, titleOrDate, desc, tags, selectedClient, selectedVisitId, price]);
+
+  useEffect(() => {
+    setSelectedVisitId(null);
+    setPrice('');
+    if (!selectedClient) {
+      setPastVisits([]);
+      return;
+    }
+    supabase
+      .from('collections')
+      .select('id, date, price, nail_images(image_url)')
+      .eq('client_id', selectedClient.id)
+      .order('date', { ascending: false, nullsFirst: false })
+      .then(({ data }) => setPastVisits((data ?? []) as PastVisit[]));
+  }, [selectedClient]);
+
+  function selectVisit(v: PastVisit | null) {
+    setSelectedVisitId(v?.id ?? null);
+    setPrice(v?.price != null ? String(v.price) : '');
+  }
 
   const toggleTag = (t: string) =>
     setTags((s) => (s.includes(t) ? s.filter((x) => x !== t) : [...s, t]));
@@ -112,6 +143,9 @@ export default function AdminUploadScreen() {
     setImages([]);
     setSelectedClient(null);
     setClientSearch('');
+    setPastVisits([]);
+    setSelectedVisitId(null);
+    setPrice('');
     setTitleOrDate('');
     setDesc('');
     setTags([]);
@@ -157,22 +191,49 @@ export default function AdminUploadScreen() {
 
     try {
       const today = new Date().toISOString().split('T')[0];
+      const priceValue = price.trim() ? Number(price.trim()) : null;
+      if (priceValue != null && Number.isNaN(priceValue)) {
+        throw new Error('Price must be a number.');
+      }
 
-      // Step 1: Create one collection for this upload batch
-      const { data: col, error: colErr } = await supabase
-        .from('collections')
-        .insert({
-          client_id: selectedClient?.id ?? null,
-          title: !selectedClient ? (titleOrDate.trim() || null) : null,
-          date: selectedClient ? (titleOrDate.trim() || today) : null,
-          description: desc.trim() || null,
-          tags: tags.length > 0 ? tags : null,
-          source_type: selectedClient ? 'customer' : 'admin',
-        })
-        .select('id')
-        .single();
+      const existingVisit = selectedVisitId
+        ? pastVisits.find((v) => v.id === selectedVisitId)
+        : null;
 
-      if (colErr) throw new Error(`Collection: ${colErr.message}`);
+      let collectionId: string;
+      let startOrder = 0;
+
+      if (existingVisit) {
+        // Adding photos to a visit that already exists — reuse its collection row.
+        collectionId = existingVisit.id;
+        startOrder = existingVisit.nail_images.length;
+
+        if (priceValue !== existingVisit.price) {
+          const { error: priceErr } = await supabase
+            .from('collections')
+            .update({ price: priceValue })
+            .eq('id', collectionId);
+          if (priceErr) throw new Error(`Collection: ${priceErr.message}`);
+        }
+      } else {
+        // Step 1: Create one collection for this upload batch
+        const { data: col, error: colErr } = await supabase
+          .from('collections')
+          .insert({
+            client_id: selectedClient?.id ?? null,
+            title: !selectedClient ? (titleOrDate.trim() || null) : null,
+            date: selectedClient ? (titleOrDate.trim() || today) : null,
+            description: desc.trim() || null,
+            tags: tags.length > 0 ? tags : null,
+            price: selectedClient ? priceValue : null,
+            source_type: selectedClient ? 'customer' : 'admin',
+          })
+          .select('id')
+          .single();
+
+        if (colErr) throw new Error(`Collection: ${colErr.message}`);
+        collectionId = col.id;
+      }
 
       // Step 2: Upload each image and link it to the collection
       for (let i = 0; i < images.length; i++) {
@@ -181,9 +242,9 @@ export default function AdminUploadScreen() {
         const { error: imgErr } = await supabase
           .from('nail_images')
           .insert({
-            collection_id: col.id,
+            collection_id: collectionId,
             image_url: publicUrl,
-            display_order: i,
+            display_order: startOrder + i,
           });
 
         if (imgErr) throw new Error(`DB [${i + 1}]: ${imgErr.message}`);
@@ -312,14 +373,49 @@ export default function AdminUploadScreen() {
         )}
       </View>
 
-      {/* Title / Date */}
-      <View style={styles.row}>
-        <Field
-          placeholder={selectedClient ? 'Date of visit (YYYY-MM-DD)' : 'Title (optional)'}
-          value={titleOrDate}
-          onChangeText={setTitleOrDate}
-        />
-      </View>
+      {/* Visit picker — which past visit these photos belong to */}
+      {selectedClient && (
+        <View style={styles.row}>
+          <Text style={styles.label}>visit</Text>
+          <View style={styles.chipRow}>
+            <HandChip active={!selectedVisitId} onPress={() => selectVisit(null)}>
+              + new visit
+            </HandChip>
+            {pastVisits.map((v) => (
+              <HandChip
+                key={v.id}
+                active={selectedVisitId === v.id}
+                onPress={() => selectVisit(v)}
+              >
+                {(v.date ?? 'undated')}{v.price != null ? ` · $${v.price}` : ''}
+              </HandChip>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Title / Date (only when starting a new visit / gallery upload) */}
+      {!selectedVisitId && (
+        <View style={styles.row}>
+          <Field
+            placeholder={selectedClient ? 'Date of visit (YYYY-MM-DD)' : 'Title (optional)'}
+            value={titleOrDate}
+            onChangeText={setTitleOrDate}
+          />
+        </View>
+      )}
+
+      {/* Price (per visit) */}
+      {selectedClient && (
+        <View style={styles.row}>
+          <Field
+            placeholder="Price (e.g. 85)"
+            value={price}
+            onChangeText={setPrice}
+            keyboardType="decimal-pad"
+          />
+        </View>
+      )}
 
       {/* Description */}
       <View style={styles.row}>
