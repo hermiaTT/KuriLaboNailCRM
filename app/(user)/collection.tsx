@@ -2,21 +2,18 @@ import React, { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import {
   ActivityIndicator,
-  Dimensions,
   Image,
-  Modal,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   Doodle,
   EyebrowTitle,
   HandRect,
-  Icons,
+  NailCardModal,
   Screen,
   ScreenHeader,
 } from '../../components/ui';
@@ -42,7 +39,6 @@ type Collection = {
   nail_images: NailImage[];
 };
 
-const SCREEN_W = Dimensions.get('window').width;
 const CARD_HEIGHTS = [220, 180, 240, 200, 240, 180, 220, 240];
 
 export default function CollectionScreen() {
@@ -50,7 +46,6 @@ export default function CollectionScreen() {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCol, setActiveCol] = useState<Collection | null>(null);
-  const [activeIdx, setActiveIdx] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -77,8 +72,6 @@ export default function CollectionScreen() {
 
   const leftCol = collections.filter((_, i) => i % 2 === 0);
   const rightCol = collections.filter((_, i) => i % 2 === 1);
-  const totalImgs = activeCol?.nail_images.length ?? 0;
-  const activeImg = activeCol?.nail_images[activeIdx] ?? null;
 
   function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString('en-US', {
@@ -116,7 +109,7 @@ export default function CollectionScreen() {
                 return (
                   <Pressable
                     key={c.id}
-                    onPress={() => { setActiveCol(c); setActiveIdx(0); }}
+                    onPress={() => setActiveCol(c)}
                     style={{ transform: [{ rotate: rot }] }}
                   >
                     <HandRect padding={0} radius={radius.md} style={{ overflow: 'hidden' }}>
@@ -156,76 +149,11 @@ export default function CollectionScreen() {
         </View>
       )}
 
-      {/* Lightbox */}
-      <Modal
+      <NailCardModal
         visible={!!activeCol}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setActiveCol(null)}
-        statusBarTranslucent
-      >
-        <Pressable style={styles.overlay} onPress={() => setActiveCol(null)}>
-          <SafeAreaView style={styles.overlayTop}>
-            <Pressable onPress={() => setActiveCol(null)} style={styles.closeBtn}>
-              <Text style={styles.closeBtnText}>✕</Text>
-            </Pressable>
-            {totalImgs > 1 && (
-              <Text style={styles.pageCounter}>{activeIdx + 1} / {totalImgs}</Text>
-            )}
-          </SafeAreaView>
-
-          <Pressable style={styles.lightboxBody} onPress={() => {}}>
-            <Pressable
-              style={[styles.arrowBtn, activeIdx === 0 && styles.arrowDisabled]}
-              onPress={() => setActiveIdx(n => Math.max(0, n - 1))}
-              disabled={activeIdx === 0}
-            >
-              <Icons.ChevL color={colors.white} size={28} />
-            </Pressable>
-
-            {activeImg && (
-              <Image
-                source={{ uri: activeImg.image_url }}
-                style={styles.lightboxImg}
-                resizeMode="contain"
-              />
-            )}
-
-            <Pressable
-              style={[styles.arrowBtn, activeIdx === totalImgs - 1 && styles.arrowDisabled]}
-              onPress={() => setActiveIdx(n => Math.min(totalImgs - 1, n + 1))}
-              disabled={activeIdx === totalImgs - 1}
-            >
-              <Icons.Chev color={colors.white} size={28} />
-            </Pressable>
-          </Pressable>
-
-          {totalImgs > 1 && (
-            <View style={styles.dots}>
-              {activeCol!.nail_images.map((_, i) => (
-                <Pressable key={i} onPress={() => setActiveIdx(i)}>
-                  <View style={[styles.dot, i === activeIdx && styles.dotActive]} />
-                </Pressable>
-              ))}
-            </View>
-          )}
-
-          {(activeCol?.date || activeCol?.description) && (
-            <View style={styles.caption}>
-              {activeCol.date && (
-                <Text style={styles.captionTitle}>
-                  {new Date(activeCol.date).toLocaleDateString('en-US', {
-                    month: 'long', day: 'numeric', year: 'numeric',
-                  })}
-                </Text>
-              )}
-              {activeCol.description && (
-                <Text style={styles.captionBody}>{activeCol.description}</Text>
-              )}
-            </View>
-          )}
-        </Pressable>
-      </Modal>
+        onClose={() => setActiveCol(null)}
+        images={activeCol?.nail_images ?? []}
+      />
     </Screen>
   );
 }
@@ -266,43 +194,5 @@ const styles = StyleSheet.create({
   cardTag: {
     marginTop: 2, fontFamily: fonts.mono, fontSize: 9, color: colors.inkSoft,
     letterSpacing: letterSpacing.meta, textTransform: 'uppercase',
-  },
-
-  // Lightbox
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.93)', justifyContent: 'center' },
-  overlayTop: {
-    position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingTop: 8,
-  },
-  closeBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  closeBtnText: { color: colors.white, fontSize: 18, fontWeight: '300' },
-  pageCounter: {
-    fontFamily: fonts.mono, fontSize: 11,
-    color: 'rgba(255,255,255,0.65)', letterSpacing: 0.8,
-  },
-  lightboxBody: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6 },
-  lightboxImg: { flex: 1, height: SCREEN_W },
-  arrowBtn: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  arrowDisabled: { opacity: 0.2 },
-  dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 20 },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.3)' },
-  dotActive: { backgroundColor: colors.white, width: 18, borderRadius: 3 },
-  caption: { paddingHorizontal: 24, paddingTop: 16, alignItems: 'center', gap: 4 },
-  captionTitle: {
-    fontFamily: fonts.display, fontSize: 16, color: colors.white,
-    letterSpacing: letterSpacing.display,
-  },
-  captionBody: {
-    fontFamily: fonts.body, fontSize: 13,
-    color: 'rgba(255,255,255,0.7)', textAlign: 'center',
   },
 });

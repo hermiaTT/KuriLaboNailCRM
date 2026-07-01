@@ -104,7 +104,7 @@ npx expo start --ios
 
 Expected first-run sequence:
 1. Loads to **Login** — cream background, brushstroke-highlighted brand mark, typewriter card with email/password and two role buttons
-2. Tap **Continue as User** → 4-tab user app (Home / Saved / Inspo / Book)
+2. Tap **Continue as User** → 4-tab user app (Home / Collection / Inspo / Book)
 3. Or tap **Continue as Admin** → 5-tab admin app (Home / Clients / Visits / Slots / Upload)
 
 ---

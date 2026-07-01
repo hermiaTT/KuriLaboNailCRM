@@ -52,9 +52,9 @@ export default function UserTabsLayout() {
       <Tabs.Screen
         name="collection"
         options={{
-          title: 'Saved',
+          title: 'Collection',
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon focused={focused} icon={(c, s) => <Icons.Heart color={c} size={s}/>} label="Saved"/>
+            <TabBarIcon focused={focused} icon={(c, s) => <Icons.Heart color={c} size={s}/>} label="Past"/>
           ),
         }}
       />
@@ -77,6 +77,7 @@ export default function UserTabsLayout() {
         }}
       />
       <Tabs.Screen name="appointments" options={{ href: null }} />
+      <Tabs.Screen name="edit-profile" options={{ href: null }} />
     </Tabs>
   );
 }

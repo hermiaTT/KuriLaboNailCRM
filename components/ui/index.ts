@@ -8,6 +8,8 @@ export { HandButton } from './HandButton';
 export { HandChip } from './HandChip';
 export { HandRect } from './HandRect';
 export { Icons } from './Icons';
+export { NailCardModal } from './NailCardModal';
+export type { CardImage } from './NailCardModal';
 export { NailHand } from './NailHand';
 export type { NailTone } from './NailHand';
 export { ScribbleUnderline } from './ScribbleUnderline';

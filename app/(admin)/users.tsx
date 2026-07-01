@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
   Doodle,
@@ -12,7 +13,6 @@ import {
   ScreenHeader,
   type NailTone,
 } from '../../components/ui';
-import { customers } from '../../data/placeholders';
 import {
   colors,
   fonts,
@@ -21,6 +21,7 @@ import {
   spacing,
   typeScale,
 } from '../../constants/theme';
+import { supabase } from '../../lib/supabase';
 
 const FILTERS = [
   { id: 'all', label: 'all' },
@@ -31,19 +32,45 @@ const FILTERS = [
 
 const TONES: NailTone[] = ['pink','yellow','green','lilac','coral','blue','teal','mocha'];
 
+type Client = {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  instagram: string | null;
+};
+
 export default function AdminUsersScreen() {
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [clients, setClients] = useState<Client[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchClients();
+    }, []),
+  );
+
+  async function fetchClients() {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, name, email, phone, instagram')
+      .eq('role', 'user')
+      .order('created_at', { ascending: false });
+    setClients(data ?? []);
+    setLoading(false);
+  }
 
   const filtered = useMemo(
-    () => customers.filter((c) => c.name.toLowerCase().includes(search.toLowerCase())),
-    [search],
+    () => clients.filter((c) => c.name.toLowerCase().includes(search.toLowerCase())),
+    [clients, search],
   );
 
   return (
     <Screen>
       <ScreenHeader trailing={
-        <Text style={styles.headerMeta}>{customers.length} total</Text>
+        <Text style={styles.headerMeta}>{clients.length} total</Text>
       }/>
       <EyebrowTitle
         eyebrow="manage"
@@ -71,41 +98,49 @@ export default function AdminUsersScreen() {
       </View>
 
       {/* Client list */}
-      <View style={styles.list}>
-        {filtered.map((c, i) => {
-          const tone = TONES[i % TONES.length];
-          return (
-            <Pressable key={c.id}>
-              <HandRect padding={14} radius={radius.lg}>
-                <View style={styles.userRow}>
-                  <View style={[styles.avatar, { backgroundColor: getToneBg(tone) }]}>
-                    <Text style={styles.avatarText}>{c.name[0]}</Text>
+      {loading ? (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator color={colors.pinkInk} />
+        </View>
+      ) : (
+        <View style={styles.list}>
+          {filtered.map((c, i) => {
+            const tone = TONES[i % TONES.length];
+            return (
+              <Pressable key={c.id}>
+                <HandRect padding={14} radius={radius.lg}>
+                  <View style={styles.userRow}>
+                    <View style={[styles.avatar, { backgroundColor: getToneBg(tone) }]}>
+                      <Text style={styles.avatarText}>{c.name[0]?.toUpperCase() ?? '?'}</Text>
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={styles.name}>{c.name}</Text>
+                      <Text style={styles.meta} numberOfLines={1}>
+                        {c.email}
+                        {c.phone ? `  ·  ${c.phone}` : ''}
+                      </Text>
+                      {c.instagram && (
+                        <Text style={styles.handle}>{c.instagram}</Text>
+                      )}
+                    </View>
+                    <Icons.Chev color={colors.inkSoft}/>
                   </View>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={styles.name}>{c.name}</Text>
-                    <Text style={styles.meta} numberOfLines={1}>
-                      {c.email}
-                      {c.phone ? `  ·  ${c.phone}` : ''}
-                    </Text>
-                    {c.instagram && (
-                      <Text style={styles.handle}>{c.instagram}</Text>
-                    )}
-                  </View>
-                  <Icons.Chev color={colors.inkSoft}/>
-                </View>
-              </HandRect>
-            </Pressable>
-          );
-        })}
+                </HandRect>
+              </Pressable>
+            );
+          })}
 
-        {filtered.length === 0 && (
-          <HandRect padding={28} radius={radius.lg} dashed style={{ alignItems: 'center', gap: 8 }}>
-            <Doodle kind="swirl" size={28} color={colors.blue}/>
-            <Text style={styles.emptyTitle}>No matches</Text>
-            <Text style={styles.emptyBody}>Try a different name.</Text>
-          </HandRect>
-        )}
-      </View>
+          {filtered.length === 0 && (
+            <HandRect padding={28} radius={radius.lg} dashed style={{ alignItems: 'center', gap: 8 }}>
+              <Doodle kind="swirl" size={28} color={colors.blue}/>
+              <Text style={styles.emptyTitle}>{clients.length === 0 ? 'No clients yet' : 'No matches'}</Text>
+              <Text style={styles.emptyBody}>
+                {clients.length === 0 ? 'Clients will appear here once they sign up.' : 'Try a different name.'}
+              </Text>
+            </HandRect>
+          )}
+        </View>
+      )}
     </Screen>
   );
 }
@@ -126,6 +161,7 @@ function getToneBg(tone: NailTone) {
 }
 
 const styles = StyleSheet.create({
+  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 40 },
   headerMeta: {
     fontFamily: fonts.mono,
     fontSize: typeScale.meta,
