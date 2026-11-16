@@ -84,10 +84,10 @@ export default function AdminClientDetailScreen() {
         .eq('client_id', id)
         .order('date', { ascending: false, nullsFirst: false }),
       // Any appointment marked "done" is a real visit too, regardless of how far in
-      // the past its slot date is — status is the source of truth here, not date.
+      // the past its date is — status is the source of truth here, not date.
       supabase
         .from('appointments')
-        .select('id, price, note, created_at, slot:available_slots!appointments_slot_id_fkey(date)')
+        .select('id, price, service_notes, created_at, date')
         .eq('user_id', id)
         .eq('status', 'done'),
     ]);
@@ -111,9 +111,9 @@ export default function AdminClientDetailScreen() {
     const doneAppts = (doneApptsRes.data ?? []).map((a: any) => ({
       id: a.id,
       price: a.price,
-      note: a.note,
+      note: a.service_notes,
       created_at: a.created_at,
-      date: (Array.isArray(a.slot) ? a.slot[0] : a.slot)?.date ?? null,
+      date: a.date,
     }));
 
     let fromAppointments: Visit[] = [];

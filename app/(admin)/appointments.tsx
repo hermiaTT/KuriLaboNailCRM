@@ -38,11 +38,13 @@ type FilterId = typeof FILTERS[number]['id'];
 type ApptImage = { id: string; image_url: string; display_order: number };
 type Appt = {
   id: string;
-  status: 'pending' | 'confirmed' | 'no_show' | 'done';
+  status: 'pending' | 'confirmed' | 'cancelled' | 'no_show' | 'done';
   price: number | null;
-  note: string | null;
+  serviceNotes: string | null;
   clientName: string;
-  slot: { date: string; start_time: string; end_time: string } | null;
+  date: string;
+  startTime: string;
+  endTime: string;
   images: ApptImage[];
 };
 
@@ -86,7 +88,7 @@ export default function AdminAppointmentsScreen() {
     setLoading(true);
     const { data, error } = await supabase
       .from('appointments')
-      .select('id, status, price, note, profiles(name), slot:available_slots!appointments_slot_id_fkey(date, start_time, end_time)')
+      .select('id, status, price, service_notes, date, start_time, end_time, profiles(name)')
       .order('created_at', { ascending: false });
     if (error) console.error('[AdminAppointments] fetchAll error:', error);
 
@@ -94,9 +96,11 @@ export default function AdminAppointmentsScreen() {
       id: a.id,
       status: a.status,
       price: a.price,
-      note: a.note,
+      serviceNotes: a.service_notes,
       clientName: Array.isArray(a.profiles) ? (a.profiles[0]?.name ?? '—') : (a.profiles?.name ?? '—'),
-      slot: Array.isArray(a.slot) ? a.slot[0] ?? null : a.slot,
+      date: a.date,
+      startTime: a.start_time,
+      endTime: a.end_time,
       images: [],
     }));
 
@@ -122,10 +126,9 @@ export default function AdminAppointmentsScreen() {
 
   const display = appts.filter((a) => {
     if (filter === 'pending') return a.status === 'pending';
-    if (!a.slot) return false;
-    if (filter === 'today') return a.slot.date === todayStr;
-    if (filter === 'upcoming') return a.slot.date > todayStr;
-    return a.slot.date < todayStr;
+    if (filter === 'today') return a.date === todayStr;
+    if (filter === 'upcoming') return a.date > todayStr;
+    return a.date < todayStr;
   });
 
   async function handleConfirm(id: string) {
@@ -141,7 +144,7 @@ export default function AdminAppointmentsScreen() {
   function openMarkDone(appt: Appt) {
     setMarkDoneTarget(appt);
     setMdPrice(appt.price != null ? String(appt.price) : '');
-    setMdNote(appt.note ?? '');
+    setMdNote(appt.serviceNotes ?? '');
     setMdImages([]);
     setMdError(null);
   }
@@ -233,7 +236,7 @@ export default function AdminAppointmentsScreen() {
 
       const { error: updateErr } = await supabase
         .from('appointments')
-        .update({ status: 'done', price: priceValue, note: mdNote.trim() || null })
+        .update({ status: 'done', price: priceValue, service_notes: mdNote.trim() || null })
         .eq('id', markDoneTarget.id);
       if (updateErr) throw new Error(updateErr.message);
 
@@ -278,15 +281,15 @@ export default function AdminAppointmentsScreen() {
                 <View style={styles.row}>
                   <View style={styles.dateBox}>
                     <Text style={styles.dateMonth}>
-                      {a.slot ? new Date(a.slot.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short' }).toLowerCase() : '—'}
+                      {new Date(a.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short' }).toLowerCase()}
                     </Text>
-                    <Text style={styles.dateDay}>{a.slot ? new Date(a.slot.date + 'T00:00:00').getDate() : '—'}</Text>
+                    <Text style={styles.dateDay}>{new Date(a.date + 'T00:00:00').getDate()}</Text>
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={styles.client}>{a.clientName}</Text>
                     <Text style={styles.time}>
-                      {a.slot ? `${fmtTime(a.slot.start_time)} – ${fmtTime(a.slot.end_time)}` : '—'}
-                      {a.slot ? `  ·  ${timeTag(a.slot.date, todayStr)}` : ''}
+                      {fmtTime(a.startTime)} – {fmtTime(a.endTime)}
+                      {`  ·  ${timeTag(a.date, todayStr)}`}
                     </Text>
                   </View>
                   <StatusBadge status={a.status as any}/>
@@ -302,7 +305,7 @@ export default function AdminAppointmentsScreen() {
                     ) : null}
                     <View style={{ flex: 1, minWidth: 0 }}>
                       {a.price != null && <Text style={styles.priceText}>${a.price}</Text>}
-                      {a.note ? <Text style={styles.noteText} numberOfLines={2}>{a.note}</Text> : null}
+                      {a.serviceNotes ? <Text style={styles.noteText} numberOfLines={2}>{a.serviceNotes}</Text> : null}
                       {a.images.length > 0 && (
                         <Text style={styles.photoCount}>{a.images.length} photo{a.images.length !== 1 ? 's' : ''}</Text>
                       )}

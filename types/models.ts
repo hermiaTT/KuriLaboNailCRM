@@ -3,6 +3,7 @@ export type UserRole = 'user' | 'admin';
 export type AppointmentStatus =
   | 'pending'
   | 'confirmed'
+  | 'cancelled'
   | 'no_show'
   | 'done';
 

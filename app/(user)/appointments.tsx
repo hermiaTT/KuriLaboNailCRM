@@ -29,8 +29,10 @@ type Visit = {
   id: string;
   status: string;
   price: number | null;
-  note: string | null;
-  slot: { date: string; start_time: string; end_time: string } | null;
+  service_notes: string | null;
+  date: string;
+  start_time: string;
+  end_time: string;
   images: VisitImage[];
 };
 
@@ -76,14 +78,13 @@ export default function AppointmentsScreen() {
     setLoading(true);
     const { data, error } = await supabase
       .from('appointments')
-      .select('id, status, price, note, slot:available_slots!appointments_slot_id_fkey(date, start_time, end_time)')
+      .select('id, status, price, service_notes, date, start_time, end_time')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
     if (error) console.error('[UserAppointments] fetchAll error:', error);
 
     const rows = (data ?? []).map((a: any) => ({
       ...a,
-      slot: Array.isArray(a.slot) ? a.slot[0] ?? null : a.slot,
       images: [] as VisitImage[],
     })) as Visit[];
 
@@ -137,16 +138,16 @@ export default function AppointmentsScreen() {
               <HandRect key={v.id} padding={16} radius={radius.lg}>
                 <View style={styles.head}>
                   <View>
-                    <Text style={styles.date}>{v.slot ? fmtDate(v.slot.date) : '—'}</Text>
+                    <Text style={styles.date}>{fmtDate(v.date)}</Text>
                     <Text style={styles.time}>
-                      {v.slot ? `${fmtTime(v.slot.start_time)} – ${fmtTime(v.slot.end_time)}` : ''}
+                      {fmtTime(v.start_time)} – {fmtTime(v.end_time)}
                     </Text>
                   </View>
                   <StatusBadge status={v.status as any}/>
                 </View>
                 <View style={styles.divider}/>
                 <View style={styles.foot}>
-                  <Text style={styles.tag}>{v.slot ? timeTag(v.slot.date, todayStr) : ''}</Text>
+                  <Text style={styles.tag}>{timeTag(v.date, todayStr)}</Text>
                   {hasImages && (
                     <Pressable style={styles.detailBtn} onPress={() => setActiveVisit(v)}>
                       <Text style={styles.detailText}>details</Text>
@@ -157,7 +158,7 @@ export default function AppointmentsScreen() {
                 {v.status === 'done' && (
                   <View style={styles.doneInfo}>
                     {v.price != null && <Text style={styles.priceText}>${v.price}</Text>}
-                    {v.note && <Text style={styles.noteText}>{v.note}</Text>}
+                    {v.service_notes && <Text style={styles.noteText}>{v.service_notes}</Text>}
                     {hasImages && (
                       <Pressable style={styles.thumbRow} onPress={() => setActiveVisit(v)}>
                         {v.images.slice(0, 4).map((img) => (

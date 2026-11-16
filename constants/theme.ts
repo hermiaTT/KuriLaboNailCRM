@@ -45,6 +45,7 @@ export const colors = {
 export const statusColors = {
   pending:   { bg: colors.pinkSoft, fg: colors.pinkInk, ring: colors.pinkInk },
   confirmed: { bg: colors.blueSoft, fg: colors.blueInk, ring: colors.blueInk },
+  cancelled: { bg: colors.creamHair, fg: colors.inkFaint, ring: colors.inkFaint },
   no_show:   { bg: '#EEE7D9',       fg: colors.inkFaint, ring: colors.inkFaint },
   done:      { bg: '#DDE9D5',       fg: '#6E8A55',       ring: '#6E8A55' },
   available: { bg: colors.creamCard, fg: colors.ink,     ring: colors.ink },

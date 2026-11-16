@@ -83,7 +83,6 @@ export default function AdminDashboardScreen() {
   const [todayCount, setTodayCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
   const [weekCount, setWeekCount] = useState(0);
-  const [bookedPct, setBookedPct] = useState(0);
   const [newUsersCount, setNewUsersCount] = useState(0);
   const [uploadsCount, setUploadsCount] = useState(0);
   const [todayAppts, setTodayAppts] = useState<TodayAppt[]>([]);
@@ -103,21 +102,6 @@ export default function AdminDashboardScreen() {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-    // Step 1: resolve slot IDs needed for date-based appointment filters
-    const [todaySlotsRes, weekSlotsRes] = await Promise.all([
-      supabase.from('available_slots').select('id, start_time, end_time').eq('date', today),
-      supabase.from('available_slots').select('id, status').gte('date', weekStart).lte('date', weekEnd),
-    ]);
-
-    const todaySlots = todaySlotsRes.data ?? [];
-    const weekSlots = weekSlotsRes.data ?? [];
-    const todaySlotIds = todaySlots.map(s => s.id);
-    const weekSlotIds = weekSlots.map(s => s.id);
-    const slotTimeMap = Object.fromEntries(
-      todaySlots.map(s => [s.id, { start: s.start_time, end: s.end_time }]),
-    );
-
-    // Step 2: parallel data fetches (guard empty arrays to avoid PostgREST errors)
     const [
       todayApptsRes,
       pendingRes,
@@ -127,26 +111,22 @@ export default function AdminDashboardScreen() {
       clientsRes,
       recentUploadsRes,
     ] = await Promise.all([
-      todaySlotIds.length > 0
-        ? supabase
-            .from('appointments')
-            .select('id, status, slot_id, profiles(name)')
-            .in('slot_id', todaySlotIds)
-            .in('status', ['pending', 'confirmed'])
-        : Promise.resolve({ data: [] as any[], error: null }),
+      supabase
+        .from('appointments')
+        .select('id, status, start_time, end_time, profiles(name)')
+        .eq('date', today)
+        .in('status', ['pending', 'confirmed']),
 
       supabase
         .from('appointments')
         .select('id', { count: 'exact', head: true })
         .eq('status', 'pending'),
 
-      weekSlotIds.length > 0
-        ? supabase
-            .from('appointments')
-            .select('id', { count: 'exact', head: true })
-            .in('slot_id', weekSlotIds)
-            .in('status', ['pending', 'confirmed', 'done'])
-        : Promise.resolve({ count: 0, data: null, error: null }),
+      supabase
+        .from('appointments')
+        .select('id', { count: 'exact', head: true })
+        .gte('date', weekStart).lte('date', weekEnd)
+        .in('status', ['pending', 'confirmed', 'done']),
 
       supabase
         .from('profiles')
@@ -173,26 +153,20 @@ export default function AdminDashboardScreen() {
         .limit(6),
     ]);
 
-    // Merge slot times into today's appointments
     const merged: TodayAppt[] = (todayApptsRes.data ?? []).map((a: any) => ({
       id: a.id,
       status: a.status,
       clientName: Array.isArray(a.profiles)
         ? (a.profiles[0]?.name ?? '—')
         : (a.profiles?.name ?? '—'),
-      startTime: slotTimeMap[a.slot_id]?.start ?? '',
-      endTime: slotTimeMap[a.slot_id]?.end ?? '',
+      startTime: a.start_time,
+      endTime: a.end_time,
     }));
-
-    // Booked % for this week
-    const bookedSlots = weekSlots.filter(s => s.status === 'booked').length;
-    const pct = weekSlots.length > 0 ? Math.round((bookedSlots / weekSlots.length) * 100) : 0;
 
     setTodayAppts(merged);
     setTodayCount(merged.length);
     setPendingCount((pendingRes as any).count ?? 0);
     setWeekCount((weekCountRes as any).count ?? 0);
-    setBookedPct(pct);
     setNewUsersCount((newUsersRes as any).count ?? 0);
     setUploadsCount((uploadsRes as any).count ?? 0);
     setRecentClients((clientsRes.data ?? []) as RecentClient[]);
@@ -204,7 +178,7 @@ export default function AdminDashboardScreen() {
 
   const STAT_TILES = [
     { v: todayCount,    l: 'today',     sub: `${pendingCount} pending`, c: colors.pink,   d: 'flower'  as const },
-    { v: weekCount,     l: 'this week', sub: `${bookedPct}% booked`,    c: colors.blue,   d: 'sparkle' as const },
+    { v: weekCount,     l: 'this week', sub: 'appointments',              c: colors.blue,   d: 'sparkle' as const },
     { v: newUsersCount, l: 'new users', sub: 'this month',              c: colors.green,  d: 'star'    as const },
     { v: uploadsCount,  l: 'uploads',   sub: 'last 30 d',               c: colors.yellow, d: 'heart'   as const },
   ];

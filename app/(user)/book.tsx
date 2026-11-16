@@ -23,43 +23,25 @@ import {
   spacing,
   typeScale,
 } from '../../constants/theme';
+import { CUSTOM_TIME_RANGE, DEFAULT_SLOTS, addMinutes, fmtTime, pad } from '../../constants/booking';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
+import {
+  DayAvailability,
+  getDayAvailability,
+  getMonthAvailability,
+  getWindowStatus,
+} from '../../services/availability';
 
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-type SlotStatus = 'available' | 'booked' | 'blocked';
-type SlotRow = { id: string; start_time: string; end_time: string; status: SlotStatus };
-
-const BLOCKS = [
-  { key: '10:00', start: '10:00 AM', end: '1:00 PM', label: 'Morning' },
-  { key: '13:00', start: '1:00 PM', end: '4:00 PM', label: 'Afternoon' },
-  { key: '16:00', start: '4:00 PM', end: '7:00 PM', label: 'Evening' },
-];
-
-function pad(n: number) {
-  return String(n).padStart(2, '0');
-}
-
-function fmtTick(hhmm: string) {
-  const [h, m] = hhmm.split(':').map(Number);
-  const hour = h % 12 || 12;
-  return `${hour}:${pad(m)} ${h >= 12 ? 'PM' : 'AM'}`;
-}
-
-function toMinutes(t: string) {
-  const [h, m] = t.split(':').map(Number);
-  return h * 60 + m;
-}
-
-/** Custom-time ticks: every 30 min from 8:00 AM to 6:00 PM (last one ends 7:00 PM). */
 const OTHER_TICKS = (() => {
   const out: { key: string; label: string; endLabel: string }[] = [];
-  for (let mins = 8 * 60; mins <= 18 * 60; mins += 30) {
-    const h = Math.floor(mins / 60);
-    const m = mins % 60;
-    const key = `${pad(h)}:${pad(m)}`;
-    out.push({ key, label: fmtTick(key), endLabel: fmtTick(`${pad(Math.floor((mins + 60) / 60))}:${pad((mins + 60) % 60)}`) });
+  const [eh, em] = CUSTOM_TIME_RANGE.earliest.split(':').map(Number);
+  const [lh, lm] = CUSTOM_TIME_RANGE.latest.split(':').map(Number);
+  for (let mins = eh * 60 + em; mins <= lh * 60 + lm; mins += 30) {
+    const key = `${pad(Math.floor(mins / 60))}:${pad(mins % 60)}`;
+    out.push({ key, label: fmtTime(key), endLabel: fmtTime(addMinutes(key, CUSTOM_TIME_RANGE.durationMin)) });
   }
   return out;
 })();
@@ -87,6 +69,8 @@ function buildMonthWeeks(year: number, month: number) {
   return out;
 }
 
+const EMPTY_DAY: DayAvailability = { blockedTimes: [], appointments: [] };
+
 export default function BookScreen() {
   const { session } = useAuth();
 
@@ -100,7 +84,7 @@ export default function BookScreen() {
   const [confirm, setConfirm] = useState(false);
 
   const [loading, setLoading] = useState(true);
-  const [slotsByDate, setSlotsByDate] = useState<Record<string, SlotRow[]>>({});
+  const [monthAvailability, setMonthAvailability] = useState<Record<string, DayAvailability>>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -111,53 +95,36 @@ export default function BookScreen() {
     [viewYear, viewMonth],
   );
 
-  const fetchSlots = useCallback(async () => {
+  const fetchMonth = useCallback(async () => {
     setLoading(true);
     const monthStart = dateKey(viewYear, viewMonth, 1);
     const monthEnd = dateKey(viewYear, viewMonth, new Date(viewYear, viewMonth + 1, 0).getDate());
-    const { data } = await supabase
-      .from('available_slots')
-      .select('id, date, start_time, end_time, status')
-      .gte('date', monthStart)
-      .lte('date', monthEnd)
-      .order('start_time', { ascending: true });
-
-    const grouped: Record<string, SlotRow[]> = {};
-    for (const row of data ?? []) {
-      const k = row.date as string;
-      grouped[k] = grouped[k] || [];
-      grouped[k].push({ id: row.id, start_time: row.start_time, end_time: row.end_time, status: row.status });
-    }
-    setSlotsByDate(grouped);
+    setMonthAvailability(await getMonthAvailability(monthStart, monthEnd));
     setLoading(false);
   }, [viewYear, viewMonth]);
 
   useFocusEffect(
     useCallback(() => {
-      fetchSlots();
-    }, [fetchSlots]),
+      fetchMonth();
+    }, [fetchMonth]),
   );
 
   const selectedKey = dateKey(viewYear, viewMonth, day);
-  const daySlots = slotsByDate[selectedKey] || [];
-  const blockSlots = BLOCKS.map((b) => daySlots.find((s) => s.start_time.slice(0, 5) === b.key) ?? null);
+  const dayAvail = monthAvailability[selectedKey] ?? EMPTY_DAY;
+  const blockStatuses = DEFAULT_SLOTS.map((s) => getWindowStatus(s.start, s.end, dayAvail));
 
   function isDayOpen(d: number) {
-    const rows = slotsByDate[dateKey(viewYear, viewMonth, d)];
-    return !!rows?.some((s) => s.status === 'available');
+    const avail = monthAvailability[dateKey(viewYear, viewMonth, d)] ?? EMPTY_DAY;
+    return DEFAULT_SLOTS.some((s) => getWindowStatus(s.start, s.end, avail) === 'available');
   }
 
-  /** A custom 1-hour tick is unavailable if it overlaps any booked/blocked slot that day. */
   function isTickBlocked(tickKey: string) {
-    const startM = toMinutes(tickKey);
-    const endM = startM + 60;
-    return daySlots.some((s) => {
-      if (s.status === 'available') return false;
-      const sStart = toMinutes(s.start_time.slice(0, 5));
-      const sEnd = toMinutes(s.end_time.slice(0, 5));
-      return sStart < endM && startM < sEnd;
-    });
+    const end = addMinutes(tickKey, CUSTOM_TIME_RANGE.durationMin);
+    return getWindowStatus(tickKey, end, dayAvail) !== 'available';
   }
+
+  /** If every possible custom tick is blocked, there's nothing to pick — disable the whole row. */
+  const allOtherTimesBlocked = OTHER_TICKS.every((t) => isTickBlocked(t.key));
 
   function selectBlock(i: number) {
     setBlock(i);
@@ -186,9 +153,9 @@ export default function BookScreen() {
 
   const selectedDateLabel = new Date(viewYear, viewMonth, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const selectedTick = customStart ? OTHER_TICKS.find((t) => t.key === customStart) ?? null : null;
-  const selectionStartLabel = block != null ? BLOCKS[block].start : selectedTick?.label ?? null;
+  const selectionStartLabel = block != null ? fmtTime(DEFAULT_SLOTS[block].start) : selectedTick?.label ?? null;
   const selectionLabel = block != null
-    ? `${BLOCKS[block].start} – ${BLOCKS[block].end}`
+    ? `${fmtTime(DEFAULT_SLOTS[block].start)} – ${fmtTime(DEFAULT_SLOTS[block].end)}`
     : selectedTick
       ? `${selectedTick.label} – ${selectedTick.endLabel}`
       : null;
@@ -196,41 +163,49 @@ export default function BookScreen() {
   async function handleRequest() {
     if (!session?.user.id) return;
 
+    let start: string;
+    let end: string;
+    let isCustom: boolean;
+    if (block != null) {
+      start = DEFAULT_SLOTS[block].start;
+      end = DEFAULT_SLOTS[block].end;
+      isCustom = false;
+    } else if (customStart) {
+      start = customStart;
+      end = addMinutes(customStart, CUSTOM_TIME_RANGE.durationMin);
+      isCustom = true;
+    } else {
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
 
-    let requestError: { message: string } | null = null;
-
-    if (block != null) {
-      const slot = blockSlots[block];
-      if (!slot) { setSubmitting(false); return; }
-      const { error: insertError } = await supabase
-        .from('appointments')
-        .insert({ user_id: session.user.id, slot_id: slot.id });
-      requestError = insertError;
-    } else if (customStart) {
-      const { error: rpcError } = await supabase.rpc('request_custom_time_slot', {
-        p_date: selectedKey,
-        p_start: `${customStart}:00`,
-      });
-      requestError = rpcError;
-    } else {
+    // Last-second recheck against fresh data before writing.
+    const freshDay = await getDayAvailability(selectedKey);
+    if (getWindowStatus(start, end, freshDay) !== 'available') {
       setSubmitting(false);
+      setError('That time was just booked by someone else — pick another.');
+      await fetchMonth();
       return;
     }
+
+    const { error: insertError } = await supabase.from('appointments').insert({
+      user_id: session.user.id,
+      date: selectedKey,
+      start_time: start,
+      end_time: end,
+      is_custom_time: isCustom,
+    });
 
     setSubmitting(false);
 
-    if (requestError) {
-      setError(
-        requestError.message.includes('no longer available') || requestError.message.includes('overlaps')
-          ? 'That time was just booked by someone else — pick another.'
-          : 'Something went wrong — please try again.',
-      );
-      await fetchSlots();
+    if (insertError) {
+      setError('Something went wrong — please try again.');
+      await fetchMonth();
       return;
     }
-    await fetchSlots();
+    await fetchMonth();
     setConfirm(true);
   }
 
@@ -326,7 +301,7 @@ export default function BookScreen() {
               {selectedKey === todayKey ? ' · today' : ''}
             </Text>
           </BrushHighlight>
-          <Text style={styles.hours}>10 AM – 7 PM</Text>
+          <Text style={styles.hours}>8 AM – 8 PM</Text>
         </View>
 
         {/* Time blocks */}
@@ -336,8 +311,8 @@ export default function BookScreen() {
           </View>
         ) : (
           <View style={{ gap: 10, marginTop: 4 }}>
-            {BLOCKS.map((b, i) => {
-              const st: SlotStatus = blockSlots[i]?.status ?? 'blocked';
+            {DEFAULT_SLOTS.map((b, i) => {
+              const st = blockStatuses[i];
               const selected = block === i && st === 'available';
               const disabled = st !== 'available';
               return (
@@ -362,7 +337,7 @@ export default function BookScreen() {
                           <Text style={styles.metaLabel}>3 hr</Text>
                         </View>
                         <Text style={styles.blockTime} numberOfLines={1}>
-                          {b.start} – {b.end}
+                          {fmtTime(b.start)} – {fmtTime(b.end)}
                         </Text>
                       </View>
                       {selected ? (
@@ -378,27 +353,37 @@ export default function BookScreen() {
               );
             })}
 
-            {/* Other time — custom 1-hour pick between 8 AM and 7 PM */}
-            <Pressable onPress={() => setShowOtherPicker((v) => !v)}>
+            {/* Other time — custom 3-hour pick between 8 AM and 5 PM start */}
+            <Pressable
+              disabled={allOtherTimesBlocked}
+              onPress={() => setShowOtherPicker((v) => !v)}
+            >
               <HandRect
                 padding={16}
                 radius={radius.lg}
                 dashed={!customStart}
-                fill={customStart ? colors.pinkSoft : colors.creamCard}
+                fill={customStart ? colors.pinkSoft : allOtherTimesBlocked ? '#EAE0CC' : colors.creamCard}
                 stroke={customStart ? colors.pinkInk : colors.ink}
                 strokeWidth={customStart ? 2 : 1.5}
+                style={{ opacity: allOtherTimesBlocked ? 0.6 : 1 }}
               >
                 <View style={styles.blockRow}>
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={styles.metaLabel}>other time</Text>
                     <Text style={styles.blockTime} numberOfLines={1}>
-                      {selectedTick ? `${selectedTick.label} – ${selectedTick.endLabel}` : 'Pick an exact time'}
+                      {selectedTick
+                        ? `${selectedTick.label} – ${selectedTick.endLabel}`
+                        : allOtherTimesBlocked
+                          ? 'Not available'
+                          : 'Pick an exact time'}
                     </Text>
                   </View>
                   {customStart ? (
                     <View style={styles.check}>
                       <Text style={styles.checkText}>✓</Text>
                     </View>
+                  ) : allOtherTimesBlocked ? (
+                    <StatusBadge status="blocked" />
                   ) : (
                     <View style={{ transform: [{ rotate: showOtherPicker ? '90deg' : '0deg' }] }}>
                       <Icons.Chev color={colors.inkSoft} size={16} />
@@ -408,7 +393,7 @@ export default function BookScreen() {
               </HandRect>
             </Pressable>
 
-            {showOtherPicker && (
+            {showOtherPicker && !allOtherTimesBlocked && (
               <HandRect padding={0} radius={radius.lg} style={{ marginTop: -2 }}>
                 <ScrollView style={styles.tickList} showsVerticalScrollIndicator={false}>
                   {OTHER_TICKS.map((tick, i) => {
@@ -429,7 +414,7 @@ export default function BookScreen() {
                           {tick.label} – {tick.endLabel}
                         </Text>
                         {blocked ? (
-                          <Text style={styles.tickBlockedLabel}>booked</Text>
+                          <Text style={styles.tickBlockedLabel}>unavailable</Text>
                         ) : selected ? (
                           <Text style={styles.tickCheck}>✓</Text>
                         ) : null}

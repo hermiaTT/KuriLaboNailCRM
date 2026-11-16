@@ -1,5 +1,30 @@
 # Kuri Labo Project Rules
 
+## V2 Architecture Override (Current)
+
+The V2 rewrite supersedes older stack and backend statements later in this file.
+
+Current sources of truth, in precedence order:
+
+1. `docs/REQUIREMENTS_V2.md` — current product and booking rules
+2. `docs/ARCHITECTURE_V2.md` — current system architecture and delivery phases
+3. `docs/DATA_MODEL_V2.md` — current data model
+4. This file — shared engineering and design rules
+5. `PRD.md` — legacy product reference for unchanged UI flows only
+
+Current V2 stack:
+
+- Expo + React Native + TypeScript for the mobile app
+- React + Vite + TypeScript for the web user portal and admin dashboard
+- Spring Boot + Java 21 for the backend API
+- PostgreSQL in Docker, managed through Flyway migrations
+- Kafka introduced through the transactional outbox after the synchronous core is stable
+- S3-compatible object storage for media; MinIO is used in local development
+
+Supabase is legacy-only during the migration. Do not add new Supabase integrations. New mobile and web functionality must access data through the Spring Boot API. Preserve the existing Expo UI while migrating it incrementally.
+
+Kuri Labo is now a multi-client product: the iOS-first mobile app remains important, and a responsive React web version is also required.
+
 ## Product Overview
 
 Kuri Labo is an iOS-first mobile app for nail salon CRM and booking management.
