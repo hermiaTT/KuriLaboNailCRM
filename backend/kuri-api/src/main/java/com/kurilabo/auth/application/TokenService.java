@@ -31,14 +31,16 @@ public class TokenService {
     public AccessToken createAccessToken(AppUser user) {
         Instant issuedAt = Instant.now();
         Instant expiresAt = issuedAt.plus(properties.accessTokenMinutes(), ChronoUnit.MINUTES);
-        JwtClaimsSet claims = JwtClaimsSet.builder()
+        JwtClaimsSet.Builder claimsBuilder = JwtClaimsSet.builder()
                 .issuer(properties.issuer())
                 .issuedAt(issuedAt)
                 .expiresAt(expiresAt)
                 .subject(user.getId().toString())
-                .claim("role", user.getRole().name())
-                .claim("email", user.getEmail())
-                .build();
+                .claim("role", user.getRole().name());
+        if (user.getEmail() != null) {
+            claimsBuilder.claim("email", user.getEmail());
+        }
+        JwtClaimsSet claims = claimsBuilder.build();
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
         String value = jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
         return new AccessToken(value, expiresAt);

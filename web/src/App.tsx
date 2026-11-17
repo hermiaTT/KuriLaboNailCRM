@@ -8,13 +8,14 @@ import { AppointmentsPage } from './pages/AppointmentsPage';
 import { ClientsPage } from './pages/ClientsPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { LoginPage } from './pages/LoginPage';
+import { InspirationPage } from './pages/InspirationPage';
 import { RegisterPage } from './pages/RegisterPage';
-import { PlaceholderPage } from './pages/PlaceholderPage';
 import { SchedulePage } from './pages/SchedulePage';
 import { ServicesPage } from './pages/ServicesPage';
 import { ClientAppointmentsPage } from './pages/client/ClientAppointmentsPage';
 import { ClientBookPage } from './pages/client/ClientBookPage';
 import { ClientHomePage } from './pages/client/ClientHomePage';
+import { ClientInspirationPage } from './pages/client/ClientInspirationPage';
 import { ClientProfilePage } from './pages/client/ClientProfilePage';
 
 function ProtectedApp() {
@@ -43,14 +44,14 @@ export function App() {
         <Route path="appointments" element={<AppointmentsPage />} />
         <Route path="clients" element={<ClientsPage />} />
         <Route path="schedule" element={<SchedulePage />} />
-        <Route path="inspiration" element={<PlaceholderPage type="inspiration" />} />
+        <Route path="inspiration" element={<InspirationPage />} />
         <Route path="services" element={<ServicesPage />} />
       </Route>
       <Route path="client" element={<ProtectedClient />}>
         <Route index element={<ClientHomePage />} />
         <Route path="book" element={<ClientBookPage />} />
         <Route path="appointments" element={<ClientAppointmentsPage />} />
-        <Route path="inspiration" element={<PlaceholderPage type="inspiration" />} />
+        <Route path="inspiration" element={<ClientInspirationPage />} />
         <Route path="profile" element={<ClientProfilePage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

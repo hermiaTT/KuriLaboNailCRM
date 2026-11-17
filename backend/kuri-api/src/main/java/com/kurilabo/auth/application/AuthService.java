@@ -4,12 +4,14 @@ import com.kurilabo.auth.api.LoginRequest;
 import com.kurilabo.auth.api.RegisterRequest;
 import com.kurilabo.auth.config.AuthProperties;
 import com.kurilabo.auth.domain.AppUser;
+import com.kurilabo.auth.domain.AccountType;
 import com.kurilabo.auth.domain.RefreshToken;
 import com.kurilabo.auth.domain.UserRole;
 import com.kurilabo.auth.domain.UserStatus;
 import com.kurilabo.auth.infrastructure.AppUserRepository;
 import com.kurilabo.auth.infrastructure.RefreshTokenRepository;
 import com.kurilabo.shared.error.ApiException;
+import com.kurilabo.shared.phone.PhoneNumberNormalizer;
 import com.kurilabo.user.domain.UserProfile;
 import com.kurilabo.user.infrastructure.UserProfileRepository;
 import org.springframework.http.HttpStatus;
@@ -50,9 +52,13 @@ public class AuthService {
 
     @Transactional
     public AuthSession register(RegisterRequest request) {
-        String email = normalizeEmail(request.email());
-        if (userRepository.existsByEmailIgnoreCase(email)) {
+        String email = normalizeOptionalEmail(request.email());
+        String phone = normalizePhone(request.phone());
+        if (email != null && userRepository.existsByEmailIgnoreCase(email)) {
             throw new ApiException(HttpStatus.CONFLICT, "An account with this email already exists.");
+        }
+        if (profileRepository.existsByPhone(phone)) {
+            throw new ApiException(HttpStatus.CONFLICT, "A client with this phone number already exists. Contact the salon for help merging your profile.");
         }
 
         UUID userId = UUID.randomUUID();
@@ -65,7 +71,7 @@ public class AuthService {
         UserProfile profile = new UserProfile(
                 userId,
                 request.name().trim(),
-                blankToNull(request.phone()),
+                phone,
                 request.birthday()
         );
         userRepository.save(user);
@@ -75,14 +81,16 @@ public class AuthService {
 
     @Transactional
     public AuthSession login(LoginRequest request) {
-        AppUser user = userRepository.findByEmailIgnoreCase(normalizeEmail(request.email()))
+        String phone = normalizePhoneForLogin(request.phone());
+        UserProfile profile = profileRepository.findByPhone(phone)
                 .orElseThrow(this::invalidCredentials);
-        if (user.getStatus() != UserStatus.ACTIVE ||
+        AppUser user = userRepository.findById(profile.getUserId())
+                .orElseThrow(this::invalidCredentials);
+        if (user.getAccountType() != AccountType.REGISTERED ||
+                user.getStatus() != UserStatus.ACTIVE ||
                 !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw invalidCredentials();
         }
-        UserProfile profile = profileRepository.findById(user.getId())
-                .orElseThrow(() -> new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "User profile is missing."));
         return createSession(user, profile, request.deviceName());
     }
 
@@ -128,11 +136,27 @@ public class AuthService {
     }
 
     private ApiException invalidCredentials() {
-        return new ApiException(HttpStatus.UNAUTHORIZED, "Email or password is incorrect.");
+        return new ApiException(HttpStatus.UNAUTHORIZED, "Phone number or password is incorrect.");
     }
 
-    private static String normalizeEmail(String email) {
-        return email.trim().toLowerCase(Locale.ROOT);
+    private static String normalizeOptionalEmail(String email) {
+        return email == null || email.isBlank() ? null : email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static String normalizePhone(String phone) {
+        try {
+            return PhoneNumberNormalizer.normalize(phone);
+        } catch (IllegalArgumentException exception) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, exception.getMessage());
+        }
+    }
+
+    private String normalizePhoneForLogin(String phone) {
+        try {
+            return PhoneNumberNormalizer.normalize(phone);
+        } catch (IllegalArgumentException exception) {
+            throw invalidCredentials();
+        }
     }
 
     private static String blankToNull(String value) {

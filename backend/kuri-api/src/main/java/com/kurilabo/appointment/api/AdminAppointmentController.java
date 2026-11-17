@@ -6,6 +6,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -24,16 +25,40 @@ public class AdminAppointmentController {
     }
 
     @GetMapping
-    List<AppointmentResponse> getAll() {
-        return appointmentService.getAllAppointments();
+    List<AdminAppointmentResponse> getAll() {
+        return appointmentService.getAllAdminAppointments();
     }
 
     @PostMapping
-    AppointmentResponse create(
+    AdminAppointmentResponse create(
             JwtAuthenticationToken authentication,
             @Valid @RequestBody AdminCreateAppointmentRequest request
     ) {
         return appointmentService.createAdminAppointment(currentUserId(authentication), request);
+    }
+
+    @PostMapping("/history")
+    AdminAppointmentResponse recordHistory(
+            JwtAuthenticationToken authentication,
+            @Valid @RequestBody RecordHistoricalAppointmentRequest request
+    ) {
+        return appointmentService.recordHistoricalAppointment(
+                currentUserId(authentication),
+                request
+        );
+    }
+
+    @PutMapping("/{appointmentId}/visit-details")
+    AdminAppointmentResponse updateVisitDetails(
+            JwtAuthenticationToken authentication,
+            @PathVariable UUID appointmentId,
+            @Valid @RequestBody UpdateVisitDetailsRequest request
+    ) {
+        return appointmentService.updateVisitDetails(
+                currentUserId(authentication),
+                appointmentId,
+                request
+        );
     }
 
     @PostMapping("/{appointmentId}/confirm")

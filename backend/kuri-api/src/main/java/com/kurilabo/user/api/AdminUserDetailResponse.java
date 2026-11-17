@@ -10,6 +10,7 @@ import java.util.UUID;
 public record AdminUserDetailResponse(
         UUID id,
         String email,
+        String accountType,
         String role,
         String status,
         String name,
@@ -26,6 +27,7 @@ public record AdminUserDetailResponse(
         return new AdminUserDetailResponse(
                 user.getId(),
                 user.getEmail(),
+                user.getAccountType().name(),
                 user.getRole().name(),
                 user.getStatus().name(),
                 profile.getName(),

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
 import { api } from '../lib/api';
-import type { AdminUser, Appointment } from '../types';
+import type { AdminUser, Appointment, NailSet } from '../types';
 import { EmptyState, PageHeading, PaperCard, StatusBadge } from '../components/UI';
 import { Icon } from '../components/Icons';
 
@@ -26,16 +26,19 @@ export function DashboardPage() {
   const { user } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [clients, setClients] = useState<AdminUser[]>([]);
+  const [nailSets, setNailSets] = useState<NailSet[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
       api<Appointment[]>('/api/v1/admin/appointments'),
       api<AdminUser[]>('/api/v1/admin/users'),
+      api<NailSet[]>('/api/v1/inspiration'),
     ])
-      .then(([nextAppointments, nextClients]) => {
+      .then(([nextAppointments, nextClients, nextNailSets]) => {
         setAppointments(nextAppointments);
         setClients(nextClients.filter((client) => client.role === 'USER'));
+        setNailSets(nextNailSets);
       })
       .catch(() => setError('The dashboard could not load. Make sure the Spring Boot API is running.'));
   }, []);
@@ -60,7 +63,7 @@ export function DashboardPage() {
         <PaperCard className="stat-card pink"><span className="stat-doodle">✿</span><strong>{todayAppointments.length}</strong><h3>today</h3><p>{pending} waiting to confirm</p></PaperCard>
         <PaperCard className="stat-card blue"><span className="stat-doodle">✦</span><strong>{confirmed}</strong><h3>confirmed</h3><p>upcoming visits</p></PaperCard>
         <PaperCard className="stat-card green"><span className="stat-doodle">☆</span><strong>{clients.length}</strong><h3>clients</h3><p>in your studio</p></PaperCard>
-        <PaperCard className="stat-card yellow"><span className="stat-doodle">♡</span><strong>—</strong><h3>uploads</h3><p>coming in the media phase</p></PaperCard>
+        <PaperCard className="stat-card yellow"><span className="stat-doodle">♡</span><strong>{nailSets.length}</strong><h3>nail sets</h3><p>{nailSets.reduce((total, item) => total + item.images.length, 0)} uploaded photos</p></PaperCard>
       </section>
 
       <div className="dashboard-grid">

@@ -87,12 +87,16 @@ public class AvailabilityService {
     }
 
     public ServiceDefinition getActiveService(UUID serviceId) {
-        ServiceDefinition service = serviceDefinitionRepository.findById(serviceId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Service was not found."));
+        ServiceDefinition service = getService(serviceId);
         if (!service.isActive()) {
             throw new ApiException(HttpStatus.CONFLICT, "Service is not currently available.");
         }
         return service;
+    }
+
+    public ServiceDefinition getService(UUID serviceId) {
+        return serviceDefinitionRepository.findById(serviceId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Service was not found."));
     }
 
     public boolean hasConflict(Instant startAt, Instant endAt) {

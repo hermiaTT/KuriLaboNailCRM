@@ -29,6 +29,12 @@ public class SalonSetting {
     @Column(name = "booking_increment_minutes", nullable = false)
     private int bookingIncrementMinutes;
 
+    @Column(name = "wechat_id")
+    private String wechatId;
+
+    @Column(name = "contact_message")
+    private String contactMessage;
+
     protected SalonSetting() {
     }
 
@@ -46,6 +52,18 @@ public class SalonSetting {
 
     public int getBookingIncrementMinutes() {
         return bookingIncrementMinutes;
+    }
+
+    public String getSalonName() {
+        return salonName;
+    }
+
+    public String getWechatId() {
+        return wechatId;
+    }
+
+    public String getContactMessage() {
+        return contactMessage;
     }
 }
 

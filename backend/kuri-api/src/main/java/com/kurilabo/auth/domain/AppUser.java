@@ -19,11 +19,16 @@ public class AppUser {
     @Id
     private UUID id;
 
-    @Column(nullable = false, unique = true, columnDefinition = "citext")
+    @Column(unique = true, columnDefinition = "citext")
     private String email;
 
-    @Column(name = "password_hash", nullable = false)
+    @Column(name = "password_hash")
     private String passwordHash;
+
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "account_type", nullable = false, columnDefinition = "account_type")
+    private AccountType accountType;
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
@@ -49,10 +54,25 @@ public class AppUser {
         this.id = id;
         this.email = email;
         this.passwordHash = passwordHash;
+        this.accountType = AccountType.REGISTERED;
         this.role = role;
         this.status = UserStatus.ACTIVE;
         this.createdAt = now;
         this.updatedAt = now;
+    }
+
+    public static AppUser guest(UUID id) {
+        AppUser user = new AppUser();
+        Instant now = Instant.now();
+        user.id = id;
+        user.email = null;
+        user.passwordHash = null;
+        user.accountType = AccountType.GUEST;
+        user.role = UserRole.USER;
+        user.status = UserStatus.ACTIVE;
+        user.createdAt = now;
+        user.updatedAt = now;
+        return user;
     }
 
     public UUID getId() {
@@ -65,6 +85,10 @@ public class AppUser {
 
     public String getPasswordHash() {
         return passwordHash;
+    }
+
+    public AccountType getAccountType() {
+        return accountType;
     }
 
     public UserRole getRole() {

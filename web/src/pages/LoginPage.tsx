@@ -8,7 +8,7 @@ import { Brand, PaperCard } from '../components/UI';
 export function LoginPage() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -23,7 +23,7 @@ export function LoginPage() {
     setError(null);
     setSubmitting(true);
     try {
-      await login(email.trim(), password);
+      await login(phone.trim(), password);
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : 'Unable to reach the Kuri Labo server.');
     } finally {
@@ -46,7 +46,7 @@ export function LoginPage() {
         <h2>Sign in to Kuri Labo</h2>
         <p className="muted">Welcome back—your next nail idea is waiting.</p>
         <form onSubmit={handleSubmit}>
-          <label>Email<input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="hello@kurilabo.com" required /></label>
+          <label>Phone number<input type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="778-555-1234" required /></label>
           <label>Password<input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Your password" required /></label>
           {error && <p className="form-error" role="alert">{error}</p>}
           <button className="primary-button" disabled={submitting}>{submitting ? 'Signing in…' : 'Sign in'}</button>

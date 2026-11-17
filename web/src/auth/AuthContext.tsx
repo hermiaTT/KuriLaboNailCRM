@@ -6,16 +6,17 @@ import type { AuthResponse, UserSummary } from '../types';
 type AuthContextValue = {
   user: UserSummary | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (phone: string, password: string) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 };
 
 type RegisterInput = {
   name: string;
-  email: string;
+  email: string | null;
   password: string;
-  phone: string | null;
+  phone: string;
   birthday: string | null;
 };
 
@@ -25,18 +26,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    api<UserSummary>('/api/v1/users/me')
-      .then(setUser)
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false));
+  const refreshUser = useCallback(async () => {
+    setUser(await api<UserSummary>('/api/v1/users/me'));
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
+  useEffect(() => {
+    refreshUser()
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
+  }, [refreshUser]);
+
+  const login = useCallback(async (phone: string, password: string) => {
     const session = await api<AuthResponse>('/api/v1/auth/login', {
       method: 'POST',
       body: JSON.stringify({
-        email,
+        phone,
         password,
         clientType: 'WEB',
         deviceName: 'Kuri Labo Web',
@@ -71,7 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const value = useMemo(() => ({ user, loading, login, register, logout }), [user, loading, login, register, logout]);
+  const value = useMemo(() => ({ user, loading, login, register, logout, refreshUser }), [user, loading, login, register, logout, refreshUser]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

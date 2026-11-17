@@ -44,8 +44,18 @@ public class OutboxEvent {
     }
 
     public OutboxEvent(UUID aggregateId, String eventType, Map<String, Object> payload, Instant occurredAt) {
+        this("Appointment", aggregateId, eventType, payload, occurredAt);
+    }
+
+    public OutboxEvent(
+            String aggregateType,
+            UUID aggregateId,
+            String eventType,
+            Map<String, Object> payload,
+            Instant occurredAt
+    ) {
         this.id = UUID.randomUUID();
-        this.aggregateType = "Appointment";
+        this.aggregateType = aggregateType;
         this.aggregateId = aggregateId;
         this.eventType = eventType;
         this.eventVersion = 1;

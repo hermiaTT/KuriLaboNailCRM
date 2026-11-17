@@ -1,8 +1,11 @@
 package com.kurilabo.appointment.application;
 
 import com.kurilabo.appointment.api.AppointmentResponse;
+import com.kurilabo.appointment.api.AdminAppointmentResponse;
 import com.kurilabo.appointment.api.AdminCreateAppointmentRequest;
 import com.kurilabo.appointment.api.CreateAppointmentRequest;
+import com.kurilabo.appointment.api.UpdateVisitDetailsRequest;
+import com.kurilabo.appointment.api.RecordHistoricalAppointmentRequest;
 import com.kurilabo.appointment.domain.Appointment;
 import com.kurilabo.appointment.domain.AppointmentStatus;
 import com.kurilabo.appointment.domain.AppointmentStatusHistory;
@@ -34,6 +37,7 @@ import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Objects;
 
 @Service
 public class AppointmentService {
@@ -119,7 +123,7 @@ public class AppointmentService {
     }
 
     @Transactional
-    public AppointmentResponse createAdminAppointment(UUID adminId, AdminCreateAppointmentRequest request) {
+    public AdminAppointmentResponse createAdminAppointment(UUID adminId, AdminCreateAppointmentRequest request) {
         AppUser admin = getUser(adminId);
         AppUser customer = userRepository.findById(request.customerId())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Customer was not found."));
@@ -174,7 +178,7 @@ public class AppointmentService {
                 eventPayload(appointment),
                 now
         ));
-        return AppointmentResponse.from(appointment);
+        return AdminAppointmentResponse.from(appointment);
     }
 
     @Transactional(readOnly = true)
@@ -189,6 +193,105 @@ public class AppointmentService {
         return appointmentRepository.findAllByOrderByStartAtDesc().stream()
                 .map(AppointmentResponse::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<AdminAppointmentResponse> getAllAdminAppointments() {
+        return appointmentRepository.findAllByOrderByStartAtDesc().stream()
+                .map(AdminAppointmentResponse::from)
+                .toList();
+    }
+
+    @Transactional
+    public AdminAppointmentResponse recordHistoricalAppointment(
+            UUID adminId,
+            RecordHistoricalAppointmentRequest request
+    ) {
+        AppUser admin = getUser(adminId);
+        AppUser customer = userRepository.findById(request.customerId())
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Customer was not found."));
+        SalonSetting settings = availabilityService.getSettings();
+        validateAdminTimes(request.startTime(), request.endTime(), settings.getBookingIncrementMinutes());
+        ZoneId zone = ZoneId.of(settings.getTimezone());
+        Instant startAt = request.date().atTime(request.startTime()).atZone(zone).toInstant();
+        Instant endAt = request.date().atTime(request.endTime()).atZone(zone).toInstant();
+        Instant now = clock.instant();
+        if (endAt.isAfter(now)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "A past visit must have already ended.");
+        }
+
+        ServiceDefinition service = request.serviceId() == null
+                ? null
+                : availabilityService.getService(request.serviceId());
+        String serviceName = service != null
+                ? service.getName()
+                : blankToNull(request.customServiceName());
+        if (serviceName == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "A service or legacy service name is required.");
+        }
+        int durationMinutes = Math.toIntExact(Duration.between(startAt, endAt).toMinutes());
+        Appointment appointment = new Appointment(
+                UUID.randomUUID(),
+                customer,
+                service,
+                serviceName,
+                durationMinutes,
+                startAt,
+                endAt,
+                null,
+                admin
+        );
+        appointment.recordCompleted(
+                admin,
+                blankToNull(request.serviceNotes()),
+                request.finalPrice(),
+                now
+        );
+        appointmentRepository.save(appointment);
+        historyRepository.save(new AppointmentStatusHistory(
+                appointment,
+                null,
+                AppointmentStatus.COMPLETED,
+                "Historical visit recorded by admin",
+                admin,
+                now
+        ));
+        Map<String, Object> payload = eventPayload(appointment);
+        payload.put("recordedBy", admin.getId().toString());
+        payload.put("finalPrice", request.finalPrice());
+        outboxEventRepository.save(new OutboxEvent(
+                appointment.getId(),
+                "HistoricalAppointmentRecordedV1",
+                payload,
+                now
+        ));
+        return AdminAppointmentResponse.from(appointment);
+    }
+
+    @Transactional
+    public AdminAppointmentResponse updateVisitDetails(
+            UUID adminId,
+            UUID appointmentId,
+            UpdateVisitDetailsRequest request
+    ) {
+        AppUser admin = getUser(adminId);
+        Appointment appointment = getAppointment(appointmentId);
+        String serviceNotes = blankToNull(request.serviceNotes());
+        boolean priceChanged = !Objects.equals(appointment.getFinalPrice(), request.finalPrice());
+        Instant now = clock.instant();
+        appointment.updateVisitDetails(serviceNotes, request.finalPrice(), now);
+
+        Map<String, Object> payload = eventPayload(appointment);
+        payload.put("updatedBy", admin.getId().toString());
+        payload.put("hasServiceNotes", serviceNotes != null);
+        payload.put("finalPrice", request.finalPrice());
+        outboxEventRepository.save(new OutboxEvent(
+                appointment.getId(),
+                priceChanged ? "AppointmentPriceUpdatedV1" : "AppointmentVisitDetailsUpdatedV1",
+                payload,
+                now
+        ));
+        return AdminAppointmentResponse.from(appointment);
     }
 
     @Transactional

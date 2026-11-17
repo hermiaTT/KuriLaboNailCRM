@@ -29,9 +29,9 @@ export function RegisterPage() {
     try {
       await register({
         name: String(data.get('name')).trim(),
-        email: String(data.get('email')).trim(),
+        email: String(data.get('email') || '').trim() || null,
         password,
-        phone: String(data.get('phone') || '').trim() || null,
+        phone: String(data.get('phone')).trim(),
         birthday: String(data.get('birthday') || '') || null,
       });
     } catch (cause) {
@@ -57,8 +57,8 @@ export function RegisterPage() {
         <p className="muted">Tell us a little about yourself.</p>
         <form onSubmit={handleSubmit}>
           <label>Full name<input name="name" autoComplete="name" placeholder="Your name" maxLength={120} required /></label>
-          <label>Email<input name="email" type="email" autoComplete="email" placeholder="you@example.com" required /></label>
-          <div className="form-pair"><label>Phone <span className="optional">optional</span><input name="phone" type="tel" autoComplete="tel" placeholder="604-555-0123" maxLength={40} /></label><label>Birthday <span className="optional">optional</span><input name="birthday" type="date" max={new Date().toISOString().split('T')[0]} /></label></div>
+          <label>Phone number<input name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="778-555-1234" maxLength={40} required /></label>
+          <div className="form-pair"><label>Email <span className="optional">optional</span><input name="email" type="email" autoComplete="email" placeholder="you@example.com" /></label><label>Birthday <span className="optional">optional</span><input name="birthday" type="date" max={new Date().toISOString().split('T')[0]} /></label></div>
           <div className="form-pair"><label>Password<input name="password" type="password" autoComplete="new-password" minLength={8} placeholder="At least 8 characters" required /></label><label>Confirm password<input name="confirmPassword" type="password" autoComplete="new-password" minLength={8} placeholder="Type it again" required /></label></div>
           {error && <p className="form-error" role="alert">{error}</p>}
           <button className="primary-button" disabled={submitting}>{submitting ? 'Creating your account…' : 'Create account'}</button>

@@ -33,6 +33,7 @@ export function AppShell() {
           <button onClick={() => void logout()} aria-label="Sign out"><Icon name="logout" /></button>
         </div>
       </aside>
+      <div className="mobile-admin-bar"><Brand /><div><span className="mini-avatar">{user?.name?.[0]?.toUpperCase() ?? 'K'}</span><button onClick={() => void logout()} aria-label="Sign out"><Icon name="logout" /></button></div></div>
       <main className="content"><Outlet /></main>
       <nav className="mobile-nav">
         {navigation.slice(0, 5).map((item) => (

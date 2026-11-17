@@ -110,5 +110,25 @@ public class UserProfile {
         this.adminNotes = adminNotes;
         this.updatedAt = now;
     }
+
+    public void updateByUser(
+            String name,
+            String phone,
+            LocalDate birthday,
+            String instagram,
+            String wechat,
+            String preferredNailStyle,
+            String allergyNotes,
+            Instant now
+    ) {
+        this.name = name;
+        this.phone = phone;
+        this.birthday = birthday;
+        this.instagram = instagram;
+        this.wechat = wechat;
+        this.preferredNailStyle = preferredNailStyle;
+        this.allergyNotes = allergyNotes;
+        this.updatedAt = now;
+    }
 }
 

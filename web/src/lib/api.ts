@@ -31,11 +31,12 @@ async function parseError(response: Response) {
 
 async function rawRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getAccessToken();
+  const hasJsonBody = init.body != null && !(init.body instanceof FormData);
   const response = await fetch(path, {
     ...init,
     credentials: 'include',
     headers: {
-      ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(hasJsonBody ? { 'Content-Type': 'application/json' } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init.headers,
     },

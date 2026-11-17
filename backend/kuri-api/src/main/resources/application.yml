@@ -11,6 +11,10 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 120MB
 
 server:
   port: ${SERVER_PORT:8080}
@@ -27,6 +31,8 @@ management:
       show-details: when_authorized
 
 kuri:
+  media:
+    root: ${MEDIA_STORAGE_PATH:./data/media}
   auth:
     issuer: ${AUTH_ISSUER:kuri-api}
     access-token-minutes: ${ACCESS_TOKEN_MINUTES:15}

@@ -16,6 +16,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Entity
@@ -56,6 +57,9 @@ public class Appointment {
     @Column(name = "service_notes")
     private String serviceNotes;
 
+    @Column(name = "final_price", precision = 10, scale = 2)
+    private BigDecimal finalPrice;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "created_by", nullable = false)
     private AppUser createdBy;
@@ -69,6 +73,9 @@ public class Appointment {
 
     @Column(name = "cancelled_at")
     private Instant cancelledAt;
+
+    @Column(name = "completed_at")
+    private Instant completedAt;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -171,6 +178,27 @@ public class Appointment {
         updatedAt = now;
     }
 
+    public void updateVisitDetails(String serviceNotes, BigDecimal finalPrice, Instant now) {
+        this.serviceNotes = serviceNotes;
+        this.finalPrice = finalPrice;
+        this.updatedAt = now;
+    }
+
+    public void recordCompleted(
+            AppUser admin,
+            String serviceNotes,
+            BigDecimal finalPrice,
+            Instant now
+    ) {
+        this.status = AppointmentStatus.COMPLETED;
+        this.serviceNotes = serviceNotes;
+        this.finalPrice = finalPrice;
+        this.confirmedBy = admin;
+        this.confirmedAt = now;
+        this.completedAt = now;
+        this.updatedAt = now;
+    }
+
     private void requirePending() {
         if (status != AppointmentStatus.PENDING_CONFIRMATION) {
             throw new IllegalStateException("Only a pending appointment can be reviewed.");
@@ -211,6 +239,14 @@ public class Appointment {
 
     public String getCustomerNote() {
         return customerNote;
+    }
+
+    public String getServiceNotes() {
+        return serviceNotes;
+    }
+
+    public BigDecimal getFinalPrice() {
+        return finalPrice;
     }
 }
 

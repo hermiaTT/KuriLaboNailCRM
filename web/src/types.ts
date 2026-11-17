@@ -1,6 +1,6 @@
 export type UserSummary = {
   id: string;
-  email: string;
+  email: string | null;
   role: 'USER' | 'ADMIN';
   name: string;
   phone: string | null;
@@ -16,7 +16,8 @@ export type AuthResponse = {
 
 export type AdminUser = {
   id: string;
-  email: string;
+  email: string | null;
+  accountType: 'REGISTERED' | 'GUEST';
   role: 'USER' | 'ADMIN';
   status: 'ACTIVE' | 'DISABLED';
   name: string;
@@ -41,6 +42,11 @@ export type Appointment = {
     | 'REJECTED'
     | 'CANCELLED';
   note: string | null;
+};
+
+export type AdminAppointment = Appointment & {
+  serviceNotes: string | null;
+  finalPrice: number | null;
 };
 
 export type ServiceDefinition = {
@@ -80,4 +86,27 @@ export type CurrentProfile = UserSummary & {
   wechat: string | null;
   preferredNailStyle: string | null;
   allergyNotes: string | null;
+};
+
+export type SalonContact = {
+  salonName: string;
+  wechatId: string | null;
+  contactMessage: string | null;
+};
+
+export type NailSetImage = {
+  id: string;
+  url: string;
+  displayOrder: number;
+};
+
+export type NailSet = {
+  id: string;
+  clientId: string | null;
+  appointmentId: string | null;
+  title: string;
+  description: string | null;
+  createdAt: string;
+  favorited: boolean;
+  images: NailSetImage[];
 };
