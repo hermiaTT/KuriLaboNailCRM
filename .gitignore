@@ -27,6 +27,7 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 *.log
+backend/kuri-api/data/
 
 # macOS
 .DS_Store

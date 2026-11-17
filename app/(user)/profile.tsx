@@ -37,7 +37,9 @@ type FullProfile = {
 type NextAppt = {
   id: string;
   status: string;
-  slot: { date: string; start_time: string; end_time: string } | null;
+  date: string;
+  start_time: string;
+  end_time: string;
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -103,7 +105,7 @@ export default function ProfileScreen() {
           .from('appointments')
           .select('id', { count: 'exact', head: true })
           .eq('user_id', userId)
-          .in('status', ['confirmed', 'completed']),
+          .in('status', ['confirmed', 'done']),
 
         supabase
           .from('nail_collection_items')
@@ -112,22 +114,22 @@ export default function ProfileScreen() {
 
         supabase
           .from('appointments')
-          .select('id, status, slot:available_slots(date, start_time, end_time)')
+          .select('id, status, date, start_time, end_time')
           .eq('user_id', userId)
           .in('status', ['pending', 'confirmed'])
           .order('created_at', { ascending: true })
           .limit(10),
       ]);
 
+      if (apptRes.error) console.error('[ProfileScreen] nextAppt fetch error:', apptRes.error);
+
       setData(profileRes.data ?? null);
       setVisitCount(visitsRes.count ?? 0);
       setSavedCount(savedRes.count ?? 0);
 
-      // Supabase returns slot as an array; normalise to single object
       const upcoming = (apptRes.data ?? [])
-        .map((a) => ({ ...a, slot: Array.isArray(a.slot) ? a.slot[0] ?? null : a.slot }))
-        .filter((a) => a.slot && a.slot.date >= today)
-        .sort((a, b) => (a.slot!.date > b.slot!.date ? 1 : -1))[0] ?? null;
+        .filter((a) => a.date >= today)
+        .sort((a, b) => (a.date > b.date ? 1 : -1))[0] ?? null;
       setNextAppt(upcoming as NextAppt | null);
     } catch (e) {
       console.error('[ProfileScreen] fetchAll error:', e);
@@ -159,7 +161,7 @@ export default function ProfileScreen() {
     .filter(Boolean)
     .join(' · ') || 'No preferences set yet';
 
-  const slotDate = nextAppt?.slot ? fmtSlotDate(nextAppt.slot.date) : null;
+  const slotDate = nextAppt ? fmtSlotDate(nextAppt.date) : null;
 
   return (
     <Screen>
@@ -271,7 +273,7 @@ export default function ProfileScreen() {
                 </View>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={styles.visitTime}>
-                    {fmtTime(nextAppt.slot!.start_time)} — {fmtTime(nextAppt.slot!.end_time)}
+                    {fmtTime(nextAppt!.start_time)} — {fmtTime(nextAppt!.end_time)}
                   </Text>
                   <Text style={styles.visitDesc}>with Kuri</Text>
                 </View>
