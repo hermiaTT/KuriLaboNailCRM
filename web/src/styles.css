@@ -703,3 +703,41 @@ textarea { min-height: 82px; resize: vertical; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+.password-help { margin-top: 8px; color: var(--ink-faint); font-size: 11px; }
+.sidebar-notifications { margin-top: auto; padding: 0 10px 10px; }
+.sidebar-notifications .notification-link { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 15px; color: var(--ink-soft); text-decoration: none; }
+.sidebar-notifications .notification-link.active { background: var(--pink-soft); color: var(--ink); }
+.notification-link { position: relative; }
+.notification-icon { position: relative; display: inline-flex; }
+.notification-icon i { position: absolute; top: -8px; right: -10px; min-width: 17px; height: 17px; padding: 0 4px; display: grid; place-items: center; border-radius: 10px; background: var(--pink-ink); color: white; font: 700 9px/1 'Nunito', sans-serif; font-style: normal; }
+.client-account .notification-link, .mobile-admin-bar .notification-link { display: grid; place-items: center; width: 38px; height: 38px; color: var(--ink); border-radius: 50%; background: rgba(255,255,255,.65); }
+.notification-card { padding: 10px; max-width: 850px; }
+.notification-list { display: grid; gap: 6px; }
+.notification-row { width: 100%; display: grid; grid-template-columns: 12px 1fr; gap: 12px; padding: 17px 18px; border: 0; border-radius: 16px; background: transparent; color: var(--ink); text-align: left; }
+.notification-row:hover { background: var(--cream); }
+.notification-row.unread { background: var(--pink-soft); }
+.notification-dot { width: 8px; height: 8px; margin-top: 7px; border-radius: 50%; background: transparent; }
+.notification-row.unread .notification-dot { background: var(--pink-ink); }
+.notification-row strong { font-size: 15px; }
+.notification-row p { margin: 4px 0; color: var(--ink-soft); }
+.notification-row small { color: var(--ink-faint); }
+.client-account-tool { margin-top: 24px; padding: 22px; border-radius: 20px; background: var(--cream); }
+.client-account-tool.danger-soft { background: var(--pink-soft); }
+.client-account-tool h3 { margin: 5px 0 7px; }
+.client-account-tool > p:not(.eyebrow) { color: var(--ink-soft); font-size: 13px; }
+.client-account-tool select { width: 100%; margin: 10px 0; }
+.inline-account-action { display: grid; grid-template-columns: 1fr auto; gap: 10px; margin-top: 12px; }
+.account-message { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,.75); color: var(--ink-soft); font-size: 12px; }
+.profile-security-card { grid-column: 2; }
+
+@media (max-width: 900px) {
+  .sidebar-notifications { display: none; }
+  .profile-security-card { grid-column: auto; }
+}
+
+@media (max-width: 560px) {
+  .inline-account-action { grid-template-columns: 1fr; }
+  .notification-card { padding: 5px; }
+  .notification-row { padding: 14px 12px; }
+}

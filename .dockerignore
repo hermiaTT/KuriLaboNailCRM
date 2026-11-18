@@ -1,0 +1,16 @@
+.git
+.github
+.idea
+.vscode
+.codex
+.agents
+node_modules
+web/node_modules
+web/dist
+backend/kuri-api/target
+backend/kuri-api/data
+*.log
+*.err
+.env
+.env.*
+!.env.example

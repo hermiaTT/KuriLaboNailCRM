@@ -17,6 +17,7 @@ import { ClientBookPage } from './pages/client/ClientBookPage';
 import { ClientHomePage } from './pages/client/ClientHomePage';
 import { ClientInspirationPage } from './pages/client/ClientInspirationPage';
 import { ClientProfilePage } from './pages/client/ClientProfilePage';
+import { NotificationsPage } from './pages/NotificationsPage';
 
 function ProtectedApp() {
   const { user, loading } = useAuth();
@@ -46,6 +47,7 @@ export function App() {
         <Route path="schedule" element={<SchedulePage />} />
         <Route path="inspiration" element={<InspirationPage />} />
         <Route path="services" element={<ServicesPage />} />
+        <Route path="notifications" element={<NotificationsPage />} />
       </Route>
       <Route path="client" element={<ProtectedClient />}>
         <Route index element={<ClientHomePage />} />
@@ -53,6 +55,7 @@ export function App() {
         <Route path="appointments" element={<ClientAppointmentsPage />} />
         <Route path="inspiration" element={<ClientInspirationPage />} />
         <Route path="profile" element={<ClientProfilePage />} />
+        <Route path="notifications" element={<NotificationsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

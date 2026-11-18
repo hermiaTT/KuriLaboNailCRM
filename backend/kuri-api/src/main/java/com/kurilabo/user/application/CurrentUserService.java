@@ -47,12 +47,16 @@ public class CurrentUserService {
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "User no longer exists."));
         UserProfile profile = profileRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "User profile is missing."));
+        String name = request.name().trim();
+        if (profileRepository.existsByNameIgnoreCaseAndUserIdNot(name, userId)) {
+            throw new ApiException(HttpStatus.CONFLICT, "A client with this name already exists.");
+        }
         String phone = normalizePhone(request.phone());
         if (profileRepository.existsByPhoneAndUserIdNot(phone, userId)) {
             throw new ApiException(HttpStatus.CONFLICT, "This phone number is already used by another client.");
         }
         profile.updateByUser(
-                request.name().trim(),
+                name,
                 phone,
                 request.birthday(),
                 normalizeOptional(request.instagram()),

@@ -47,6 +47,9 @@ export function ClientProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [passwords, setPasswords] = useState({ current: '', next: '', confirm: '' });
+  const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
+  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     api<CurrentProfile>('/api/v1/users/me')
@@ -92,6 +95,19 @@ export function ClientProfilePage() {
     }
   }
 
+  async function changePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (passwords.next !== passwords.confirm) { setPasswordMessage('New passwords do not match.'); return; }
+    setChangingPassword(true); setPasswordMessage(null);
+    try {
+      await api<void>('/api/v1/users/me/password', { method: 'PUT', body: JSON.stringify({ currentPassword: passwords.current, newPassword: passwords.next }) });
+      setPasswords({ current: '', next: '', confirm: '' });
+      setPasswordMessage('Password updated. Use the new password next time you sign in.');
+    } catch (cause) {
+      setPasswordMessage(cause instanceof ApiError ? cause.message : 'Unable to update your password.');
+    } finally { setChangingPassword(false); }
+  }
+
   return (
     <div className="client-page">
       <PageHeading eyebrow="ABOUT YOU" title="My profile" />
@@ -123,6 +139,15 @@ export function ClientProfilePage() {
             <label>Preferred nail style <span className="optional">optional</span><textarea value={form.preferredNailStyle} onChange={(event) => updateField('preferredNailStyle', event.target.value)} maxLength={1000} placeholder="Colors, shapes, finishes or styles you love…" disabled={loading} /></label>
             <label>Allergy or sensitivity notes <span className="optional">optional</span><textarea value={form.allergyNotes} onChange={(event) => updateField('allergyNotes', event.target.value)} maxLength={1000} placeholder="Share anything Kuri should know before your visit…" disabled={loading} /></label>
             <div className="profile-form-actions"><small>Your phone number is used for sign-in. If you change it, use the new number next time.</small><button className="primary-button" disabled={loading || saving}>{saving ? 'Saving…' : 'Save changes'}</button></div>
+          </form>
+        </PaperCard>
+        <PaperCard className="profile-edit-card profile-security-card">
+          <div className="profile-form-heading"><div><p className="eyebrow">SECURITY</p><h2>Change password</h2></div></div>
+          <form onSubmit={changePassword}>
+            <label>Current password<input type="password" value={passwords.current} onChange={(event) => setPasswords((value) => ({ ...value, current: event.target.value }))} autoComplete="current-password" required /></label>
+            <div className="form-pair"><label>New password<input type="password" value={passwords.next} onChange={(event) => setPasswords((value) => ({ ...value, next: event.target.value }))} autoComplete="new-password" minLength={8} maxLength={100} required /></label><label>Confirm new password<input type="password" value={passwords.confirm} onChange={(event) => setPasswords((value) => ({ ...value, confirm: event.target.value }))} autoComplete="new-password" minLength={8} maxLength={100} required /></label></div>
+            {passwordMessage && <div className="account-message" role="status">{passwordMessage}</div>}
+            <div className="profile-form-actions"><small>At least 8 characters. Other saved sessions will need the new password.</small><button className="primary-button" disabled={changingPassword}>{changingPassword ? 'Updating…' : 'Update password'}</button></div>
           </form>
         </PaperCard>
       </div>

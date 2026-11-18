@@ -60,6 +60,10 @@ public class AuthService {
         if (profileRepository.existsByPhone(phone)) {
             throw new ApiException(HttpStatus.CONFLICT, "A client with this phone number already exists. Contact the salon for help merging your profile.");
         }
+        String name = request.name().trim();
+        if (profileRepository.existsByNameIgnoreCase(name)) {
+            throw new ApiException(HttpStatus.CONFLICT, "A client with this name already exists. Contact the salon if this may be your guest profile.");
+        }
 
         UUID userId = UUID.randomUUID();
         AppUser user = new AppUser(
@@ -70,7 +74,7 @@ public class AuthService {
         );
         UserProfile profile = new UserProfile(
                 userId,
-                request.name().trim(),
+                name,
                 phone,
                 request.birthday()
         );

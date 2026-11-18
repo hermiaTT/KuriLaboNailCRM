@@ -1,6 +1,6 @@
 import type { SVGProps } from 'react';
 
-type IconName = 'home' | 'calendar' | 'users' | 'clock' | 'image' | 'services' | 'logout' | 'arrow';
+type IconName = 'home' | 'calendar' | 'users' | 'clock' | 'image' | 'services' | 'logout' | 'arrow' | 'bell';
 
 export function Icon({ name, ...props }: { name: IconName } & SVGProps<SVGSVGElement>) {
   const common = {
@@ -23,6 +23,7 @@ export function Icon({ name, ...props }: { name: IconName } & SVGProps<SVGSVGEle
     services: <><path d="M12 3v18M3 12h18"/><path d="m5.5 5.5 13 13m0-13-13 13"/></>,
     logout: <><path d="M10 4H5v16h5M14 8l4 4-4 4m4-4H9"/></>,
     arrow: <><path d="m9 18 6-6-6-6"/></>,
+    bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></>,
   };
   return <svg {...common}>{paths[name]}</svg>;
 }

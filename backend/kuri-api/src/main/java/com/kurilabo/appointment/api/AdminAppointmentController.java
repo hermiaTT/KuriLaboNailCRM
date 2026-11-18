@@ -79,6 +79,24 @@ public class AdminAppointmentController {
         return appointmentService.reject(currentUserId(authentication), appointmentId, request.reason());
     }
 
+    @PostMapping("/{appointmentId}/complete")
+    AppointmentResponse complete(
+            JwtAuthenticationToken authentication,
+            @PathVariable UUID appointmentId,
+            @Valid @RequestBody ReviewAppointmentRequest request
+    ) {
+        return appointmentService.complete(currentUserId(authentication), appointmentId, request.reason());
+    }
+
+    @PostMapping("/{appointmentId}/no-show")
+    AppointmentResponse markNoShow(
+            JwtAuthenticationToken authentication,
+            @PathVariable UUID appointmentId,
+            @Valid @RequestBody ReviewAppointmentRequest request
+    ) {
+        return appointmentService.markNoShow(currentUserId(authentication), appointmentId, request.reason());
+    }
+
     @PostMapping("/{appointmentId}/cancellation-requests/approve")
     AppointmentResponse approveCancellation(
             JwtAuthenticationToken authentication,

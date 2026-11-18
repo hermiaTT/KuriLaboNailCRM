@@ -21,6 +21,7 @@ import com.kurilabo.availability.domain.SalonSetting;
 import com.kurilabo.availability.application.ScheduleLockService;
 import com.kurilabo.outbox.domain.OutboxEvent;
 import com.kurilabo.outbox.infrastructure.OutboxEventRepository;
+import com.kurilabo.notification.application.NotificationService;
 import com.kurilabo.servicecatalog.domain.ServiceDefinition;
 import com.kurilabo.shared.error.ApiException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -50,6 +51,7 @@ public class AppointmentService {
     private final OutboxEventRepository outboxEventRepository;
     private final ScheduleLockService scheduleLockService;
     private final Clock clock;
+    private final NotificationService notificationService;
 
     public AppointmentService(
             AppointmentRepository appointmentRepository,
@@ -59,7 +61,8 @@ public class AppointmentService {
             AvailabilityService availabilityService,
             OutboxEventRepository outboxEventRepository,
             ScheduleLockService scheduleLockService,
-            Clock clock
+            Clock clock,
+            NotificationService notificationService
     ) {
         this.appointmentRepository = appointmentRepository;
         this.historyRepository = historyRepository;
@@ -69,6 +72,7 @@ public class AppointmentService {
         this.outboxEventRepository = outboxEventRepository;
         this.scheduleLockService = scheduleLockService;
         this.clock = clock;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -119,6 +123,8 @@ public class AppointmentService {
                 eventPayload(appointment),
                 now
         ));
+        notificationService.notifyAdmins("BOOKING_REQUEST", "New booking request",
+                "A client requested " + appointment.getServiceNameSnapshot() + ".", appointment.getId());
         return AppointmentResponse.from(appointment);
     }
 
@@ -178,6 +184,8 @@ public class AppointmentService {
                 eventPayload(appointment),
                 now
         ));
+        notificationService.notifyUser(customer, "APPOINTMENT_CREATED", "Appointment added",
+                "Kuri added a " + appointment.getServiceNameSnapshot() + " appointment to your schedule.", appointment.getId());
         return AdminAppointmentResponse.from(appointment);
     }
 
@@ -328,6 +336,8 @@ public class AppointmentService {
                 now,
                 "AppointmentCancellationRequestedV1"
         );
+        notificationService.notifyAdmins("CANCELLATION_REQUEST", "Cancellation requested",
+                "A client asked to cancel " + appointment.getServiceNameSnapshot() + ".", appointment.getId());
         return AppointmentResponse.from(appointment);
     }
 
@@ -352,6 +362,8 @@ public class AppointmentService {
                 now,
                 "AppointmentCancelledV1"
         );
+        notificationService.notifyUser(appointment.getCustomer(), "APPOINTMENT_CANCELLED", "Cancellation approved",
+                "Your appointment has been cancelled.", appointment.getId());
         return AppointmentResponse.from(appointment);
     }
 
@@ -376,6 +388,8 @@ public class AppointmentService {
                 now,
                 "AppointmentCancellationRejectedV1"
         );
+        notificationService.notifyUser(appointment.getCustomer(), "CANCELLATION_REJECTED", "Cancellation request updated",
+                "Your cancellation request was not approved. Please contact Kuri if you need help.", appointment.getId());
         return AppointmentResponse.from(appointment);
     }
 
@@ -391,6 +405,8 @@ public class AppointmentService {
             throw new ApiException(HttpStatus.CONFLICT, exception.getMessage());
         }
         recordReview(appointment, previous, reason, admin, now, "AppointmentConfirmedV1");
+        notificationService.notifyUser(appointment.getCustomer(), "APPOINTMENT_CONFIRMED", "Appointment confirmed",
+                "Your " + appointment.getServiceNameSnapshot() + " appointment is confirmed.", appointment.getId());
         return AppointmentResponse.from(appointment);
     }
 
@@ -406,6 +422,44 @@ public class AppointmentService {
             throw new ApiException(HttpStatus.CONFLICT, exception.getMessage());
         }
         recordReview(appointment, previous, reason, admin, now, "AppointmentRejectedV1");
+        notificationService.notifyUser(appointment.getCustomer(), "APPOINTMENT_REJECTED", "Booking request declined",
+                "Your booking request could not be confirmed. Please choose another time.", appointment.getId());
+        return AppointmentResponse.from(appointment);
+    }
+
+    @Transactional
+    public AppointmentResponse complete(UUID adminId, UUID appointmentId, String reason) {
+        AppUser admin = getUser(adminId);
+        Appointment appointment = getAppointment(appointmentId);
+        if (appointment.getEndAt().isAfter(clock.instant())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "An appointment can only be completed after it ends.");
+        }
+        AppointmentStatus previous = appointment.getStatus();
+        Instant now = clock.instant();
+        try {
+            appointment.complete(now);
+        } catch (IllegalStateException exception) {
+            throw new ApiException(HttpStatus.CONFLICT, exception.getMessage());
+        }
+        recordTransition(appointment, previous, reason, admin, now, "AppointmentCompletedV1");
+        return AppointmentResponse.from(appointment);
+    }
+
+    @Transactional
+    public AppointmentResponse markNoShow(UUID adminId, UUID appointmentId, String reason) {
+        AppUser admin = getUser(adminId);
+        Appointment appointment = getAppointment(appointmentId);
+        if (appointment.getStartAt().isAfter(clock.instant())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "A future appointment cannot be marked no-show.");
+        }
+        AppointmentStatus previous = appointment.getStatus();
+        Instant now = clock.instant();
+        try {
+            appointment.markNoShow(now);
+        } catch (IllegalStateException exception) {
+            throw new ApiException(HttpStatus.CONFLICT, exception.getMessage());
+        }
+        recordTransition(appointment, previous, reason, admin, now, "AppointmentNoShowRecordedV1");
         return AppointmentResponse.from(appointment);
     }
 

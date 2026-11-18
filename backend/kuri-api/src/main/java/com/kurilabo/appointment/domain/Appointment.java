@@ -178,6 +178,19 @@ public class Appointment {
         updatedAt = now;
     }
 
+    public void complete(Instant now) {
+        requireConfirmed();
+        status = AppointmentStatus.COMPLETED;
+        completedAt = now;
+        updatedAt = now;
+    }
+
+    public void markNoShow(Instant now) {
+        requireConfirmed();
+        status = AppointmentStatus.NO_SHOW;
+        updatedAt = now;
+    }
+
     public void updateVisitDetails(String serviceNotes, BigDecimal finalPrice, Instant now) {
         this.serviceNotes = serviceNotes;
         this.finalPrice = finalPrice;
@@ -202,6 +215,12 @@ public class Appointment {
     private void requirePending() {
         if (status != AppointmentStatus.PENDING_CONFIRMATION) {
             throw new IllegalStateException("Only a pending appointment can be reviewed.");
+        }
+    }
+
+    private void requireConfirmed() {
+        if (status != AppointmentStatus.CONFIRMED) {
+            throw new IllegalStateException("Only a confirmed appointment can be completed or marked no-show.");
         }
     }
 

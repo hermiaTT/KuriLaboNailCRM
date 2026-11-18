@@ -130,5 +130,19 @@ public class UserProfile {
         this.allergyNotes = allergyNotes;
         this.updatedAt = now;
     }
+
+    public void mergeMissingDetailsFrom(UserProfile guest, Instant now) {
+        if (birthday == null) birthday = guest.birthday;
+        if (isBlank(instagram)) instagram = guest.instagram;
+        if (isBlank(wechat)) wechat = guest.wechat;
+        if (isBlank(preferredNailStyle)) preferredNailStyle = guest.preferredNailStyle;
+        if (isBlank(allergyNotes)) allergyNotes = guest.allergyNotes;
+        if (!isBlank(guest.adminNotes)) {
+            adminNotes = isBlank(adminNotes) ? guest.adminNotes : adminNotes + "\n\nMerged guest notes:\n" + guest.adminNotes;
+        }
+        updatedAt = now;
+    }
+
+    private boolean isBlank(String value) { return value == null || value.isBlank(); }
 }
 

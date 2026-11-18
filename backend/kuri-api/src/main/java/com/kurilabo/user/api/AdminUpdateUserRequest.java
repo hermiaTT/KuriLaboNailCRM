@@ -11,7 +11,7 @@ import java.time.LocalDate;
 
 public record AdminUpdateUserRequest(
         @NotBlank @Size(max = 120) String name,
-        @NotBlank @Size(max = 40) String phone,
+        @Size(max = 40) String phone,
         @Past LocalDate birthday,
         @Size(max = 120) String instagram,
         @Size(max = 120) String wechat,

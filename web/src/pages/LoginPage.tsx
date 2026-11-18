@@ -52,6 +52,7 @@ export function LoginPage() {
           <button className="primary-button" disabled={submitting}>{submitting ? 'Signing in…' : 'Sign in'}</button>
         </form>
         <p className="login-help">New to Kuri Labo? <Link to="/register">Create your account</Link></p>
+        <p className="login-help password-help">Forgot your password? Contact Kuri for a temporary password.</p>
       </PaperCard>
     </div>
   );

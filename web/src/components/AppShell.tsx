@@ -3,6 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { Brand } from './UI';
 import { Icon } from './Icons';
+import { NotificationLink } from './NotificationLink';
 
 const navigation = [
   { to: '/', label: 'Home', icon: 'home' as const, end: true },
@@ -27,13 +28,14 @@ export function AppShell() {
             </NavLink>
           ))}
         </nav>
+        <div className="sidebar-notifications"><NotificationLink to="/notifications" /></div>
         <div className="sidebar-profile">
           <div className="avatar">{user?.name?.[0]?.toUpperCase() ?? 'K'}</div>
           <div><strong>{user?.name ?? 'Kuri'}</strong><small>administrator</small></div>
           <button onClick={() => void logout()} aria-label="Sign out"><Icon name="logout" /></button>
         </div>
       </aside>
-      <div className="mobile-admin-bar"><Brand /><div><span className="mini-avatar">{user?.name?.[0]?.toUpperCase() ?? 'K'}</span><button onClick={() => void logout()} aria-label="Sign out"><Icon name="logout" /></button></div></div>
+      <div className="mobile-admin-bar"><Brand /><div><NotificationLink to="/notifications" label={false} /><span className="mini-avatar">{user?.name?.[0]?.toUpperCase() ?? 'K'}</span><button onClick={() => void logout()} aria-label="Sign out"><Icon name="logout" /></button></div></div>
       <main className="content"><Outlet /></main>
       <nav className="mobile-nav">
         {navigation.slice(0, 5).map((item) => (

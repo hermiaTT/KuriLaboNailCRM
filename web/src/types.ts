@@ -25,6 +25,15 @@ export type AdminUser = {
   createdAt: string;
 };
 
+export type AdminUserDetail = AdminUser & {
+  birthday: string | null;
+  instagram: string | null;
+  wechat: string | null;
+  preferredNailStyle: string | null;
+  allergyNotes: string | null;
+  adminNotes: string | null;
+};
+
 export type Appointment = {
   id: string;
   customerId: string;
@@ -109,4 +118,14 @@ export type NailSet = {
   createdAt: string;
   favorited: boolean;
   images: NailSetImage[];
+};
+
+export type AppNotification = {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  appointmentId: string | null;
+  read: boolean;
+  createdAt: string;
 };

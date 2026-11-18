@@ -108,5 +108,13 @@ public class AppUser {
         this.status = status;
         this.updatedAt = now;
     }
+
+    public void updatePassword(String passwordHash, Instant now) {
+        if (accountType != AccountType.REGISTERED) {
+            throw new IllegalStateException("Guest clients do not have passwords.");
+        }
+        this.passwordHash = passwordHash;
+        this.updatedAt = now;
+    }
 }
 

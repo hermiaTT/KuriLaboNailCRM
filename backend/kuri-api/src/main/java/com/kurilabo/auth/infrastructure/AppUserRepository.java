@@ -4,6 +4,7 @@ import com.kurilabo.auth.domain.AppUser;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.kurilabo.auth.domain.UserRole;
+import com.kurilabo.auth.domain.UserStatus;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,5 +16,6 @@ public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
     boolean existsByEmailIgnoreCase(String email);
 
     List<AppUser> findByRoleOrderByCreatedAtDesc(UserRole role);
+    List<AppUser> findByRoleAndStatus(UserRole role, UserStatus status);
 }
 

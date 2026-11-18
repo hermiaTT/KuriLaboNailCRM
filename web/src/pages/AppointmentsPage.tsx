@@ -108,6 +108,22 @@ export function AppointmentsPage() {
     }
   }
 
+  async function closeVisit(appointment: Appointment, action: 'complete' | 'no-show') {
+    setBusy(appointment.id);
+    setError(null);
+    try {
+      const updated = await api<Appointment>(`/api/v1/admin/appointments/${appointment.id}/${action}`, {
+        method: 'POST',
+        body: JSON.stringify({ reason: action === 'complete' ? 'Completed from web workspace' : 'Marked no-show from web workspace' }),
+      });
+      setAppointments((current) => current.map((item) => item.id === updated.id ? { ...item, ...updated } : item));
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : `Unable to ${action === 'complete' ? 'complete' : 'mark no-show for'} this appointment.`);
+    } finally {
+      setBusy(null);
+    }
+  }
+
   function openDetails(appointment: AdminAppointment) {
     setSelected(appointment);
     setPrice(appointment.finalPrice == null ? '' : Number(appointment.finalPrice).toFixed(2));
@@ -175,6 +191,12 @@ export function AppointmentsPage() {
                   <button className="confirm cancel-approve" disabled={busy === appointment.id} onClick={() => void reviewCancellation(appointment, 'approve')}>Approve cancellation</button>
                 </div>
               )}
+              {appointment.status === 'CONFIRMED' && new Date(appointment.startAt).getTime() <= Date.now() && (
+                <div className="row-actions">
+                  <button disabled={busy === appointment.id} onClick={() => void closeVisit(appointment, 'no-show')}>No show</button>
+                  <button className="confirm" disabled={busy === appointment.id || new Date(appointment.endAt).getTime() > Date.now()} onClick={() => void closeVisit(appointment, 'complete')}>Complete</button>
+                </div>
+              )}
             </article>
           );
         })}
@@ -186,7 +208,7 @@ export function AppointmentsPage() {
           <h2>Record a past visit</h2>
           <p className="modal-subtitle">This creates a completed client history record and does not block the schedule.</p>
           <form onSubmit={recordHistory}>
-            <label>Client<select name="customerId" required defaultValue=""><option value="" disabled>Select a client</option>{clients.filter((client) => client.role === 'USER').map((client) => <option key={client.id} value={client.id}>{client.name} · {client.phone}</option>)}</select></label>
+            <label>Client<select name="customerId" required defaultValue=""><option value="" disabled>Select a client</option>{clients.filter((client) => client.role === 'USER').map((client) => <option key={client.id} value={client.id}>{client.name} · {client.phone || 'No phone'}</option>)}</select></label>
             <label>Service<select value={historyServiceId} onChange={(event) => setHistoryServiceId(event.target.value)} required>{services.map((service) => <option key={service.id} value={service.id}>{service.name}{service.active ? '' : ' · archived'}</option>)}<option value="CUSTOM">Custom / legacy service</option></select></label>
             {historyServiceId === 'CUSTOM' && <label>Service name<input name="customServiceName" maxLength={120} placeholder="Legacy gel set" required /></label>}
             <label>Visit date<input name="date" type="date" defaultValue={addDays(todayInSalon(), -1)} max={todayInSalon()} required /></label>
