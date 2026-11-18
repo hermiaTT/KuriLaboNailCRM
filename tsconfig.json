@@ -3,5 +3,5 @@
   "compilerOptions": {
     "strict": true
   },
-  "exclude": ["rn-port", "node_modules"]
+  "exclude": ["node_modules", "web", "backend", "infrastructure"]
 }

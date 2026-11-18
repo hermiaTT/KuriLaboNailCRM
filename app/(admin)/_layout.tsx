@@ -90,6 +90,7 @@ export default function AdminTabsLayout() {
         }}
       />
       <Tabs.Screen name="client/[id]" options={{ href: null }} />
+      <Tabs.Screen name="notifications" options={{ href: null }} />
     </Tabs>
   );
 }

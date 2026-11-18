@@ -30,7 +30,8 @@ import {
   typeScale,
 } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { api, ApiError } from '../../lib/api';
+import type { CurrentProfile } from '../../types/api';
 
 function formatDisplay(d: Date): string {
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -43,11 +44,12 @@ function formatDb(d: Date): string {
 export default function EditProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { profile: authProfile } = useAuth();
+  const { refreshUser } = useAuth();
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [instagram, setInstagram] = useState('');
+  const [wechat, setWechat] = useState('');
   const [preferredStyle, setPreferredStyle] = useState('');
   const [allergyNotes, setAllergyNotes] = useState('');
   const [birthday, setBirthday] = useState<Date | null>(null);
@@ -58,50 +60,47 @@ export default function EditProfileScreen() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authProfile?.id) return;
-    supabase
-      .from('profiles')
-      .select('name, phone, birthday, instagram, preferred_nail_style, allergy_notes')
-      .eq('id', authProfile.id)
-      .single()
-      .then(({ data }) => {
-        if (data) {
-          setName(data.name ?? '');
-          setPhone(data.phone ?? '');
-          setInstagram(data.instagram ?? '');
-          setPreferredStyle(data.preferred_nail_style ?? '');
-          setAllergyNotes(data.allergy_notes ?? '');
-          if (data.birthday) setBirthday(new Date(data.birthday + 'T00:00:00'));
-        }
-        setFetching(false);
-      });
-  }, [authProfile?.id]);
+    api<CurrentProfile>('/api/v1/users/me')
+      .then((data) => {
+        setName(data.name ?? '');
+        setPhone(data.phone ?? '');
+        setInstagram(data.instagram ?? '');
+        setWechat(data.wechat ?? '');
+        setPreferredStyle(data.preferredNailStyle ?? '');
+        setAllergyNotes(data.allergyNotes ?? '');
+        if (data.birthday) setBirthday(new Date(data.birthday + 'T00:00:00'));
+      })
+      .catch((cause) => setError(cause instanceof ApiError ? cause.message : 'Unable to load your profile.'))
+      .finally(() => setFetching(false));
+  }, []);
 
   async function handleSave() {
-    if (!name.trim()) {
-      setError('Name is required.');
+    if (!name.trim() || !phone.trim()) {
+      setError('Name and phone number are required.');
       return;
     }
     setError(null);
     setSaving(true);
 
-    const { error: dbError } = await supabase
-      .from('profiles')
-      .update({
+    try {
+      await api<CurrentProfile>('/api/v1/users/me', {
+        method: 'PUT',
+        body: JSON.stringify({
         name: name.trim(),
-        phone: phone.trim() || null,
+        phone: phone.trim(),
         instagram: instagram.trim() || null,
-        preferred_nail_style: preferredStyle.trim() || null,
-        allergy_notes: allergyNotes.trim() || null,
+        wechat: wechat.trim() || null,
+        preferredNailStyle: preferredStyle.trim() || null,
+        allergyNotes: allergyNotes.trim() || null,
         birthday: birthday ? formatDb(birthday) : null,
-      })
-      .eq('id', authProfile!.id);
-
-    setSaving(false);
-    if (dbError) {
-      setError(dbError.message);
-    } else {
+        }),
+      });
+      await refreshUser();
       router.back();
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : 'Unable to save your profile.');
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -154,7 +153,7 @@ export default function EditProfileScreen() {
               <View style={{ gap: 12 }}>
                 <Field placeholder="Name" value={name} onChangeText={setName} />
                 <Field
-                  placeholder="Phone (optional)"
+                  placeholder="Phone number"
                   keyboardType="phone-pad"
                   value={phone}
                   onChangeText={setPhone}
@@ -164,6 +163,12 @@ export default function EditProfileScreen() {
                   autoCapitalize="none"
                   value={instagram}
                   onChangeText={setInstagram}
+                />
+                <Field
+                  placeholder="WeChat (optional)"
+                  autoCapitalize="none"
+                  value={wechat}
+                  onChangeText={setWechat}
                 />
 
                 {/* Birthday picker */}

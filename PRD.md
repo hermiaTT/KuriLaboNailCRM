@@ -565,20 +565,21 @@ Kuri Labo 的 UI 风格应强调：
 
 ### 后端 / 数据库
 
-推荐使用 Supabase：
+使用统一的自建后端：
 
-- Supabase Auth
+- Spring Boot REST API
 - PostgreSQL
-- Supabase Storage
+- JWT access / refresh token authentication
+- S3-compatible object storage
 
 优点：
 
-- 注册登录简单
-- 图片上传方便
-- 非常适合 mobile app MVP
+- 网页端与移动端共享同一套业务规则
+- 登录、预约并发和权限控制集中在后端
+- 图片通过统一媒体接口上传和访问
 - SQL 数据结构清晰
 - 后续扩展性好
-- 很适合 vibe coding workflow
+- 可逐步加入 outbox、Kafka 和独立 worker
 
 ---
 
@@ -637,7 +638,8 @@ Tech stack:
 - Expo
 - TypeScript
 - Expo Router
-- Supabase
+- Spring Boot API
+- PostgreSQL
 
 The app has two roles:
 - user

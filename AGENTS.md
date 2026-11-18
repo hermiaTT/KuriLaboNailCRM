@@ -21,17 +21,14 @@ Current V2 stack:
 - Kafka introduced through the transactional outbox after the synchronous core is stable
 - S3-compatible object storage for media; MinIO is used in local development
 
-Supabase is legacy-only during the migration. Do not add new Supabase integrations. New mobile and web functionality must access data through the Spring Boot API. Preserve the existing Expo UI while migrating it incrementally.
+All mobile and web functionality accesses data through the Spring Boot API. Preserve the existing Expo UI while extending the product.
 
 Kuri Labo is now a multi-client product: the iOS-first mobile app remains important, and a responsive React web version is also required.
 
 ## Product Overview
 
-Kuri Labo is an iOS-first mobile app for nail salon CRM and booking management.
-
-This is NOT a web app.
-
-The project should be built using React Native + Expo.
+Kuri Labo is an iOS-first nail salon CRM and booking product. The Expo mobile
+app and React web app share the same Spring Boot API and PostgreSQL database.
 
 ---
 
@@ -41,13 +38,14 @@ The project should be built using React Native + Expo.
 - Expo
 - TypeScript
 - Expo Router
-- Supabase
+- Spring Boot API
+- PostgreSQL
 
 ---
 # Design Implementation Rules
 
 
-Use PRD.md as the source of truth for product logic:
+Use `docs/REQUIREMENTS_V2.md` as the source of truth for product logic:
 - product requirements
 - booking rules
 - appointment statuses
@@ -58,7 +56,7 @@ Use PRD.md as the source of truth for product logic:
 
 Precedence rules:
 - Do not blindly copy the Figma prototype.
-- If Figma conflicts with PRD.md, PRD.md wins for product logic.
+- If Figma conflicts with `docs/REQUIREMENTS_V2.md`, the requirements win for product logic.
 - If Figma conflicts with AGENTS.md, AGENTS.md wins for development rules.
 - Adapt the Figma style cleanly into the real Kuri Labo app.
 - Keep implementation modular, maintainable, and consistent with the existing React Native + Expo Router structure.
@@ -67,7 +65,7 @@ Precedence rules:
 ## Design Source of Truth
 
 
-- PRD.md defines product logic
+- `docs/REQUIREMENTS_V2.md` defines product logic
 - AGENTS.md defines engineering and design rules
 
 If there is conflict:
@@ -108,15 +106,9 @@ If there is conflict:
 # Booking UI Rules
 
 - The Book screen should use a calendar / schedule format.
-- Business hours are 10:00 AM - 7:00 PM.
-- Users must be able to select future booking dates beyond the immediately visible week; do not limit booking UI to only the next 5 days.
-- Each day has exactly 3 booking time blocks in MVP:
-  1. 10:00 AM - 1:00 PM
-  2. 1:00 PM - 4:00 PM
-  3. 4:00 PM - 7:00 PM
-- Available blocks should be visually clear and tappable.
-- Booked blocks should be gray and disabled.
-- Blocked blocks should also be disabled.
+- Load business hours, services, duration, and available start times from the Spring Boot API.
+- Users must be able to select future dates beyond the immediately visible week.
+- Available times should be visually clear and tappable; occupied and blocked times are disabled.
 - Keep the Book screen cute, minimal, pastel, and iOS-first.
 - Do not use a dense enterprise calendar UI.
 
@@ -208,54 +200,44 @@ Avoid:
 
 # Development Rules
 
-- Build incrementally
-- Do not implement everything at once
-- Start with layouts and placeholder screens
-- Add backend logic later
-- Keep code easy to extend
+- Build incrementally.
+- Preserve the existing Expo UI while replacing legacy data access screen by screen.
+- Connect mobile functionality to the existing Spring Boot API.
+- Keep code easy to extend.
 
 ---
 
 # Backend Rules
 
-## Supabase
+## Spring Boot API
 
-- Use Supabase for all backend logic: auth, database, and image storage.
-- The Supabase project is already created and connected.
-- All DB access goes through `lib/supabase.ts` which exports the `supabase` client.
-- Never bypass RLS policies. All data access must respect row-level security.
-- Store images in Supabase Storage, not as base64 or local files.
+- Mobile and web clients must use the Spring Boot API for authentication and product data.
+- Mobile requests go through `lib/api.ts`; screens must not access PostgreSQL directly.
+- Store mobile access and refresh tokens in device storage and use `clientType: 'MOBILE'`.
+- Media uploads go through the API and are stored by the backend media service.
+- Do not add a second backend client or let screens access PostgreSQL directly.
 
 ## Auth
 
 - Auth state is managed in `context/AuthContext.tsx`.
-- Use `useAuth()` hook to access `session`, `profile`, `loading`, `signIn`, `signUp`, `signOut`.
-- Never access `supabase.auth` directly in screens — always go through `useAuth()`.
+- Use `useAuth()` to access `session`, `profile`, `loading`, `signIn`, `signUp`, and `signOut`.
+- Never call authentication endpoints directly from screens.
 - `profile.role` determines routing: `'user'` → user tabs, `'admin'` → admin tabs.
 - Auth redirects are handled in `app/_layout.tsx` (RootNavigator) via `useEffect` watching `session` + `profile`.
 - Do not add manual navigation after sign in/sign up — the layout handles it automatically.
 
 ## Database Schema
 
-Tables (all in `public` schema, all with RLS enabled):
-- `profiles` — extends `auth.users`. Contains: id, name, phone, birthday, instagram, role, notes, preferred_nail_style, allergy_notes.
-- `nail_collection_items` — nail photos per user: user_id, image_url, date, description, tags[], show_in_inspiration.
-- `inspiration_images` — gallery: image_url, source_type ('customer'|'admin'), collection_item_id, title, tags[].
-- `available_slots` — bookable time blocks: date, start_time, end_time, status ('available'|'booked'|'blocked'), appointment_id.
-- `appointments` — bookings: user_id, slot_id, status ('pending'|'confirmed'|'cancelled'|'completed'), note.
-
-RLS summary:
-- `profiles`: all authenticated users can read; own row to update.
-- `nail_collection_items`: users see own + admin sees all; admin-only write.
-- `inspiration_images`: all authenticated can read; admin-only write.
-- `available_slots`: all authenticated can read; admin-only write.
-- `appointments`: users see own; admin sees all; users can insert own; admin can update/delete.
+- PostgreSQL schema changes are made only through Flyway migrations in
+  `backend/kuri-api/src/main/resources/db/migration`.
+- `docs/DATA_MODEL_V2.md` describes the current model.
+- Authorization is enforced by Spring Security on the API.
 
 ## Creating Admin Users
 
-Admin accounts are created manually:
-1. Register via the app (creates `role: 'user'` by default).
-2. Go to Supabase → Table Editor → `profiles` → change `role` to `'admin'`.
+The first administrator registers normally and is promoted by changing the
+corresponding PostgreSQL `app_user.role` to `ADMIN`. Existing administrators
+can manage later role changes through the admin client-management flow.
 
 ---
 
@@ -279,17 +261,16 @@ Admin:
 
 ## Development Phase Status
 
-- Phase 1 (Setup): ✅ Done
-- Phase 2 (Auth): ✅ Done — Supabase Auth connected, register/login/signOut working, role-based routing working
-- Phase 3 (User Pages): 🔄 In progress — UI done, needs Supabase data integration
-- Phase 4 (Admin Pages): 🔄 In progress — UI done, needs Supabase data integration
-- Phase 5 (Polish): ⏳ Not started
+- Spring Boot API, PostgreSQL, and React web deployment: ✅ Done
+- Expo UI: ✅ Existing
+- Expo API migration: 🔄 In progress
+- iOS device testing and polish: ⏳ Not started
 
 ---
 
 # Date Handling
 
-- All dates stored in Supabase as ISO format strings (`YYYY-MM-DD`).
+- Date-only API fields use ISO strings (`YYYY-MM-DD`).
 - Birthday uses the iOS native DateTimePicker (`@react-native-community/datetimepicker`, `display="spinner"`).
 - Format dates for display using `toLocaleDateString('en-US', ...)`.
 - Never store dates as full ISO timestamps (with time) for date-only fields.
@@ -298,6 +279,5 @@ Admin:
 
 # Important
 
-Do NOT create a Vite web app.
-
-Always prioritize mobile app architecture and iOS user experience.
+Always prioritize mobile app architecture and iOS user experience when working
+inside the Expo application. Keep the existing React web client intact.

@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   Image,
@@ -26,68 +26,42 @@ import {
   radius,
   spacing,
 } from '../../constants/theme';
-import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
-
-type NailImage = { id: string; image_url: string; display_order: number };
-type Collection = {
-  id: string;
-  title: string | null;
-  tags: string[] | null;
-  created_at: string;
-  nail_images: NailImage[];
-};
+import { api, mediaUrl } from '../../lib/api';
+import type { NailSet } from '../../types/api';
 
 const CARD_HEIGHTS = [220, 180, 240, 200, 240, 180, 220, 240];
 
 export default function InspirationScreen() {
-  const { session } = useAuth();
-  const [collections, setCollections] = useState<Collection[]>([]);
+  const router = useRouter();
+  const [collections, setCollections] = useState<NailSet[]>([]);
   const [loading, setLoading] = useState(true);
   const [cat, setCat] = useState('all');
   const [liked, setLiked] = useState<Record<string, boolean>>({});
-  const [activeCol, setActiveCol] = useState<Collection | null>(null);
+  const [activeCol, setActiveCol] = useState<NailSet | null>(null);
 
   useFocusEffect(
     useCallback(() => {
-      if (!session?.user.id) return;
       setLoading(true);
-      supabase
-        .from('collections')
-        .select('id, title, tags, created_at, nail_images(id, image_url, display_order)')
-        .or(`client_id.is.null,client_id.neq.${session.user.id}`)
-        .order('created_at', { ascending: false })
-        .then(({ data }) => {
-          setCollections(
-            (data ?? []).map((c: any) => ({
-              ...c,
-              nail_images: [...(c.nail_images ?? [])].sort(
-                (a: NailImage, b: NailImage) => a.display_order - b.display_order,
-              ),
-            })),
-          );
-          setLoading(false);
-        });
-    }, [session?.user.id]),
+      api<NailSet[]>('/api/v1/inspiration')
+        .then((data) => {
+          setCollections(data);
+          setLiked(Object.fromEntries(data.map((item) => [item.id, item.favorited])));
+        })
+        .finally(() => setLoading(false));
+    }, []),
   );
 
-  const allTags = Array.from(new Set(collections.flatMap(c => c.tags ?? [])));
   const CATEGORIES = [
     { id: 'all', label: 'all', count: collections.length },
-    ...allTags.map(t => ({
-      id: t,
-      label: t,
-      count: collections.filter(c => c.tags?.includes(t)).length,
-    })),
   ];
 
-  const filtered = cat === 'all' ? collections : collections.filter(c => c.tags?.includes(cat));
+  const filtered = collections;
   const leftCol = filtered.filter((_, i) => i % 2 === 0);
   const rightCol = filtered.filter((_, i) => i % 2 === 1);
 
   return (
     <Screen confettiIntensity={0.3}>
-      <ScreenHeader trailing={<Pressable style={styles.headerBtn}><Icons.Bell /></Pressable>} />
+      <ScreenHeader trailing={<Pressable style={styles.headerBtn} onPress={() => router.push('/(user)/notifications')}><Icons.Bell /></Pressable>} />
 
       <EyebrowTitle
         eyebrow="for your next visit"
@@ -143,7 +117,7 @@ export default function InspirationScreen() {
               {col.map((c, i) => {
                 const rot =
                   (ci + i) % 3 === 0 ? '-0.8deg' : (ci + i) % 3 === 1 ? '0.7deg' : '0deg';
-                const cover = c.nail_images[0];
+                const cover = c.images[0];
                 const h = CARD_HEIGHTS[(ci * 10 + i) % CARD_HEIGHTS.length];
 
                 return (
@@ -155,23 +129,26 @@ export default function InspirationScreen() {
                     <HandRect padding={0} radius={radius.md} style={{ overflow: 'hidden' }}>
                       <View style={[styles.imgBox, { height: h }]}>
                         <Image
-                          source={{ uri: cover?.image_url }}
+                          source={{ uri: cover?.url ? mediaUrl(cover.url) : undefined }}
                           style={StyleSheet.absoluteFill}
                           resizeMode="cover"
                         />
 
-                        {c.nail_images.length > 1 && (
+                        {c.images.length > 1 && (
                           <View style={styles.countBadge}>
-                            <Text style={styles.countText}>1 / {c.nail_images.length}</Text>
+                            <Text style={styles.countText}>1 / {c.images.length}</Text>
                           </View>
                         )}
 
                         <Pressable
                           style={styles.heartBtn}
                           hitSlop={8}
-                          onPress={() =>
-                            setLiked(prev => ({ ...prev, [c.id]: !prev[c.id] }))
-                          }
+                          onPress={() => {
+                            const next = !liked[c.id];
+                            setLiked(prev => ({ ...prev, [c.id]: next }));
+                            api(`/api/v1/inspiration/${c.id}/favorite`, { method: next ? 'POST' : 'DELETE' })
+                              .catch(() => setLiked(prev => ({ ...prev, [c.id]: !next })));
+                          }}
                         >
                           <Icons.Heart
                             color={liked[c.id] ? colors.pinkInk : colors.ink}
@@ -185,9 +162,7 @@ export default function InspirationScreen() {
                         <Text style={styles.cardTitle} numberOfLines={1}>
                           {c.title ?? 'Design'}
                         </Text>
-                        {c.tags?.[0] ? (
-                          <Text style={styles.cardTag}>#{c.tags[0]}</Text>
-                        ) : null}
+                        {c.description ? <Text style={styles.cardTag} numberOfLines={1}>{c.description}</Text> : null}
                       </View>
                     </HandRect>
                   </Pressable>
@@ -201,7 +176,7 @@ export default function InspirationScreen() {
       <NailCardModal
         visible={!!activeCol}
         onClose={() => setActiveCol(null)}
-        images={activeCol?.nail_images ?? []}
+        images={(activeCol?.images ?? []).map((image) => ({ id: image.id, image_url: mediaUrl(image.url) }))}
       />
     </Screen>
   );

@@ -20,39 +20,36 @@ import {
   spacing,
   typeScale,
 } from '../../constants/theme';
-import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { api, mediaUrl } from '../../lib/api';
+import type { StatusKey } from '../../constants/theme';
+import type { Appointment, NailSet, NailSetImage } from '../../types/api';
 
-type VisitImage = { id: string; image_url: string; display_order: number };
+type Visit = Appointment & { images: NailSetImage[] };
 
-type Visit = {
-  id: string;
-  status: string;
-  price: number | null;
-  service_notes: string | null;
-  date: string;
-  start_time: string;
-  end_time: string;
-  images: VisitImage[];
-};
-
-function fmtTime(t: string) {
-  const [h, m] = t.split(':');
-  const hour = parseInt(h, 10);
-  return `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`;
+function fmtTime(iso: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric', minute: '2-digit', timeZone: 'America/Vancouver',
+  }).format(new Date(iso));
 }
 
-function fmtDate(dateStr: string) {
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/Vancouver',
   });
 }
 
-function timeTag(dateStr: string, todayStr: string) {
-  if (dateStr === todayStr) return 'today';
-  return dateStr > todayStr ? 'upcoming' : 'past';
+function timeTag(iso: string) {
+  const start = new Date(iso).getTime();
+  if (Math.abs(start - Date.now()) < 24 * 60 * 60 * 1000) return 'today';
+  return start > Date.now() ? 'upcoming' : 'past';
+}
+
+function uiStatus(status: Appointment['status']): StatusKey {
+  if (status === 'CONFIRMED') return 'confirmed';
+  if (status === 'COMPLETED') return 'done';
+  if (status === 'NO_SHOW') return 'no_show';
+  if (status === 'CANCELLED' || status === 'REJECTED') return 'cancelled';
+  return 'pending';
 }
 
 /**
@@ -61,54 +58,35 @@ function timeTag(dateStr: string, todayStr: string) {
  */
 export default function AppointmentsScreen() {
   const router = useRouter();
-  const { session } = useAuth();
-
   const [loading, setLoading] = useState(true);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [activeVisit, setActiveVisit] = useState<Visit | null>(null);
 
   useFocusEffect(
     useCallback(() => {
-      if (!session?.user.id) return;
-      fetchAll(session.user.id);
-    }, [session?.user.id]),
+      fetchAll();
+    }, []),
   );
 
-  async function fetchAll(userId: string) {
+  async function fetchAll() {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('appointments')
-      .select('id, status, price, service_notes, date, start_time, end_time')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-    if (error) console.error('[UserAppointments] fetchAll error:', error);
-
-    const rows = (data ?? []).map((a: any) => ({
-      ...a,
-      images: [] as VisitImage[],
-    })) as Visit[];
-
-    const doneIds = rows.filter((v) => v.status === 'done').map((v) => v.id);
-    if (doneIds.length > 0) {
-      const { data: imgs } = await supabase
-        .from('appointment_images')
-        .select('id, appointment_id, image_url, display_order')
-        .in('appointment_id', doneIds)
-        .order('display_order', { ascending: true });
-
-      const byAppt: Record<string, VisitImage[]> = {};
-      for (const img of imgs ?? []) {
-        byAppt[img.appointment_id] = byAppt[img.appointment_id] || [];
-        byAppt[img.appointment_id].push(img);
-      }
-      for (const v of rows) v.images = byAppt[v.id] ?? [];
+    try {
+      const [appointments, nailSets] = await Promise.all([
+        api<Appointment[]>('/api/v1/appointments/me'),
+        api<NailSet[]>('/api/v1/nail-sets/mine'),
+      ]);
+      const imagesByAppointment = new Map(
+        nailSets.filter((item) => item.appointmentId).map((item) => [item.appointmentId!, item.images]),
+      );
+      setVisits(
+        appointments
+          .map((item) => ({ ...item, images: imagesByAppointment.get(item.id) ?? [] }))
+          .sort((a, b) => b.startAt.localeCompare(a.startAt)),
+      );
+    } finally {
+      setLoading(false);
     }
-
-    setVisits(rows);
-    setLoading(false);
   }
-
-  const todayStr = new Date().toISOString().split('T')[0];
 
   return (
     <Screen>
@@ -138,16 +116,16 @@ export default function AppointmentsScreen() {
               <HandRect key={v.id} padding={16} radius={radius.lg}>
                 <View style={styles.head}>
                   <View>
-                    <Text style={styles.date}>{fmtDate(v.date)}</Text>
+                    <Text style={styles.date}>{fmtDate(v.startAt)}</Text>
                     <Text style={styles.time}>
-                      {fmtTime(v.start_time)} – {fmtTime(v.end_time)}
+                      {fmtTime(v.startAt)} – {fmtTime(v.endAt)}
                     </Text>
                   </View>
-                  <StatusBadge status={v.status as any}/>
+                  <StatusBadge status={uiStatus(v.status)}/>
                 </View>
                 <View style={styles.divider}/>
                 <View style={styles.foot}>
-                  <Text style={styles.tag}>{timeTag(v.date, todayStr)}</Text>
+                  <Text style={styles.tag}>{timeTag(v.startAt)}</Text>
                   {hasImages && (
                     <Pressable style={styles.detailBtn} onPress={() => setActiveVisit(v)}>
                       <Text style={styles.detailText}>details</Text>
@@ -155,17 +133,13 @@ export default function AppointmentsScreen() {
                     </Pressable>
                   )}
                 </View>
-                {v.status === 'done' && (
+                {v.status === 'COMPLETED' && hasImages && (
                   <View style={styles.doneInfo}>
-                    {v.price != null && <Text style={styles.priceText}>${v.price}</Text>}
-                    {v.service_notes && <Text style={styles.noteText}>{v.service_notes}</Text>}
-                    {hasImages && (
-                      <Pressable style={styles.thumbRow} onPress={() => setActiveVisit(v)}>
-                        {v.images.slice(0, 4).map((img) => (
-                          <Image key={img.id} source={{ uri: img.image_url }} style={styles.thumb} />
-                        ))}
-                      </Pressable>
-                    )}
+                    <Pressable style={styles.thumbRow} onPress={() => setActiveVisit(v)}>
+                      {v.images.slice(0, 4).map((img) => (
+                        <Image key={img.id} source={{ uri: mediaUrl(img.url) }} style={styles.thumb} />
+                      ))}
+                    </Pressable>
                   </View>
                 )}
               </HandRect>
@@ -185,7 +159,7 @@ export default function AppointmentsScreen() {
       <NailCardModal
         visible={!!activeVisit}
         onClose={() => setActiveVisit(null)}
-        images={activeVisit?.images ?? []}
+        images={(activeVisit?.images ?? []).map((image) => ({ id: image.id, image_url: mediaUrl(image.url) }))}
       />
     </Screen>
   );

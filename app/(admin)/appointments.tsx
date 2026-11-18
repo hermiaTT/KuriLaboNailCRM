@@ -1,410 +1,153 @@
-import * as FileSystem from 'expo-file-system/legacy';
-import * as ImagePicker from 'expo-image-picker';
-import React, { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
-import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import {
-  Doodle,
-  EyebrowTitle,
-  Field,
-  HandButton,
-  HandChip,
-  HandRect,
-  Icons,
-  NailCardModal,
-  Screen,
-  ScreenHeader,
-  StatusBadge,
-} from '../../components/ui';
-import {
-  colors,
-  fonts,
-  letterSpacing,
-  radius,
-  spacing,
-  typeScale,
-} from '../../constants/theme';
-import { supabase, supabaseAnonKey, supabaseUrl } from '../../lib/supabase';
+import { Doodle, EyebrowTitle, Field, HandButton, HandChip, HandRect, Screen, ScreenHeader, StatusBadge } from '../../components/ui';
+import { colors, fonts, letterSpacing, radius, spacing, typeScale, type StatusKey } from '../../constants/theme';
+import { api, ApiError } from '../../lib/api';
+import type { AdminAppointment, AdminUser, Appointment } from '../../types/api';
 
-const FILTERS = [
-  { id: 'today',    label: 'today' },
-  { id: 'pending',  label: 'pending' },
-  { id: 'upcoming', label: 'upcoming' },
-  { id: 'past',     label: 'past' },
-] as const;
+type Filter = 'ALL' | Appointment['status'];
 
-type FilterId = typeof FILTERS[number]['id'];
-type ApptImage = { id: string; image_url: string; display_order: number };
-type Appt = {
-  id: string;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'no_show' | 'done';
-  price: number | null;
-  serviceNotes: string | null;
-  clientName: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  images: ApptImage[];
-};
-
-const STORAGE_BUCKET = 'images';
-
-function fmtTime(t: string) {
-  const [h, m] = t.split(':');
-  const hour = parseInt(h, 10);
-  return `${hour % 12 || 12}:${m}${hour >= 12 ? 'PM' : 'AM'}`;
+function uiStatus(status: Appointment['status']): StatusKey {
+  if (status === 'CONFIRMED') return 'confirmed';
+  if (status === 'COMPLETED') return 'done';
+  if (status === 'NO_SHOW') return 'no_show';
+  if (status === 'CANCELLED' || status === 'REJECTED') return 'cancelled';
+  return 'pending';
 }
 
-function timeTag(dateStr: string, todayStr: string) {
-  if (dateStr === todayStr) return 'today';
-  return dateStr > todayStr ? 'upcoming' : 'past';
+function dateLabel(iso: string) {
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/Vancouver' }).format(new Date(iso));
+}
+
+function timeLabel(iso: string) {
+  return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Vancouver' }).format(new Date(iso));
 }
 
 export default function AdminAppointmentsScreen() {
-  const [filter, setFilter] = useState<FilterId>('today');
+  const [appointments, setAppointments] = useState<AdminAppointment[]>([]);
+  const [clients, setClients] = useState<AdminUser[]>([]);
+  const [filter, setFilter] = useState<Filter>('ALL');
   const [loading, setLoading] = useState(true);
-  const [appts, setAppts] = useState<Appt[]>([]);
-  const [activeImages, setActiveImages] = useState<ApptImage[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<AdminAppointment | null>(null);
+  const [price, setPrice] = useState('');
+  const [notes, setNotes] = useState('');
 
-  // Mark-done modal state
-  const [markDoneTarget, setMarkDoneTarget] = useState<Appt | null>(null);
-  const [mdPrice, setMdPrice] = useState('');
-  const [mdNote, setMdNote] = useState('');
-  const [mdImages, setMdImages] = useState<{ uri: string }[]>([]);
-  const [mdSaving, setMdSaving] = useState(false);
-  const [mdProgress, setMdProgress] = useState<{ done: number; total: number } | null>(null);
-  const [mdError, setMdError] = useState<string | null>(null);
-
-  const todayStr = new Date().toISOString().split('T')[0];
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchAll();
-    }, []),
-  );
-
-  async function fetchAll() {
+  const load = useCallback(() => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('appointments')
-      .select('id, status, price, service_notes, date, start_time, end_time, profiles(name)')
-      .order('created_at', { ascending: false });
-    if (error) console.error('[AdminAppointments] fetchAll error:', error);
+    Promise.all([
+      api<AdminAppointment[]>('/api/v1/admin/appointments'),
+      api<AdminUser[]>('/api/v1/admin/users'),
+    ])
+      .then(([items, users]) => {
+        setAppointments(items.sort((a, b) => b.startAt.localeCompare(a.startAt)));
+        setClients(users);
+      })
+      .catch(() => setError('Unable to load appointments.'))
+      .finally(() => setLoading(false));
+  }, []);
 
-    const rows: Appt[] = (data ?? []).map((a: any) => ({
-      id: a.id,
-      status: a.status,
-      price: a.price,
-      serviceNotes: a.service_notes,
-      clientName: Array.isArray(a.profiles) ? (a.profiles[0]?.name ?? '—') : (a.profiles?.name ?? '—'),
-      date: a.date,
-      startTime: a.start_time,
-      endTime: a.end_time,
-      images: [],
-    }));
+  useFocusEffect(load);
+  const names = useMemo(() => new Map(clients.map((client) => [client.id, client.name])), [clients]);
+  const visible = filter === 'ALL' ? appointments : appointments.filter((item) => item.status === filter);
 
-    const doneIds = rows.filter((r) => r.status === 'done').map((r) => r.id);
-    if (doneIds.length > 0) {
-      const { data: imgs } = await supabase
-        .from('appointment_images')
-        .select('id, appointment_id, image_url, display_order')
-        .in('appointment_id', doneIds)
-        .order('display_order', { ascending: true });
-
-      const byAppt: Record<string, ApptImage[]> = {};
-      for (const img of (imgs ?? []) as any[]) {
-        byAppt[img.appointment_id] = byAppt[img.appointment_id] || [];
-        byAppt[img.appointment_id].push(img);
-      }
-      for (const r of rows) r.images = byAppt[r.id] ?? [];
-    }
-
-    setAppts(rows);
-    setLoading(false);
-  }
-
-  const display = appts.filter((a) => {
-    if (filter === 'pending') return a.status === 'pending';
-    if (filter === 'today') return a.date === todayStr;
-    if (filter === 'upcoming') return a.date > todayStr;
-    return a.date < todayStr;
-  });
-
-  async function handleConfirm(id: string) {
-    await supabase.from('appointments').update({ status: 'confirmed' }).eq('id', id);
-    fetchAll();
-  }
-
-  async function handleNoShow(id: string) {
-    await supabase.from('appointments').update({ status: 'no_show' }).eq('id', id);
-    fetchAll();
-  }
-
-  function openMarkDone(appt: Appt) {
-    setMarkDoneTarget(appt);
-    setMdPrice(appt.price != null ? String(appt.price) : '');
-    setMdNote(appt.serviceNotes ?? '');
-    setMdImages([]);
-    setMdError(null);
-  }
-
-  function closeMarkDone() {
-    if (mdSaving) return;
-    setMarkDoneTarget(null);
-  }
-
-  async function pickImages() {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      setMdError('Photo library access is required to pick images.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsMultipleSelection: true,
-      quality: 0.85,
-      orderedSelection: true,
-    });
-    if (!result.canceled && result.assets.length > 0) {
-      setMdImages((prev) => {
-        const incoming = result.assets.map((a) => ({ uri: a.uri }));
-        const all = [...prev, ...incoming];
-        return all.filter((img, i) => all.findIndex((x) => x.uri === img.uri) === i);
-      });
-      setMdError(null);
-    }
-  }
-
-  function removeImage(uri: string) {
-    setMdImages((prev) => prev.filter((img) => img.uri !== uri));
-  }
-
-  async function uploadOne(image: { uri: string }, index: number): Promise<string> {
-    const ext = image.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
-    const mimeType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`;
-    const storagePath = `appointments/${Date.now()}_${index}.${ext}`;
-
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token ?? supabaseAnonKey;
-
-    const uploadResult = await FileSystem.uploadAsync(
-      `${supabaseUrl}/storage/v1/object/${STORAGE_BUCKET}/${storagePath}`,
-      image.uri,
-      {
-        httpMethod: 'POST',
-        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          apikey: supabaseAnonKey,
-          'Content-Type': mimeType,
-        },
-      },
-    );
-
-    if (uploadResult.status !== 200) {
-      throw new Error(`Storage [${index + 1}]: ${uploadResult.body}`);
-    }
-
-    const { data: urlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(storagePath);
-    return urlData.publicUrl;
-  }
-
-  async function submitMarkDone() {
-    if (!markDoneTarget) return;
-    setMdError(null);
-
-    const priceValue = mdPrice.trim() ? Number(mdPrice.trim()) : null;
-    if (priceValue != null && Number.isNaN(priceValue)) {
-      setMdError('Price must be a number.');
-      return;
-    }
-
-    setMdSaving(true);
+  async function action(item: AdminAppointment, endpoint: string, reason: string) {
+    setBusy(item.id);
+    setError(null);
     try {
-      if (mdImages.length > 0) {
-        setMdProgress({ done: 0, total: mdImages.length });
-        for (let i = 0; i < mdImages.length; i++) {
-          const publicUrl = await uploadOne(mdImages[i], i);
-          const { error: imgErr } = await supabase
-            .from('appointment_images')
-            .insert({ appointment_id: markDoneTarget.id, image_url: publicUrl, display_order: i });
-          if (imgErr) throw new Error(`Photo [${i + 1}]: ${imgErr.message}`);
-          setMdProgress({ done: i + 1, total: mdImages.length });
-        }
-      }
-
-      const { error: updateErr } = await supabase
-        .from('appointments')
-        .update({ status: 'done', price: priceValue, service_notes: mdNote.trim() || null })
-        .eq('id', markDoneTarget.id);
-      if (updateErr) throw new Error(updateErr.message);
-
-      setMarkDoneTarget(null);
-      fetchAll();
-    } catch (e: any) {
-      setMdError(e.message ?? 'Something went wrong.');
+      const updated = await api<Appointment>(`/api/v1/admin/appointments/${item.id}/${endpoint}`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      });
+      setAppointments((current) => current.map((row) => row.id === updated.id ? { ...row, ...updated } : row));
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : 'Unable to update this appointment.');
     } finally {
-      setMdSaving(false);
-      setMdProgress(null);
+      setBusy(null);
     }
   }
+
+  function openDetails(item: AdminAppointment) {
+    setSelected(item);
+    setPrice(item.finalPrice == null ? '' : String(item.finalPrice));
+    setNotes(item.serviceNotes ?? '');
+  }
+
+  async function saveDetails() {
+    if (!selected) return;
+    setBusy(selected.id);
+    try {
+      const updated = await api<AdminAppointment>(`/api/v1/admin/appointments/${selected.id}/visit-details`, {
+        method: 'PUT',
+        body: JSON.stringify({ finalPrice: price.trim() ? Number(price) : null, serviceNotes: notes.trim() || null }),
+      });
+      setAppointments((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setSelected(null);
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : 'Unable to save visit details.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const filters: Filter[] = ['ALL', 'PENDING_CONFIRMATION', 'CONFIRMED', 'CANCELLATION_REQUESTED', 'COMPLETED'];
 
   return (
     <Screen>
-      <ScreenHeader/>
-      <EyebrowTitle
-        eyebrow="schedule"
-        title="Appointments"
-        trailing={<Doodle kind="sparkle" size={20} color={colors.blue} style={{ transform: [{ rotate: '-12deg' }] }}/>}
-      />
-
-      {/* Filter chips */}
-      <View style={styles.chipRow}>
-        {FILTERS.map((f) => (
-          <HandChip key={f.id} active={filter === f.id} onPress={() => setFilter(f.id)}>
-            {f.label}
-          </HandChip>
-        ))}
+      <ScreenHeader trailing={<Text style={styles.headerMeta}>{appointments.length} visits</Text>} />
+      <EyebrowTitle eyebrow="booking desk" title="Appointments" trailing={<Doodle kind="sparkle" size={20} color={colors.blue} />} />
+      <View style={styles.filters}>
+        {filters.map((value) => <HandChip key={value} active={filter === value} onPress={() => setFilter(value)}>{value === 'ALL' ? 'all' : value.toLowerCase().replaceAll('_', ' ')}</HandChip>)}
       </View>
-
-      {loading ? (
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator color={colors.pinkInk} />
-        </View>
-      ) : (
+      {error && <Text style={styles.error}>{error}</Text>}
+      {loading ? <ActivityIndicator color={colors.pinkInk} style={{ marginTop: 40 }} /> : (
         <View style={styles.list}>
-          {display.map((a) => {
-            const cover = a.images[0];
-            return (
-              <HandRect key={a.id} padding={16} radius={radius.lg}>
-                <View style={styles.row}>
-                  <View style={styles.dateBox}>
-                    <Text style={styles.dateMonth}>
-                      {new Date(a.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short' }).toLowerCase()}
-                    </Text>
-                    <Text style={styles.dateDay}>{new Date(a.date + 'T00:00:00').getDate()}</Text>
-                  </View>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={styles.client}>{a.clientName}</Text>
-                    <Text style={styles.time}>
-                      {fmtTime(a.startTime)} – {fmtTime(a.endTime)}
-                      {`  ·  ${timeTag(a.date, todayStr)}`}
-                    </Text>
-                  </View>
-                  <StatusBadge status={a.status as any}/>
+          {visible.map((item) => (
+            <HandRect key={item.id} padding={15} radius={radius.lg}>
+              <View style={styles.head}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.client}>{names.get(item.customerId) ?? 'Client'}</Text>
+                  <Text style={styles.when}>{dateLabel(item.startAt)} · {timeLabel(item.startAt)}–{timeLabel(item.endAt)}</Text>
+                  <Text style={styles.service}>{item.serviceName} · {item.durationMinutes} min</Text>
                 </View>
-                <View style={styles.divider}/>
-
-                {(a.status === 'done' || a.status === 'no_show') && (
-                  <View style={styles.summaryRow}>
-                    {cover ? (
-                      <Pressable onPress={() => setActiveImages(a.images)}>
-                        <Image source={{ uri: cover.image_url }} style={styles.thumb} />
-                      </Pressable>
-                    ) : null}
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      {a.price != null && <Text style={styles.priceText}>${a.price}</Text>}
-                      {a.serviceNotes ? <Text style={styles.noteText} numberOfLines={2}>{a.serviceNotes}</Text> : null}
-                      {a.images.length > 0 && (
-                        <Text style={styles.photoCount}>{a.images.length} photo{a.images.length !== 1 ? 's' : ''}</Text>
-                      )}
-                    </View>
-                  </View>
-                )}
-
-                <View style={styles.actions}>
-                  {a.status === 'pending' && (
-                    <HandButton size="sm" color={colors.pinkInk} onPress={() => handleConfirm(a.id)}>Confirm</HandButton>
-                  )}
-                  {a.status === 'confirmed' && (
-                    <>
-                      <HandButton size="sm" color={colors.blueInk} onPress={() => openMarkDone(a)}>Mark done</HandButton>
-                      <Pressable style={styles.noShowBtn} onPress={() => handleNoShow(a.id)}>
-                        <Text style={styles.noShowText}>no show</Text>
-                      </Pressable>
-                    </>
-                  )}
-                </View>
-              </HandRect>
-            );
-          })}
-
-          {display.length === 0 && (
-            <HandRect padding={24} radius={radius.lg} dashed style={{ alignItems: 'center' }}>
-              <Text style={styles.emptyText}>No visits here yet</Text>
+                <StatusBadge status={uiStatus(item.status)} />
+              </View>
+              {item.note && <Text style={styles.note}>“{item.note}”</Text>}
+              <View style={styles.actions}>
+                <Pressable onPress={() => openDetails(item)}><Text style={styles.actionText}>visit details</Text></Pressable>
+                {item.status === 'PENDING_CONFIRMATION' && <>
+                  <HandButton size="sm" color={colors.inkFaint} disabled={busy === item.id} onPress={() => action(item, 'reject', 'Rejected from iOS')}>Reject</HandButton>
+                  <HandButton size="sm" color={colors.pinkInk} disabled={busy === item.id} onPress={() => action(item, 'confirm', 'Confirmed from iOS')}>Confirm</HandButton>
+                </>}
+                {item.status === 'CANCELLATION_REQUESTED' && <>
+                  <HandButton size="sm" color={colors.inkFaint} disabled={busy === item.id} onPress={() => action(item, 'cancellation-requests/reject', 'Cancellation declined')}>Keep</HandButton>
+                  <HandButton size="sm" color={colors.pinkInk} disabled={busy === item.id} onPress={() => action(item, 'cancellation-requests/approve', 'Cancellation approved')}>Cancel</HandButton>
+                </>}
+                {item.status === 'CONFIRMED' && new Date(item.startAt).getTime() <= Date.now() && <>
+                  <HandButton size="sm" color={colors.inkFaint} disabled={busy === item.id} onPress={() => action(item, 'no-show', 'Marked no-show from iOS')}>No show</HandButton>
+                  <HandButton size="sm" color={colors.blueInk} disabled={busy === item.id || new Date(item.endAt).getTime() > Date.now()} onPress={() => action(item, 'complete', 'Completed from iOS')}>Complete</HandButton>
+                </>}
+              </View>
             </HandRect>
-          )}
+          ))}
+          {visible.length === 0 && <Text style={styles.empty}>No appointments in this view.</Text>}
         </View>
       )}
 
-      <NailCardModal
-        visible={!!activeImages}
-        onClose={() => setActiveImages(null)}
-        images={activeImages ?? []}
-      />
-
-      {/* Mark done modal */}
-      <Modal transparent visible={!!markDoneTarget} animationType="fade" onRequestClose={closeMarkDone}>
-        <Pressable style={styles.modalBg} onPress={closeMarkDone}>
-          <Pressable onPress={() => {}} style={{ width: '100%', maxWidth: 360 }}>
-            <HandRect padding={20} radius={radius.xl}>
-              <Text style={styles.modalTitle}>Mark visit done</Text>
-              <Text style={styles.modalSub}>{markDoneTarget?.clientName}</Text>
-
-              <View style={{ marginTop: 14, gap: 10 }}>
-                <Field
-                  placeholder="Price (e.g. 85)"
-                  value={mdPrice}
-                  onChangeText={setMdPrice}
-                  keyboardType="decimal-pad"
-                />
-                <Field
-                  placeholder="Note (optional)"
-                  value={mdNote}
-                  onChangeText={setMdNote}
-                  multiline
-                />
-
-                {mdImages.length > 0 ? (
-                  <View style={styles.thumbGrid}>
-                    {mdImages.map(({ uri }) => (
-                      <View key={uri} style={styles.thumbWrap}>
-                        <Image source={{ uri }} style={styles.thumbImg} resizeMode="cover" />
-                        <Pressable style={styles.removeBtn} onPress={() => removeImage(uri)} hitSlop={4}>
-                          <Text style={styles.removeBtnText}>✕</Text>
-                        </Pressable>
-                      </View>
-                    ))}
-                    <Pressable style={styles.addMoreTile} onPress={pickImages}>
-                      <Icons.Plus color={colors.inkSoft} size={20} />
-                    </Pressable>
-                  </View>
-                ) : (
-                  <Pressable onPress={pickImages}>
-                    <HandRect padding={0} radius={radius.md} dashed>
-                      <View style={styles.dropPlaceholder}>
-                        <Icons.Plus color={colors.inkSoft} size={24} />
-                        <Text style={styles.dropText}>Add photos (optional)</Text>
-                      </View>
-                    </HandRect>
-                  </Pressable>
-                )}
-
-                {mdProgress && (
-                  <Text style={styles.progressText}>Uploading {mdProgress.done} / {mdProgress.total}…</Text>
-                )}
-                {mdError && <Text style={styles.errorText}>{mdError}</Text>}
+      <Modal transparent visible={Boolean(selected)} animationType="fade" onRequestClose={() => setSelected(null)}>
+        <Pressable style={styles.backdrop} onPress={() => setSelected(null)}>
+          <Pressable style={styles.modal} onPress={() => undefined}>
+            <HandRect padding={22} radius={radius.xl}>
+              <Text style={styles.modalTitle}>Visit details</Text>
+              <Text style={styles.modalText}>Private pricing and notes are visible only to admins.</Text>
+              <View style={{ gap: 10, marginVertical: 16 }}>
+                <Field placeholder="Final price (CAD)" keyboardType="decimal-pad" value={price} onChangeText={setPrice} />
+                <Field placeholder="Internal service notes" multiline value={notes} onChangeText={setNotes} />
               </View>
-
-              <View style={styles.modalActions}>
-                <Pressable style={styles.cancelBtn} onPress={closeMarkDone} disabled={mdSaving}>
-                  <Text style={styles.cancelText}>cancel</Text>
-                </Pressable>
-                <HandButton color={colors.blueInk} onPress={submitMarkDone} disabled={mdSaving}>
-                  {mdSaving ? 'Saving…' : 'Save & mark done'}
-                </HandButton>
-              </View>
+              <HandButton color={colors.pinkInk} full disabled={busy === selected?.id} onPress={saveDetails}>Save details</HandButton>
             </HandRect>
           </Pressable>
         </Pressable>
@@ -414,102 +157,20 @@ export default function AdminAppointmentsScreen() {
 }
 
 const styles = StyleSheet.create({
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-  },
-  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
+  headerMeta: { fontFamily: fonts.mono, fontSize: typeScale.meta, color: colors.inkSoft, textTransform: 'uppercase' },
+  filters: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md, flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   list: { paddingHorizontal: spacing.lg, gap: 10 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  dateBox: {
-    width: 52, height: 52, borderRadius: 14,
-    backgroundColor: colors.pinkSoft,
-    borderWidth: 1, borderColor: colors.pinkInk, borderStyle: 'dashed',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  dateMonth: {
-    fontFamily: fonts.mono, fontSize: 9, color: colors.pinkInk,
-    letterSpacing: letterSpacing.meta, textTransform: 'uppercase',
-  },
-  dateDay: {
-    fontFamily: fonts.display, fontSize: 20, color: colors.ink,
-    letterSpacing: letterSpacing.display, lineHeight: 22,
-  },
-  client: {
-    fontFamily: fonts.display, fontSize: typeScale.section, color: colors.ink,
-    letterSpacing: letterSpacing.display,
-  },
-  time: {
-    marginTop: 2,
-    fontFamily: fonts.mono, fontSize: 10, color: colors.inkSoft,
-    letterSpacing: letterSpacing.meta, textTransform: 'uppercase',
-  },
-  divider: {
-    height: 1, marginVertical: 12,
-    backgroundColor: colors.creamHair, borderStyle: 'dashed',
-  },
-  summaryRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12,
-  },
-  thumb: {
-    width: 48, height: 48, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.ink, borderStyle: 'dashed',
-  },
-  priceText: {
-    fontFamily: fonts.display, fontSize: 15, color: colors.ink, letterSpacing: letterSpacing.display,
-  },
-  noteText: { marginTop: 2, fontFamily: fonts.body, fontSize: 12, color: colors.inkSoft },
-  photoCount: {
-    marginTop: 2, fontFamily: fonts.mono, fontSize: 9, color: colors.inkSoft,
-    letterSpacing: letterSpacing.meta, textTransform: 'uppercase',
-  },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  noShowBtn: { paddingHorizontal: 12, paddingVertical: 8 },
-  noShowText: {
-    fontFamily: fonts.mono, fontSize: 11, color: colors.inkSoft,
-    letterSpacing: letterSpacing.meta, textTransform: 'uppercase',
-  },
-  emptyText: { fontFamily: fonts.body, fontSize: 13, color: colors.inkSoft },
-
-  modalBg: {
-    flex: 1, backgroundColor: 'rgba(40,28,15,0.55)',
-    alignItems: 'center', justifyContent: 'center', padding: 24,
-  },
-  modalTitle: {
-    fontFamily: fonts.display, fontSize: 20, color: colors.ink, letterSpacing: letterSpacing.display,
-  },
-  modalSub: { marginTop: 2, fontFamily: fonts.body, fontSize: 12, color: colors.inkSoft },
-  modalActions: {
-    marginTop: 16, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 14,
-  },
-  cancelBtn: { paddingHorizontal: 10, paddingVertical: 10 },
-  cancelText: {
-    fontFamily: fonts.mono, fontSize: 11, color: colors.inkSoft,
-    letterSpacing: letterSpacing.meta, textTransform: 'uppercase',
-  },
-
-  dropPlaceholder: { alignItems: 'center', paddingVertical: 20, gap: 4 },
-  dropText: {
-    fontFamily: fonts.mono, fontSize: 10, color: colors.inkSoft,
-    letterSpacing: letterSpacing.meta, textTransform: 'uppercase',
-  },
-  thumbGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  thumbWrap: { width: 64, height: 64, borderRadius: radius.md, overflow: 'hidden', position: 'relative' },
-  thumbImg: { width: '100%', height: '100%' },
-  removeBtn: {
-    position: 'absolute', top: 3, right: 3,
-    width: 18, height: 18, borderRadius: 9,
-    backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center',
-  },
-  removeBtnText: { color: colors.white, fontSize: 10, fontWeight: '600' },
-  addMoreTile: {
-    width: 64, height: 64, borderRadius: radius.md,
-    borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.creamHair,
-    alignItems: 'center', justifyContent: 'center', backgroundColor: colors.creamCard,
-  },
-  progressText: { fontFamily: fonts.body, fontSize: 12, color: colors.inkSoft },
-  errorText: { fontFamily: fonts.body, fontSize: 12, color: '#c0554f' },
+  head: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  client: { fontFamily: fonts.display, fontSize: typeScale.section, color: colors.ink },
+  when: { marginTop: 3, fontFamily: fonts.mono, fontSize: 9, color: colors.inkSoft, letterSpacing: letterSpacing.meta },
+  service: { marginTop: 4, fontFamily: fonts.body, fontSize: 12, color: colors.inkSoft },
+  note: { marginTop: 10, fontFamily: fonts.body, fontSize: 12, color: colors.inkSoft },
+  actions: { marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderStyle: 'dashed', borderTopColor: colors.creamHair, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  actionText: { fontFamily: fonts.mono, fontSize: 9, color: colors.pinkInk, textTransform: 'uppercase' },
+  error: { paddingHorizontal: spacing.lg, textAlign: 'center', fontFamily: fonts.body, color: '#c0554f' },
+  empty: { textAlign: 'center', paddingVertical: 30, fontFamily: fonts.body, color: colors.inkSoft },
+  backdrop: { flex: 1, backgroundColor: 'rgba(40,28,15,.55)', justifyContent: 'center', padding: 24 },
+  modal: { width: '100%', maxWidth: 360, alignSelf: 'center' },
+  modalTitle: { fontFamily: fonts.display, fontSize: 20, color: colors.ink },
+  modalText: { marginTop: 5, fontFamily: fonts.body, fontSize: 12, color: colors.inkSoft },
 });

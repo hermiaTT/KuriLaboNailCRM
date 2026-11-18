@@ -32,7 +32,9 @@ The app is designed with a cute, soft, minimal aesthetic inspired by Japanese an
 - Expo
 - TypeScript
 - Expo Router
-- Supabase
+- Spring Boot
+- PostgreSQL
+- S3-compatible object storage
 
 ---
 

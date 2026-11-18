@@ -2,7 +2,7 @@
 
 ## 1. Architecture goals
 
-- Keep the existing Kuri Labo visual direction while replacing Supabase completely.
+- Keep the existing Kuri Labo visual direction across mobile and web.
 - Serve Expo mobile and React web clients through one backend contract.
 - Begin as a modular monolith so core booking rules remain easy to understand and test.
 - Introduce Kafka through real asynchronous use cases rather than splitting services prematurely.
@@ -202,7 +202,7 @@ The appointment module remains inside the main API until load or organizational 
 
 - React web user and admin applications
 - generated TypeScript API client
-- migrate Expo screens away from Supabase
+- connect Expo screens to the shared Spring Boot API
 
 ### Phase 4: Events and workers
 

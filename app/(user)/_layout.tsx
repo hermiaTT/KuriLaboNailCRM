@@ -78,6 +78,7 @@ export default function UserTabsLayout() {
       />
       <Tabs.Screen name="appointments" options={{ href: null }} />
       <Tabs.Screen name="edit-profile" options={{ href: null }} />
+      <Tabs.Screen name="notifications" options={{ href: null }} />
     </Tabs>
   );
 }
