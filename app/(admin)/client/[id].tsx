@@ -60,6 +60,7 @@ export default function AdminClientDetailScreen() {
   const [newPassword, setNewPassword] = useState('');
   const [actionBusy, setActionBusy] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [draft, setDraft] = useState<AdminUserDetail | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -176,6 +177,28 @@ export default function AdminClientDetailScreen() {
     }
   }
 
+  function editField<K extends keyof AdminUserDetail>(field: K, value: AdminUserDetail[K]) {
+    setDraft((current) => current ? { ...current, [field]: value } : current);
+  }
+
+  async function saveProfile() {
+    if (!id || !draft?.name.trim()) return;
+    setActionBusy(true); setActionMessage(null);
+    try {
+      const updated = await api<AdminUserDetail>(`/api/v1/admin/users/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: draft.name.trim(), phone: draft.phone?.trim() || null, birthday: draft.birthday || null,
+          instagram: draft.instagram?.trim() || null, wechat: draft.wechat?.trim() || null,
+          preferredNailStyle: draft.preferredNailStyle?.trim() || null, allergyNotes: draft.allergyNotes?.trim() || null,
+          adminNotes: draft.adminNotes?.trim() || null, role: draft.role, status: draft.status,
+        }),
+      });
+      setClient(updated); setNotes(updated.adminNotes ?? ''); setDraft(null); setActionMessage('Client profile updated.');
+    } catch (cause) { setActionMessage(cause instanceof ApiError ? cause.message : 'Unable to update client profile.'); }
+    finally { setActionBusy(false); }
+  }
+
   function formatDate(v: Visit) {
     return new Date(v.date).toLocaleDateString('en-US', {
       month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/Vancouver',
@@ -221,6 +244,7 @@ export default function AdminClientDetailScreen() {
               {client?.phone ? `  ·  ${client.phone}` : ''}
             </Text>
             {client?.instagram && <Text style={styles.handle}>{client.instagram}</Text>}
+            <View style={styles.profileEditRow}><Text style={styles.accountType}>{client?.accountType?.toLowerCase()} · {client?.status?.toLowerCase()}</Text><HandButton size="sm" color={colors.inkSoft} onPress={() => client && setDraft({ ...client })}>Edit profile</HandButton></View>
           </HandRect>
         </View>
 
@@ -339,6 +363,10 @@ export default function AdminClientDetailScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <Modal transparent visible={Boolean(draft)} animationType="fade" onRequestClose={() => setDraft(null)}>
+        <Pressable style={styles.backdrop} onPress={() => setDraft(null)}><Pressable style={styles.modal} onPress={() => undefined}><HandRect padding={20} radius={radius.xl}><Text style={styles.modalTitle}>Edit client profile</Text><ScrollView style={styles.profileForm} keyboardShouldPersistTaps="handled"><View style={{ gap: 10 }}><Field placeholder="Unique name" value={draft?.name ?? ''} onChangeText={(value) => editField('name', value)} /><Field placeholder={draft?.accountType === 'GUEST' ? 'Phone (optional)' : 'Phone'} keyboardType="phone-pad" value={draft?.phone ?? ''} onChangeText={(value) => editField('phone', value || null)} /><Field placeholder="Birthday · YYYY-MM-DD (optional)" value={draft?.birthday ?? ''} onChangeText={(value) => editField('birthday', value || null)} /><Field placeholder="Instagram (optional)" value={draft?.instagram ?? ''} onChangeText={(value) => editField('instagram', value || null)} /><Field placeholder="WeChat (optional)" value={draft?.wechat ?? ''} onChangeText={(value) => editField('wechat', value || null)} /><Field placeholder="Preferred nail style" multiline value={draft?.preferredNailStyle ?? ''} onChangeText={(value) => editField('preferredNailStyle', value || null)} /><Field placeholder="Allergy or sensitivity notes" multiline value={draft?.allergyNotes ?? ''} onChangeText={(value) => editField('allergyNotes', value || null)} /><Field placeholder="Private admin notes" multiline value={draft?.adminNotes ?? ''} onChangeText={(value) => editField('adminNotes', value || null)} /><Text style={styles.optionMeta}>Account status</Text><View style={styles.statusRow}><HandButton size="sm" color={draft?.status === 'ACTIVE' ? colors.blueInk : colors.inkFaint} onPress={() => editField('status', 'ACTIVE')}>Active</HandButton><HandButton size="sm" color={draft?.status === 'DISABLED' ? colors.pinkInk : colors.inkFaint} onPress={() => editField('status', 'DISABLED')}>Disabled</HandButton></View></View></ScrollView>{actionMessage && <Text style={styles.modalError}>{actionMessage}</Text>}<HandButton full color={colors.pinkInk} disabled={actionBusy} onPress={saveProfile}>{actionBusy ? 'Saving…' : 'Save client profile'}</HandButton></HandRect></Pressable></Pressable>
+      </Modal>
     </View>
   );
 }
@@ -357,6 +385,8 @@ const styles = StyleSheet.create({
     marginTop: 2, fontFamily: fonts.mono, fontSize: 10, color: colors.pinkInk,
     letterSpacing: letterSpacing.meta,
   },
+  profileEditRow: { marginTop: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  accountType: { fontFamily: fonts.mono, fontSize: 9, color: colors.inkSoft, textTransform: 'uppercase' },
   accountActions: { flexDirection: 'row', justifyContent: 'flex-end' },
   actionMessage: { marginTop: 8, fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: colors.blueInk },
 
@@ -397,4 +427,6 @@ const styles = StyleSheet.create({
   optionName: { fontFamily: fonts.display, fontSize: 14, color: colors.ink },
   optionMeta: { marginTop: 2, fontFamily: fonts.body, fontSize: 11, color: colors.inkSoft },
   modalError: { marginBottom: 10, fontFamily: fonts.body, fontSize: 12, color: '#c0554f' },
+  profileForm: { maxHeight: 470, marginVertical: 14 },
+  statusRow: { flexDirection: 'row', gap: 8, marginBottom: 5 },
 });

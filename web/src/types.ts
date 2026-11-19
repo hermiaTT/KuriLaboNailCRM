@@ -5,6 +5,7 @@ export type UserSummary = {
   name: string;
   phone: string | null;
   birthday: string | null;
+  avatarUrl?: string | null;
 };
 
 export type AuthResponse = {
@@ -51,6 +52,7 @@ export type Appointment = {
     | 'REJECTED'
     | 'CANCELLED';
   note: string | null;
+  referenceImages: NailSetImage[];
 };
 
 export type AdminAppointment = Appointment & {
@@ -64,6 +66,7 @@ export type ServiceDefinition = {
   name: string;
   description: string | null;
   durationMinutes: number;
+  price: number;
   active: boolean;
   displayOrder: number;
 };
@@ -95,6 +98,7 @@ export type CurrentProfile = UserSummary & {
   wechat: string | null;
   preferredNailStyle: string | null;
   allergyNotes: string | null;
+  avatarUrl: string | null;
 };
 
 export type SalonContact = {

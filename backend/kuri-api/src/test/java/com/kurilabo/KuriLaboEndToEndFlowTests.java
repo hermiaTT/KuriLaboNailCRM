@@ -72,6 +72,30 @@ class KuriLaboEndToEndFlowTests {
     void completeAdminAndClientJourney() throws Exception {
         String adminToken = login(adminPhone, "admin123");
 
+        JsonNode createdService = json(postJson("/api/v1/admin/services", adminToken, Map.of(
+                "name", "E2E custom service",
+                "description", "Created from the mobile admin flow",
+                "durationMinutes", 90,
+                "price", 88.50,
+                "displayOrder", 99,
+                "active", true
+        )).andExpect(status().isCreated())
+                .andExpect(jsonPath("$.durationMinutes").value(90))
+                .andExpect(jsonPath("$.price").value(88.50))
+                .andReturn().getResponse().getContentAsString());
+        String createdServiceId = createdService.get("id").asText();
+        putJson("/api/v1/admin/services/" + createdServiceId, adminToken, Map.of(
+                "name", "E2E custom service updated",
+                "description", "Updated from the mobile admin flow",
+                "durationMinutes", 120,
+                "price", 110.00,
+                "displayOrder", 99,
+                "active", true
+        )).andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("E2E custom service updated"))
+                .andExpect(jsonPath("$.price").value(110.00))
+                .andExpect(jsonPath("$.active").value(true));
+
         String guestName = "E2E Guest " + suffix;
         JsonNode guest = json(postJson("/api/v1/admin/users/guests", adminToken, Map.of("name", guestName, "phone", ""))
                 .andExpect(status().isOk())
@@ -96,9 +120,10 @@ class KuriLaboEndToEndFlowTests {
         String clientToken = registration.get("accessToken").asText();
         String clientId = registration.path("user").path("id").asText();
 
-        JsonNode services = json(mvc.perform(get("/api/v1/services").header("Authorization", bearer(clientToken)))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-        String basicServiceId = services.get(0).get("id").asText();
+        mvc.perform(get("/api/v1/services").header("Authorization", bearer(clientToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == '" + createdServiceId + "')].price", hasItem(110.0)));
+        String basicServiceId = createdServiceId;
 
         LocalDate bookingDate = LocalDate.now().plusDays(180);
         JsonNode requested = json(postJson("/api/v1/appointments", clientToken, Map.of(
@@ -110,6 +135,16 @@ class KuriLaboEndToEndFlowTests {
                 .andExpect(jsonPath("$.status").value("PENDING_CONFIRMATION"))
                 .andReturn().getResponse().getContentAsString());
         String appointmentId = requested.get("id").asText();
+
+        MockMultipartFile referenceImage = new MockMultipartFile("files", "reference.png", "image/png", new byte[] {4, 3, 2, 1});
+        mvc.perform(multipart("/api/v1/appointments/" + appointmentId + "/references")
+                        .file(referenceImage)
+                        .header("Authorization", bearer(clientToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.referenceImages.length()").value(1));
+        mvc.perform(get("/api/v1/admin/appointments").header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == '" + appointmentId + "')].referenceImages.length()", hasItem(1)));
 
         postJson("/api/v1/admin/appointments/" + appointmentId + "/confirm", adminToken, Map.of("reason", "E2E confirmed"))
                 .andExpect(status().isOk())
@@ -136,13 +171,29 @@ class KuriLaboEndToEndFlowTests {
                 "serviceId", basicServiceId,
                 "customServiceName", "",
                 "date", adminBookingDate.toString(),
-                "startTime", "10:00",
-                "endTime", "11:00",
+                "startTime", "10:05",
+                "endTime", "11:10",
                 "note", "E2E admin-created appointment"
         )).andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CONFIRMED"))
+                .andExpect(jsonPath("$.durationMinutes").value(65))
                 .andReturn().getResponse().getContentAsString());
         String guestAppointmentId = guestAppointment.get("id").asText();
+
+        LocalDate rangeStart = bookingDate.plusDays(20);
+        LocalDate rangeEnd = rangeStart.plusDays(6);
+        postJson("/api/v1/admin/availability-blocks", adminToken, Map.of(
+                "date", rangeStart.toString(),
+                "endDate", rangeEnd.toString(),
+                "fullDay", true,
+                "reason", "E2E studio holiday"
+        )).andExpect(status().isOk());
+        mvc.perform(get("/api/v1/availability")
+                        .param("date", rangeStart.plusDays(3).toString())
+                        .param("serviceId", basicServiceId)
+                        .header("Authorization", bearer(clientToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.slots[?(@.available == true)]").isEmpty());
 
         MockMultipartFile guestImage = new MockMultipartFile("files", "guest.png", "image/png", new byte[] {5, 6, 7});
         mvc.perform(multipart("/api/v1/admin/nail-sets")
@@ -183,7 +234,7 @@ class KuriLaboEndToEndFlowTests {
                 .andExpect(jsonPath("$.serviceNotes").value("E2E updated products and technique"));
 
         MockMultipartFile image = new MockMultipartFile("files", "e2e.png", "image/png", new byte[] {1, 2, 3, 4});
-        mvc.perform(multipart("/api/v1/admin/nail-sets")
+        JsonNode uploadedSet = json(mvc.perform(multipart("/api/v1/admin/nail-sets")
                         .file(image)
                         .param("appointmentId", pastVisitId)
                         .param("title", "E2E nail set")
@@ -192,7 +243,23 @@ class KuriLaboEndToEndFlowTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.clientId").value(clientId))
                 .andExpect(jsonPath("$.appointmentId").value(pastVisitId))
-                .andExpect(jsonPath("$.images.length()").value(1));
+                .andExpect(jsonPath("$.images.length()").value(1))
+                .andReturn().getResponse().getContentAsString());
+        String uploadedSetId = uploadedSet.get("id").asText();
+
+        putJson("/api/v1/admin/nail-sets/" + uploadedSetId, adminToken, Map.of(
+                "title", "E2E nail set relinked",
+                "description", "Client-only history after relink",
+                "clientId", clientId
+        )).andExpect(status().isOk())
+                .andExpect(jsonPath("$.clientId").value(clientId))
+                .andExpect(jsonPath("$.appointmentId").isEmpty());
+        putJson("/api/v1/admin/nail-sets/" + uploadedSetId, adminToken, Map.of(
+                "title", "E2E nail set",
+                "description", "E2E linked gallery",
+                "appointmentId", pastVisitId
+        )).andExpect(status().isOk())
+                .andExpect(jsonPath("$.appointmentId").value(pastVisitId));
 
         mvc.perform(get("/api/v1/appointments/me").header("Authorization", bearer(clientToken)))
                 .andExpect(status().isOk())
@@ -204,12 +271,43 @@ class KuriLaboEndToEndFlowTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.title == 'E2E nail set')].images.length()", hasItem(1)));
 
+        MockMultipartFile publicImage = new MockMultipartFile(
+                "files", "public-inspiration.png", "image/png", new byte[] {9, 8, 7, 6}
+        );
+        JsonNode publicSet = json(mvc.perform(multipart("/api/v1/admin/nail-sets")
+                        .file(publicImage)
+                        .param("title", "E2E public inspiration")
+                        .header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.clientId").isEmpty())
+                .andExpect(jsonPath("$.appointmentId").isEmpty())
+                .andReturn().getResponse().getContentAsString());
+        String publicMediaUrl = publicSet.path("images").get(0).path("url").asText();
+
+        mvc.perform(get("/api/v1/inspiration").header("Authorization", bearer(clientToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.title == 'E2E public inspiration')].images.length()", hasItem(1)));
+        mvc.perform(get(publicMediaUrl))
+                .andExpect(status().isOk())
+                .andExpect(result -> org.junit.jupiter.api.Assertions.assertArrayEquals(
+                        new byte[] {9, 8, 7, 6},
+                        result.getResponse().getContentAsByteArray()
+                ));
+
         mvc.perform(get("/api/v1/notifications").header("Authorization", bearer(clientToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.type == 'APPOINTMENT_CONFIRMED')].title", hasItem("Appointment confirmed")));
         mvc.perform(get("/api/v1/notifications").header("Authorization", bearer(adminToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.type == 'BOOKING_REQUEST')].title", hasItem("New booking request")));
+
+        JsonNode clientNotifications = json(mvc.perform(get("/api/v1/notifications").header("Authorization", bearer(clientToken)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        String clientNotificationId = clientNotifications.get(0).get("id").asText();
+        putJson("/api/v1/notifications/" + clientNotificationId + "/read", clientToken, Map.of())
+                .andExpect(status().isOk()).andExpect(jsonPath("$.read").value(true));
+        putJson("/api/v1/notifications/read-all", clientToken, Map.of())
+                .andExpect(status().isNoContent());
 
         postJson("/api/v1/appointments/" + appointmentId + "/cancellation-requests", clientToken, Map.of("reason", "E2E change of plans"))
                 .andExpect(status().isOk())
@@ -230,6 +328,19 @@ class KuriLaboEndToEndFlowTests {
         )).andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value(clientName + " Updated"))
                 .andExpect(jsonPath("$.preferredNailStyle").value("soft chrome"));
+
+        MockMultipartFile avatar = new MockMultipartFile("file", "avatar.png", "image/png", new byte[] {7, 7, 8, 8});
+        JsonNode avatarProfile = json(mvc.perform(multipart("/api/v1/users/me/avatar")
+                        .file(avatar)
+                        .header("Authorization", bearer(clientToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.avatarUrl").isNotEmpty())
+                .andReturn().getResponse().getContentAsString());
+        mvc.perform(get(avatarProfile.get("avatarUrl").asText()).param("download", "true"))
+                .andExpect(status().isOk())
+                .andExpect(result -> org.junit.jupiter.api.Assertions.assertTrue(
+                        result.getResponse().getHeader("Content-Disposition").contains("attachment")
+                ));
 
         putJson("/api/v1/users/me/password", clientToken, Map.of(
                 "currentPassword", "client123", "newPassword", "client456"

@@ -1,7 +1,9 @@
 import { useFocusEffect } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Modal,
   Pressable,
   StyleSheet,
@@ -78,6 +80,7 @@ export default function BookScreen() {
   const [availability, setAvailability] = useState<Availability | null>(null);
   const [selectedTime, setSelectedTime] = useState('');
   const [note, setNote] = useState('');
+  const [referenceAssets, setReferenceAssets] = useState<ImagePicker.ImagePickerAsset[]>([]);
   const [loadingServices, setLoadingServices] = useState(true);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -129,6 +132,19 @@ export default function BookScreen() {
     setCreated(null);
   }
 
+  async function pickReferences() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) { setError('Photo library access is required.'); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsMultipleSelection: true,
+      orderedSelection: true,
+      quality: 0.85,
+      selectionLimit: 6,
+    });
+    if (!result.canceled) setReferenceAssets(result.assets.slice(0, 6));
+  }
+
   async function submit() {
     if (!serviceId || !selectedTime) {
       setError('Choose a service and an available time.');
@@ -146,7 +162,17 @@ export default function BookScreen() {
           note: note.trim() || null,
         }),
       });
-      setCreated(appointment);
+      let completed = appointment;
+      if (referenceAssets.length) {
+        const body = new FormData();
+        referenceAssets.forEach((asset, index) => body.append('files', {
+          uri: asset.uri,
+          name: asset.fileName || `reference-${index + 1}.jpg`,
+          type: asset.mimeType || 'image/jpeg',
+        } as any));
+        completed = await api<Appointment>(`/api/v1/appointments/${appointment.id}/references`, { method: 'POST', body });
+      }
+      setCreated(completed);
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : 'Unable to request this appointment.');
     } finally {
@@ -186,7 +212,7 @@ export default function BookScreen() {
                     strokeWidth={active ? 2 : 1}
                   >
                     <Text style={styles.serviceName}>{service.name}</Text>
-                    <Text style={styles.serviceDuration}>{durationLabel(service.durationMinutes)}</Text>
+                    <Text style={styles.serviceDuration}>{durationLabel(service.durationMinutes)} · ${Number(service.price).toFixed(2)}</Text>
                   </HandRect>
                 </Pressable>
               );
@@ -281,6 +307,16 @@ export default function BookScreen() {
         </HandRect>
       </View>
 
+      <View style={styles.row}>
+        <Text style={styles.sectionLabel}>5 · Reference photos · optional</Text>
+        <Pressable onPress={pickReferences}>
+          <HandRect padding={15} radius={radius.lg} dashed>
+            <Text style={styles.referencePicker}>{referenceAssets.length ? `${referenceAssets.length} selected · tap to change` : '＋ Choose up to 6 inspiration photos'}</Text>
+          </HandRect>
+        </Pressable>
+        {referenceAssets.length > 0 && <View style={styles.referenceGrid}>{referenceAssets.map((asset) => <View key={asset.uri}><Image source={{ uri: asset.uri }} style={styles.referenceImage} /><Pressable style={styles.removeReference} onPress={() => setReferenceAssets((current) => current.filter((item) => item.uri !== asset.uri))}><Text style={styles.removeReferenceText}>×</Text></Pressable></View>)}</View>}
+      </View>
+
       {error && <Text style={styles.error}>{error}</Text>}
 
       <View style={styles.row}>
@@ -300,7 +336,7 @@ export default function BookScreen() {
                 <Text style={styles.modalBody}>
                   {selectedService?.name}{'\n'}{selectedDateLabel} · {displayTime(selectedTime)}
                 </Text>
-                <HandButton color={colors.pinkInk} full onPress={() => { setCreated(null); setSelectedTime(''); setNote(''); }}>
+                <HandButton color={colors.pinkInk} full onPress={() => { setCreated(null); setSelectedTime(''); setNote(''); setReferenceAssets([]); }}>
                   Done
                 </HandButton>
               </View>
@@ -315,8 +351,8 @@ export default function BookScreen() {
 const styles = StyleSheet.create({
   row: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
   sectionLabel: { fontFamily: fonts.mono, fontSize: 10, color: colors.inkSoft, letterSpacing: letterSpacing.metaWide, textTransform: 'uppercase', marginBottom: 8 },
-  serviceGrid: { flexDirection: 'row', gap: 10 },
-  serviceCell: { flex: 1 },
+  serviceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  serviceCell: { width: '48%' },
   serviceName: { fontFamily: fonts.display, fontSize: typeScale.section, color: colors.ink },
   serviceDuration: { marginTop: 4, fontFamily: fonts.mono, fontSize: 9, color: colors.inkSoft, textTransform: 'uppercase' },
   monthNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
@@ -342,6 +378,11 @@ const styles = StyleSheet.create({
   note: { minHeight: 90, fontFamily: fonts.body, color: colors.ink, fontSize: 14, textAlignVertical: 'top' },
   error: { paddingHorizontal: spacing.lg, textAlign: 'center', fontFamily: fonts.body, color: '#c0554f' },
   finePrint: { marginTop: 10, textAlign: 'center', fontFamily: fonts.body, fontSize: 11, color: colors.inkSoft },
+  referencePicker: { textAlign: 'center', fontFamily: fonts.body, fontSize: 12, color: colors.pinkInk },
+  referenceGrid: { marginTop: 10, flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  referenceImage: { width: 72, height: 72, borderRadius: radius.md },
+  removeReference: { position: 'absolute', top: -5, right: -5, width: 22, height: 22, borderRadius: 11, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
+  removeReferenceText: { color: colors.white, fontSize: 15, lineHeight: 18 },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(40,28,15,0.55)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalCard: { width: '100%', maxWidth: 340 },
   modalContent: { alignItems: 'center', gap: 12 },

@@ -6,4 +6,15 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.UUID;
 
 public interface MediaAssetRepository extends JpaRepository<MediaAsset, UUID> {
+    @org.springframework.data.jpa.repository.Query(value = """
+            select exists (
+                select 1 from nail_set_media nsm join nail_set ns on ns.id = nsm.nail_set_id
+                where nsm.media_asset_id = :mediaId and ns.published = true
+            ) or exists (
+                select 1 from appointment_reference_media arm where arm.media_asset_id = :mediaId
+            ) or exists (
+                select 1 from user_profile up where up.avatar_media_id = :mediaId
+            )
+            """, nativeQuery = true)
+    boolean isVisibleMedia(@org.springframework.data.repository.query.Param("mediaId") UUID mediaId);
 }

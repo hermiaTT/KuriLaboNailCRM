@@ -48,6 +48,7 @@ export function App() {
         <Route path="inspiration" element={<InspirationPage />} />
         <Route path="services" element={<ServicesPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
+        <Route path="profile" element={<ClientProfilePage />} />
       </Route>
       <Route path="client" element={<ProtectedClient />}>
         <Route index element={<ClientHomePage />} />

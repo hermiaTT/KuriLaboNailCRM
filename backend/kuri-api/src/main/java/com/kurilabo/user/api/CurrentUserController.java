@@ -12,6 +12,10 @@ import com.kurilabo.auth.api.ChangePasswordRequest;
 import com.kurilabo.auth.application.PasswordService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.MediaType;
 
 import java.util.UUID;
 
@@ -25,6 +29,11 @@ public class CurrentUserController {
     public CurrentUserController(CurrentUserService currentUserService, PasswordService passwordService) {
         this.currentUserService = currentUserService;
         this.passwordService = passwordService;
+    }
+
+    @PostMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    CurrentUserResponse uploadAvatar(JwtAuthenticationToken authentication, @RequestParam("file") MultipartFile file) {
+        return currentUserService.uploadAvatar(UUID.fromString(authentication.getToken().getSubject()), file);
     }
 
     @GetMapping

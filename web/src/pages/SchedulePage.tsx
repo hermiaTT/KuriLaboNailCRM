@@ -54,6 +54,7 @@ export function SchedulePage() {
   const [services, setServices] = useState<ServiceDefinition[]>([]);
   const [dialog, setDialog] = useState<DialogType>(null);
   const [fullDay, setFullDay] = useState(false);
+  const [blockEndDate, setBlockEndDate] = useState(selectedDate);
   const [serviceId, setServiceId] = useState('');
   const [startTime, setStartTime] = useState('10:00');
   const [endTime, setEndTime] = useState('12:00');
@@ -112,12 +113,18 @@ export function SchedulePage() {
     .filter((appointment) => salonDateKey(appointment.startAt) === selectedDate)
     .sort((a, b) => a.startAt.localeCompare(b.startAt));
   const selectedBlocks = blocks
-    .filter((block) => salonDateKey(block.startAt) === selectedDate)
+    .filter((block) => {
+      const startDate = salonDateKey(block.startAt);
+      const endDate = salonDateKey(block.endAt);
+      return startDate <= selectedDate
+        && (endDate > selectedDate || (endDate === selectedDate && salonMinutes(block.endAt) > 0));
+    })
     .sort((a, b) => a.startAt.localeCompare(b.startAt));
   const fullDayBlocks = selectedBlocks.filter((block) =>
     salonMinutes(block.startAt) === 0
     && salonMinutes(block.endAt) === 0
-    && salonDateKey(block.endAt) === addDays(selectedDate, 1)
+    && salonDateKey(block.startAt) <= selectedDate
+    && salonDateKey(block.endAt) > selectedDate
   );
   const timedBlocks = selectedBlocks.filter((block) => !fullDayBlocks.some((fullDayBlock) => fullDayBlock.id === block.id));
   const viewStart = COMPACT_START;
@@ -147,7 +154,14 @@ export function SchedulePage() {
       });
     return counts;
   }, [appointments]);
-  const blockDates = useMemo(() => new Set(blocks.map((item) => salonDateKey(item.startAt))), [blocks]);
+  const blockDates = useMemo(() => new Set(monthDays
+    .filter((day) => blocks.some((block) => {
+      const startDate = salonDateKey(block.startAt);
+      const endDate = salonDateKey(block.endAt);
+      return startDate <= day.key
+        && (endDate > day.key || (endDate === day.key && salonMinutes(block.endAt) > 0));
+    }))
+    .map((day) => day.key)), [blocks, monthDays]);
 
   function moveMonth(amount: number) {
     const next = parseDateKey(selectedDate);
@@ -253,6 +267,7 @@ export function SchedulePage() {
         method: 'POST',
         body: JSON.stringify({
           date: selectedDate,
+          endDate: fullDay ? blockEndDate : selectedDate,
           fullDay,
           startTime: fullDay ? null : data.get('blockStart'),
           endTime: fullDay ? null : data.get('blockEnd'),
@@ -262,6 +277,7 @@ export function SchedulePage() {
       await loadBlocks();
       setDialog(null);
       setFullDay(false);
+      setBlockEndDate(selectedDate);
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : 'Unable to block this time.');
     } finally {
@@ -288,7 +304,7 @@ export function SchedulePage() {
       <PageHeading
         eyebrow="STUDIO CALENDAR · VANCOUVER TIME"
         title="Studio schedule"
-        action={<div className="heading-actions"><button className="secondary-button" onClick={() => setDialog('block')}>Block time</button><button className="primary-button compact" onClick={() => setDialog('appointment')}>+ Book for client</button></div>}
+        action={<div className="heading-actions"><button className="secondary-button" onClick={() => { setBlockEndDate(selectedDate); setDialog('block'); }}>Block time</button><button className="primary-button compact" onClick={() => setDialog('appointment')}>+ Book for client</button></div>}
       />
       {error && <div className="form-notice schedule-notice"><span>{error}</span><button onClick={() => setError(null)}>×</button></div>}
 
@@ -310,7 +326,7 @@ export function SchedulePage() {
 
         <section className="day-panel">
           <div className="day-panel-head"><div><p className="eyebrow">DAILY VIEW · 8:00 AM–8:00 PM</p><h2>{longDateLabel(selectedDate)}</h2><p className="slot-grid-note">Click any open 30-minute slot to start a booking.</p></div><div className="day-head-right"><div className="day-summary"><span><strong>{selectedAppointments.length}</strong> appointments</span><span><strong>{selectedBlocks.length}</strong> blocks</span></div></div></div>
-          {fullDayBlocks.map((block) => <div className="full-day-banner" key={block.id}><div><span>ALL DAY</span><strong>Studio unavailable</strong><small>{block.reason || 'Full-day block'}</small></div><button className={deleteTarget === block.id ? 'delete-ready' : ''} onClick={() => void removeBlock(block.id)}>{deleteTarget === block.id ? 'Confirm remove' : 'Remove block'}</button></div>)}
+          {fullDayBlocks.map((block) => <div className="full-day-banner" key={block.id}><div><span>ALL DAY</span><strong>Studio unavailable</strong><small>{salonDateKey(block.startAt) !== addDays(salonDateKey(block.endAt), -1) ? `${salonDateKey(block.startAt)} through ${addDays(salonDateKey(block.endAt), -1)} · ` : ''}{block.reason || 'Full-day block'}</small></div><button className={deleteTarget === block.id ? 'delete-ready' : ''} onClick={() => void removeBlock(block.id)}>{deleteTarget === block.id ? 'Confirm remove' : 'Remove block'}</button></div>)}
           <PaperCard className="timeline-shell">
             <div className="timeline-scroll workday">
               <div className="timeline" style={{ height: dayHeight }}>
@@ -340,7 +356,7 @@ export function SchedulePage() {
         </section>
       </div>
 
-      {dialog && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDialog(null); }}><PaperCard className="schedule-modal" ><button className="modal-close" onClick={() => setDialog(null)} aria-label="Close">×</button>{dialog === 'appointment' ? <><p className="eyebrow">NEW APPOINTMENT</p><h2>Book for a client</h2><p className="modal-subtitle">{longDateLabel(selectedDate)} · confirmed immediately</p><form onSubmit={createAppointment}><div className="booking-client-field"><div className="inline-field-head"><span>Client</span><button type="button" onClick={() => setShowQuickClient((value) => !value)}>{showQuickClient ? 'Cancel' : '+ Add client'}</button></div>{showQuickClient && <div className="quick-client-panel"><div className="form-pair"><label>Name<input value={quickClientName} onChange={(event) => setQuickClientName(event.target.value)} maxLength={120} placeholder="Unique client name" /></label><label>Phone <span className="optional">optional</span><input value={quickClientPhone} onChange={(event) => setQuickClientPhone(event.target.value)} type="tel" maxLength={40} placeholder="778-555-1234" /></label></div><button className="quick-client-save" type="button" disabled={addingClient} onClick={() => void addQuickClient()}>{addingClient ? 'Adding…' : 'Add and select client'}</button></div>}<select value={selectedCustomerId} onChange={(event) => setSelectedCustomerId(event.target.value)} required><option value="" disabled>Select a client</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name} · {client.phone || client.email || 'Guest client'}</option>)}</select></div><label>Service<select value={serviceId} onChange={(event) => updateService(event.target.value)} required>{services.map((service) => <option key={service.id} value={service.id}>{service.name} · {service.durationMinutes} min</option>)}</select></label><div className="form-pair"><label>Start time<input type="time" step="1800" value={startTime} onChange={(event) => updateStart(event.target.value)} required /></label><label>End time<input type="time" step="1800" value={endTime} onChange={(event) => setEndTime(event.target.value)} required /></label></div><label>Appointment note<textarea name="note" placeholder="Shape, color or special request…" /></label>{clients.length === 0 && !showQuickClient && <div className="form-notice">Add a registered or guest client before booking.</div>}<button className="primary-button" disabled={saving || !selectedCustomerId}>{saving ? 'Saving…' : 'Confirm appointment'}</button></form></> : <><p className="eyebrow">AVAILABILITY</p><h2>Block studio time</h2><p className="modal-subtitle">{longDateLabel(selectedDate)}</p><form onSubmit={createBlock}><label className="check-label"><input type="checkbox" checked={fullDay} onChange={(event) => setFullDay(event.target.checked)} /><span><strong>Block the full day</strong><small>No user bookings will be available.</small></span></label>{!fullDay && <div className="form-pair"><label>Start time<input name="blockStart" type="time" step="1800" defaultValue="12:00" required /></label><label>End time<input name="blockEnd" type="time" step="1800" defaultValue="13:00" required /></label></div>}<label>Reason<textarea name="reason" placeholder="Lunch, holiday, personal time…" /></label><button className="primary-button" disabled={saving}>{saving ? 'Saving…' : 'Block this time'}</button></form></>}</PaperCard></div>}
+      {dialog && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDialog(null); }}><PaperCard className="schedule-modal" ><button className="modal-close" onClick={() => setDialog(null)} aria-label="Close">×</button>{dialog === 'appointment' ? <><p className="eyebrow">NEW APPOINTMENT</p><h2>Book for a client</h2><p className="modal-subtitle">{longDateLabel(selectedDate)} · confirmed immediately</p><form onSubmit={createAppointment}><div className="booking-client-field"><div className="inline-field-head"><span>Client</span><button type="button" onClick={() => setShowQuickClient((value) => !value)}>{showQuickClient ? 'Cancel' : '+ Add client'}</button></div>{showQuickClient && <div className="quick-client-panel"><div className="form-pair"><label>Name<input value={quickClientName} onChange={(event) => setQuickClientName(event.target.value)} maxLength={120} placeholder="Unique client name" /></label><label>Phone <span className="optional">optional</span><input value={quickClientPhone} onChange={(event) => setQuickClientPhone(event.target.value)} type="tel" maxLength={40} placeholder="778-555-1234" /></label></div><button className="quick-client-save" type="button" disabled={addingClient} onClick={() => void addQuickClient()}>{addingClient ? 'Adding…' : 'Add and select client'}</button></div>}<select value={selectedCustomerId} onChange={(event) => setSelectedCustomerId(event.target.value)} required><option value="" disabled>Select a client</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name} · {client.phone || client.email || 'Guest client'}</option>)}</select></div><label>Service<select value={serviceId} onChange={(event) => updateService(event.target.value)} required>{services.map((service) => <option key={service.id} value={service.id}>{service.name} · {service.durationMinutes} min</option>)}</select></label><div className="form-pair"><label>Start time<input type="time" step="300" value={startTime} onChange={(event) => updateStart(event.target.value)} required /></label><label>End time<input type="time" step="300" value={endTime} onChange={(event) => setEndTime(event.target.value)} required /></label></div><label>Appointment note<textarea name="note" placeholder="Shape, color or special request…" /></label>{clients.length === 0 && !showQuickClient && <div className="form-notice">Add a registered or guest client before booking.</div>}<button className="primary-button" disabled={saving || !selectedCustomerId}>{saving ? 'Saving…' : 'Confirm appointment'}</button></form></> : <><p className="eyebrow">AVAILABILITY</p><h2>Block studio time</h2><p className="modal-subtitle">{longDateLabel(selectedDate)}</p><form onSubmit={createBlock}><label className="check-label"><input type="checkbox" checked={fullDay} onChange={(event) => { setFullDay(event.target.checked); setBlockEndDate(selectedDate); }} /><span><strong>Block full day(s)</strong><small>Choose one day or an inclusive date range.</small></span></label>{fullDay ? <div className="form-pair"><label>From<input type="date" value={selectedDate} disabled /></label><label>Through (included)<input type="date" min={selectedDate} value={blockEndDate} onChange={(event) => setBlockEndDate(event.target.value)} required /></label></div> : <div className="form-pair"><label>Start time<input name="blockStart" type="time" step="1800" defaultValue="12:00" required /></label><label>End time<input name="blockEnd" type="time" step="1800" defaultValue="13:00" required /></label></div>}<label>Reason<textarea name="reason" placeholder="Lunch, holiday, personal time…" /></label><button className="primary-button" disabled={saving}>{saving ? 'Saving…' : fullDay && blockEndDate !== selectedDate ? 'Block date range' : 'Block this time'}</button></form></>}</PaperCard></div>}
     </div>
   );
 }

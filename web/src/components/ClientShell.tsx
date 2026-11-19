@@ -20,7 +20,7 @@ export function ClientShell() {
       <header className="client-header">
         <Brand />
         <nav>{clientNavigation.map((item) => <NavLink key={item.to} to={item.to} end={item.end}><Icon name={item.icon} /><span>{item.label}</span></NavLink>)}</nav>
-        <div className="client-account"><NotificationLink to="/client/notifications" label={false} /><span className="mini-avatar">{user?.name?.[0]?.toUpperCase() ?? 'K'}</span><span>{user?.name?.split(' ')[0]}</span><button onClick={() => void logout()} aria-label="Sign out"><Icon name="logout" /></button></div>
+        <div className="client-account"><NotificationLink to="/client/notifications" label={false} /><span className="mini-avatar">{user?.avatarUrl ? <img src={user.avatarUrl} alt="" /> : user?.name?.[0]?.toUpperCase() ?? 'K'}</span><span>{user?.name?.split(' ')[0]}</span><button onClick={() => void logout()} aria-label="Sign out"><Icon name="logout" /></button></div>
       </header>
       <main className="client-content"><Outlet /></main>
       <nav className="mobile-nav client-mobile-nav">{clientNavigation.map((item) => <NavLink key={item.to} to={item.to} end={item.end}><Icon name={item.icon} /><span>{item.label}</span></NavLink>)}</nav>

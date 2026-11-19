@@ -80,4 +80,5 @@ public class MediaAsset {
     public UUID getId() { return id; }
     public String getObjectKey() { return objectKey; }
     public String getContentType() { return contentType; }
+    public String getOriginalFilename() { return originalFilename; }
 }

@@ -40,7 +40,7 @@ function RootNavigator() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
       <Wobble />
-      <StatusBar style="dark" backgroundColor={colors.cream} />
+      <StatusBar style="dark" />
       <Stack
         screenOptions={{
           contentStyle: { backgroundColor: colors.cream },

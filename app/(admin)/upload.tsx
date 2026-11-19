@@ -1,6 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
-import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Doodle, EyebrowTitle, Field, HandButton, HandChip, HandRect, Icons, Screen, ScreenHeader } from '../../components/ui';
@@ -10,6 +10,7 @@ import type { AdminUser, Appointment, NailSet } from '../../types/api';
 
 export default function AdminUploadScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ appointmentId?: string; clientId?: string }>();
   const [assets, setAssets] = useState<ImagePicker.ImagePickerAsset[]>([]);
   const [clients, setClients] = useState<AdminUser[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -23,6 +24,10 @@ export default function AdminUploadScreen() {
 
   const load = useCallback(() => { Promise.all([api<AdminUser[]>('/api/v1/admin/users'), api<Appointment[]>('/api/v1/admin/appointments')]).then(([users, visits]) => { setClients(users.filter((user) => user.role === 'USER')); setAppointments(visits); }).catch(() => setError('Unable to load clients and appointments.')); }, []);
   useFocusEffect(load);
+  useEffect(() => {
+    if (params.clientId) setClientId(params.clientId);
+    if (params.appointmentId) setAppointmentId(params.appointmentId);
+  }, [params.appointmentId, params.clientId]);
   const names = useMemo(() => new Map(clients.map((client) => [client.id, client.name])), [clients]);
   const visibleAppointments = appointments.filter((item) => !clientId || item.customerId === clientId).slice(0, 20);
 

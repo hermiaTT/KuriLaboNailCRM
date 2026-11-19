@@ -23,6 +23,8 @@ import java.util.UUID;
 @Service
 public class AvailabilityBlockService {
 
+    private static final int MAX_BLOCK_DAYS = 366;
+
     private final AvailabilityBlockRepository blockRepository;
     private final AppUserRepository userRepository;
     private final AvailabilityService availabilityService;
@@ -49,19 +51,21 @@ public class AvailabilityBlockService {
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "User no longer exists."));
         SalonSetting settings = availabilityService.getSettings();
         ZoneId zone = ZoneId.of(settings.getTimezone());
+        LocalDate endDate = request.endDate() == null ? request.date() : request.endDate();
+        validateDateRange(request.date(), endDate, request.fullDay());
         Instant startAt;
         Instant endAt;
 
         if (request.fullDay()) {
             startAt = request.date().atStartOfDay(zone).toInstant();
-            endAt = request.date().plusDays(1).atStartOfDay(zone).toInstant();
+            endAt = endDate.plusDays(1).atStartOfDay(zone).toInstant();
         } else {
             validatePartialTimes(request.startTime(), request.endTime(), settings.getBookingIncrementMinutes());
             startAt = request.date().atTime(request.startTime()).atZone(zone).toInstant();
             endAt = request.date().atTime(request.endTime()).atZone(zone).toInstant();
         }
 
-        scheduleLockService.lockDate(request.date());
+        lockDateRange(request.date(), endDate);
         if (availabilityService.hasConflict(startAt, endAt)) {
             throw new ApiException(
                     HttpStatus.CONFLICT,
@@ -100,8 +104,29 @@ public class AvailabilityBlockService {
         AvailabilityBlock block = blockRepository.findById(blockId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Availability block was not found."));
         ZoneId zone = ZoneId.of(availabilityService.getSettings().getTimezone());
-        scheduleLockService.lockDate(block.getStartAt().atZone(zone).toLocalDate());
+        LocalDate startDate = block.getStartAt().atZone(zone).toLocalDate();
+        LocalDate endDate = block.getEndAt().minusNanos(1).atZone(zone).toLocalDate();
+        lockDateRange(startDate, endDate);
         blockRepository.delete(block);
+    }
+
+    private void validateDateRange(LocalDate startDate, LocalDate endDate, boolean fullDay) {
+        if (endDate.isBefore(startDate)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Block end date cannot be before its start date.");
+        }
+        long days = java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate) + 1;
+        if (days > MAX_BLOCK_DAYS) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "A date block cannot be longer than 366 days.");
+        }
+        if (!fullDay && !endDate.equals(startDate)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "A multi-day block must use full-day mode.");
+        }
+    }
+
+    private void lockDateRange(LocalDate startDate, LocalDate endDate) {
+        for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
+            scheduleLockService.lockDate(date);
+        }
     }
 
     private void validatePartialTimes(LocalTime start, LocalTime end, int incrementMinutes) {

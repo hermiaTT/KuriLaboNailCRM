@@ -43,6 +43,8 @@ import java.util.Objects;
 @Service
 public class AppointmentService {
 
+    private static final int ADMIN_TIME_INCREMENT_MINUTES = 5;
+
     private final AppointmentRepository appointmentRepository;
     private final AppointmentStatusHistoryRepository historyRepository;
     private final CancellationRequestRepository cancellationRequestRepository;
@@ -134,7 +136,7 @@ public class AppointmentService {
         AppUser customer = userRepository.findById(request.customerId())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Customer was not found."));
         SalonSetting settings = availabilityService.getSettings();
-        validateAdminTimes(request.startTime(), request.endTime(), settings.getBookingIncrementMinutes());
+        validateAdminTimes(request.startTime(), request.endTime());
         ZoneId zone = ZoneId.of(settings.getTimezone());
         Instant startAt = request.date().atTime(request.startTime()).atZone(zone).toInstant();
         Instant endAt = request.date().atTime(request.endTime()).atZone(zone).toInstant();
@@ -219,7 +221,7 @@ public class AppointmentService {
         AppUser customer = userRepository.findById(request.customerId())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Customer was not found."));
         SalonSetting settings = availabilityService.getSettings();
-        validateAdminTimes(request.startTime(), request.endTime(), settings.getBookingIncrementMinutes());
+        validateAdminTimes(request.startTime(), request.endTime());
         ZoneId zone = ZoneId.of(settings.getTimezone());
         Instant startAt = request.date().atTime(request.startTime()).atZone(zone).toInstant();
         Instant endAt = request.date().atTime(request.endTime()).atZone(zone).toInstant();
@@ -506,15 +508,15 @@ public class AppointmentService {
         }
     }
 
-    private void validateAdminTimes(LocalTime start, LocalTime end, int incrementMinutes) {
+    private void validateAdminTimes(LocalTime start, LocalTime end) {
         if (!end.isAfter(start)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "End time must be after start time on the same date.");
         }
         if (start.getSecond() != 0 || end.getSecond() != 0 ||
                 start.getNano() != 0 || end.getNano() != 0 ||
-                start.getMinute() % incrementMinutes != 0 ||
-                end.getMinute() % incrementMinutes != 0) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Admin appointment times must use 30-minute increments.");
+                start.getMinute() % ADMIN_TIME_INCREMENT_MINUTES != 0 ||
+                end.getMinute() % ADMIN_TIME_INCREMENT_MINUTES != 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Admin appointment times must use 5-minute increments.");
         }
     }
 

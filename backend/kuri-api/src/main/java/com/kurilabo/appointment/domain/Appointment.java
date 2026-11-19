@@ -10,6 +10,9 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -18,6 +21,9 @@ import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.math.BigDecimal;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
+import com.kurilabo.portfolio.domain.MediaAsset;
 
 @Entity
 @Table(name = "appointment")
@@ -85,6 +91,10 @@ public class Appointment {
 
     @Version
     private long version;
+
+    @OneToMany(mappedBy = "appointment", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("displayOrder asc")
+    private List<AppointmentReferenceMedia> referenceMedia = new ArrayList<>();
 
     protected Appointment() {
     }
@@ -266,6 +276,12 @@ public class Appointment {
 
     public BigDecimal getFinalPrice() {
         return finalPrice;
+    }
+
+    public List<AppointmentReferenceMedia> getReferenceMedia() { return referenceMedia; }
+
+    public void addReferenceMedia(MediaAsset asset, int displayOrder) {
+        referenceMedia.add(new AppointmentReferenceMedia(UUID.randomUUID(), this, asset, displayOrder));
     }
 }
 

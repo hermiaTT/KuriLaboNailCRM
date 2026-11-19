@@ -14,6 +14,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 import java.time.Clock;
+import com.kurilabo.portfolio.application.LocalMediaStorage;
+import com.kurilabo.portfolio.domain.MediaAsset;
+import com.kurilabo.portfolio.infrastructure.MediaAssetRepository;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class CurrentUserService {
@@ -21,15 +25,39 @@ public class CurrentUserService {
     private final AppUserRepository userRepository;
     private final UserProfileRepository profileRepository;
     private final Clock clock;
+    private final LocalMediaStorage storage;
+    private final MediaAssetRepository mediaAssetRepository;
 
     public CurrentUserService(
             AppUserRepository userRepository,
             UserProfileRepository profileRepository,
-            Clock clock
+            Clock clock,
+            LocalMediaStorage storage,
+            MediaAssetRepository mediaAssetRepository
     ) {
         this.userRepository = userRepository;
         this.profileRepository = profileRepository;
         this.clock = clock;
+        this.storage = storage;
+        this.mediaAssetRepository = mediaAssetRepository;
+    }
+
+    @Transactional
+    public CurrentUserResponse uploadAvatar(UUID userId, MultipartFile file) {
+        AppUser user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "User no longer exists."));
+        UserProfile profile = profileRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "User profile is missing."));
+        LocalMediaStorage.StoredImage stored = storage.store(file);
+        try {
+            MediaAsset asset = mediaAssetRepository.save(new MediaAsset(UUID.randomUUID(), stored.objectKey(),
+                    stored.originalFilename(), stored.contentType(), stored.sizeBytes(), user, clock.instant()));
+            profile.setAvatarMedia(asset, clock.instant());
+            return CurrentUserResponse.from(user, profile);
+        } catch (RuntimeException exception) {
+            storage.delete(stored.objectKey());
+            throw exception;
+        }
     }
 
     @Transactional(readOnly = true)

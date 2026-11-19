@@ -58,6 +58,11 @@ export default function EditProfileScreen() {
   const [fetching, setFetching] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
 
   useEffect(() => {
     api<CurrentProfile>('/api/v1/users/me')
@@ -102,6 +107,19 @@ export default function EditProfileScreen() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handlePasswordChange() {
+    if (newPassword.length < 8) { setPasswordMessage('New password must be at least 8 characters.'); return; }
+    if (newPassword !== confirmPassword) { setPasswordMessage('New passwords do not match.'); return; }
+    setChangingPassword(true); setPasswordMessage(null);
+    try {
+      await api('/api/v1/users/me/password', { method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }) });
+      setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
+      setPasswordMessage('Password updated. Use it the next time you sign in.');
+    } catch (cause) {
+      setPasswordMessage(cause instanceof ApiError ? cause.message : 'Unable to update your password.');
+    } finally { setChangingPassword(false); }
   }
 
   if (fetching) {
@@ -240,6 +258,20 @@ export default function EditProfileScreen() {
               {saving ? 'Saving…' : 'Save changes →'}
             </HandButton>
           </View>
+
+          <View style={styles.row}>
+            <Text style={styles.sectionLabel}>Security</Text>
+            <HandRect padding={20} radius={radius.lg}>
+              <View style={{ gap: 12 }}>
+                <Text style={styles.securityTitle}>Change password</Text>
+                <Field placeholder="Current password" secureTextEntry autoCapitalize="none" value={currentPassword} onChangeText={setCurrentPassword} />
+                <Field placeholder="New password · 8+ characters" secureTextEntry autoCapitalize="none" value={newPassword} onChangeText={setNewPassword} />
+                <Field placeholder="Confirm new password" secureTextEntry autoCapitalize="none" value={confirmPassword} onChangeText={setConfirmPassword} />
+                {passwordMessage && <Text style={styles.passwordMessage}>{passwordMessage}</Text>}
+                <HandButton color={colors.blueInk} full disabled={changingPassword || !currentPassword} onPress={handlePasswordChange}>{changingPassword ? 'Updating…' : 'Update password'}</HandButton>
+              </View>
+            </HandRect>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -306,4 +338,6 @@ const styles = StyleSheet.create({
     color: '#e05c5c',
     textAlign: 'center',
   },
+  securityTitle: { fontFamily: fonts.display, fontSize: 17, color: colors.ink },
+  passwordMessage: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: colors.blueInk, textAlign: 'center' },
 });

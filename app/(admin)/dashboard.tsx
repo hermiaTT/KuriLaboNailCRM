@@ -159,14 +159,14 @@ export default function AdminDashboardScreen() {
           <Pressable onPress={signOut} style={styles.logoutBtn}>
             <Icons.LogOut color={colors.inkSoft} size={16} />
           </Pressable>
-          <View style={styles.avatar}>
+          <Pressable style={styles.avatar} onPress={() => router.push('/(admin)/profile')}>
             <Text style={styles.avatarInitial}>{adminInitial}</Text>
             {!loading && pendingCount > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeNum}>{pendingCount > 9 ? '9+' : pendingCount}</Text>
               </View>
             )}
-          </View>
+          </Pressable>
         </View>
       </View>
 
@@ -288,6 +288,16 @@ export default function AdminDashboardScreen() {
                 ))}
               </View>
             )}
+          </View>
+
+          {/* Block out time CTA */}
+          <View style={styles.row}>
+            <HandRect padding={16} radius={radius.lg} fill={colors.blueSoft} stroke={colors.blueInk}>
+              <View style={styles.ctaRow}>
+                <View style={{ flex: 1, minWidth: 0 }}><Text style={styles.ctaTitle}>Service menu</Text><Text style={styles.ctaBody}>Add, edit or disable treatments.</Text></View>
+                <HandButton color={colors.blueInk} size="sm" onPress={() => router.push('/(admin)/services')}>Manage</HandButton>
+              </View>
+            </HandRect>
           </View>
 
           {/* Block out time CTA */}

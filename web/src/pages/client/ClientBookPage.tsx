@@ -23,6 +23,7 @@ export function ClientBookPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<Appointment | null>(null);
+  const [referenceFiles, setReferenceFiles] = useState<File[]>([]);
 
   useEffect(() => {
     api<ServiceDefinition[]>('/api/v1/services').then((items) => { setServices(items); if (items[0]) setServiceId(items[0].id); });
@@ -43,7 +44,12 @@ export function ClientBookPage() {
     const data = new FormData(event.currentTarget);
     setSubmitting(true); setError(null);
     try {
-      const appointment = await api<Appointment>('/api/v1/appointments', { method: 'POST', body: JSON.stringify({ serviceId, date, startTime: slot, note: data.get('note') || null }) });
+      let appointment = await api<Appointment>('/api/v1/appointments', { method: 'POST', body: JSON.stringify({ serviceId, date, startTime: slot, note: data.get('note') || null }) });
+      if (referenceFiles.length) {
+        const references = new FormData();
+        referenceFiles.forEach((file) => references.append('files', file));
+        appointment = await api<Appointment>(`/api/v1/appointments/${appointment.id}/references`, { method: 'POST', body: references });
+      }
       setCreated(appointment);
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : 'Unable to request this appointment.');
@@ -52,5 +58,5 @@ export function ClientBookPage() {
 
   if (created) return <div className="client-page"><PaperCard className="booking-success"><span>✿</span><p className="eyebrow">REQUEST SENT</p><h1>Your time is being held</h1><p>{created.serviceName} · {longDateLabel(date)} at {displaySlot(slot)}</p><p className="muted">Kuri will confirm your appointment soon. Pending requests reserve the selected time.</p><Link className="primary-button" to="/client/appointments">View my appointments</Link></PaperCard></div>;
 
-  return <div className="client-page"><PageHeading eyebrow="BOOK YOUR VISIT" title="Pick a service and time" /><form className="booking-layout" onSubmit={submit}><section><h2>1. Choose your service</h2><div className="book-service-grid">{services.map((service, index) => <button type="button" className={serviceId === service.id ? 'selected' : ''} onClick={() => setServiceId(service.id)} key={service.id}><span>0{index + 1}</span><strong>{service.name}</strong><small>{service.durationMinutes / 60} hours</small></button>)}</div><h2>2. Pick a date</h2><BookingCalendar value={date} minDate={todayInSalon()} onChange={setDate} /><p className="chosen-date">{longDateLabel(date)}</p></section><section><h2>3. Select a start time</h2><PaperCard className="slot-card">{loadingSlots ? <p className="slot-message">Finding open times…</p> : <div className="slot-grid">{availability?.slots.map((item) => <button type="button" disabled={!item.available} className={slot === item.startTime ? 'selected' : ''} onClick={() => setSlot(item.startTime)} key={item.startTime}>{displaySlot(item.startTime)}</button>)}</div>}</PaperCard><h2>4. Anything Kuri should know?</h2><PaperCard className="booking-note"><textarea name="note" maxLength={1000} placeholder="Colors, shapes, inspiration or special requests…" /></PaperCard>{error && <p className="form-error">{error}</p>}<button className="primary-button booking-submit" disabled={submitting || !slot}>{submitting ? 'Sending request…' : 'Request appointment'}</button><p className="booking-fine-print">Your request will be pending until Kuri confirms it.</p></section></form></div>;
+  return <div className="client-page"><PageHeading eyebrow="BOOK YOUR VISIT" title="Pick a service and time" /><form className="booking-layout" onSubmit={submit}><section><h2>1. Choose your service</h2><div className="book-service-grid">{services.map((service, index) => <button type="button" className={serviceId === service.id ? 'selected' : ''} onClick={() => setServiceId(service.id)} key={service.id}><span>0{index + 1}</span><strong>{service.name}</strong><small>{service.durationMinutes < 60 ? `${service.durationMinutes} min` : `${service.durationMinutes / 60} hr`} · ${Number(service.price).toFixed(2)}</small></button>)}</div><h2>2. Pick a date</h2><BookingCalendar value={date} minDate={todayInSalon()} onChange={setDate} /><p className="chosen-date">{longDateLabel(date)}</p></section><section><h2>3. Select a start time</h2><PaperCard className="slot-card">{loadingSlots ? <p className="slot-message">Finding open times…</p> : <div className="slot-grid">{availability?.slots.map((item) => <button type="button" disabled={!item.available} className={slot === item.startTime ? 'selected' : ''} onClick={() => setSlot(item.startTime)} key={item.startTime}>{displaySlot(item.startTime)}</button>)}</div>}</PaperCard><h2>4. Notes and reference photos</h2><PaperCard className="booking-note"><textarea name="note" maxLength={1000} placeholder="Colors, shapes, inspiration or special requests…" /><label className="booking-reference-picker">Reference photos <span className="optional">optional · up to 6</span><input type="file" accept="image/*" multiple onChange={(event) => setReferenceFiles(Array.from(event.target.files ?? []).slice(0, 6))} /></label>{referenceFiles.length > 0 && <div className="booking-reference-preview">{referenceFiles.map((file) => <img key={`${file.name}-${file.lastModified}`} src={URL.createObjectURL(file)} alt="" />)}</div>}</PaperCard>{error && <p className="form-error">{error}</p>}<button className="primary-button booking-submit" disabled={submitting || !slot}>{submitting ? 'Sending request…' : 'Request appointment'}</button><p className="booking-fine-print">Your request will be pending until Kuri confirms it.</p></section></form></div>;
 }

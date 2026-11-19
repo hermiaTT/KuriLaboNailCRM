@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
+import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
   Doodle,
@@ -20,7 +21,7 @@ import {
   typeScale,
 } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
-import { api } from '../../lib/api';
+import { api, mediaUrl } from '../../lib/api';
 import type { Appointment, CurrentProfile, NailSet } from '../../types/api';
 import type { StatusKey } from '../../constants/theme';
 
@@ -71,6 +72,7 @@ export default function ProfileScreen() {
   const [designCount, setDesignCount] = useState(0);
   const [nextAppt, setNextAppt] = useState<Appointment | null>(null);
   const [loading, setLoading] = useState(true);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -102,6 +104,19 @@ export default function ProfileScreen() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function chooseAvatar() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return;
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.85 });
+    if (result.canceled) return;
+    const asset = result.assets[0];
+    const body = new FormData();
+    body.append('file', { uri: asset.uri, name: asset.fileName || 'avatar.jpg', type: asset.mimeType || 'image/jpeg' } as any);
+    setUploadingAvatar(true);
+    try { setData(await api<CurrentProfile>('/api/v1/users/me/avatar', { method: 'POST', body })); }
+    finally { setUploadingAvatar(false); }
   }
 
   if (loading) {
@@ -146,16 +161,18 @@ export default function ProfileScreen() {
 
       {/* Avatar hero */}
       <View style={styles.hero}>
-        <View style={styles.avatarRing}>
-          <View style={[styles.avatarRingBorder, StyleSheet.absoluteFillObject]} />
+        <Pressable style={styles.avatarRing} onPress={chooseAvatar} disabled={uploadingAvatar}>
+          <View style={[styles.avatarRingBorder, StyleSheet.absoluteFill]} />
           <View style={styles.avatarInner}>
-            <Text style={styles.avatarInitial}>{initial}</Text>
+            {data?.avatarUrl ? <Image source={{ uri: mediaUrl(data.avatarUrl) }} style={styles.avatarImage} /> : <Text style={styles.avatarInitial}>{initial}</Text>}
           </View>
           <Doodle kind="flower" size={28} color={colors.yellow}
             style={{ position: 'absolute', top: -4, right: -4, transform: [{ rotate: '15deg' }] }} />
           <Doodle kind="sparkle" size={22} color={colors.blue}
             style={{ position: 'absolute', bottom: 4, left: -6, transform: [{ rotate: '-12deg' }] }} />
-        </View>
+          {uploadingAvatar && <ActivityIndicator style={StyleSheet.absoluteFill} color={colors.pinkInk} />}
+        </Pressable>
+        <Text style={styles.avatarHint}>tap photo to change</Text>
         <Text style={styles.name}>{name}</Text>
         <Text style={styles.metaWide}>member since {since}</Text>
         <Pressable onPress={signOut} style={styles.signOutBtn}>
@@ -276,12 +293,14 @@ const styles = StyleSheet.create({
   avatarInner: {
     width: 110, height: 110, borderRadius: 55,
     backgroundColor: colors.pinkSoft,
-    alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
   avatarInitial: {
     fontFamily: fonts.display, fontSize: 48, color: colors.pinkInk,
     letterSpacing: letterSpacing.display,
   },
+  avatarImage: { width: '100%', height: '100%' },
+  avatarHint: { marginTop: 8, fontFamily: fonts.mono, fontSize: 8, color: colors.inkFaint, textTransform: 'uppercase' },
   name: {
     marginTop: 14,
     fontFamily: fonts.display, fontSize: 24, color: colors.ink,

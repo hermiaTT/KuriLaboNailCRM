@@ -1,13 +1,33 @@
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Doodle, EyebrowTitle, Field, HandButton, HandChip, HandRect, Screen, ScreenHeader, StatusBadge } from '../../components/ui';
+import { Doodle, EyebrowTitle, Field, HandButton, HandChip, HandRect, Icons, NailCardModal, Screen, ScreenHeader, StatusBadge } from '../../components/ui';
 import { colors, fonts, letterSpacing, radius, spacing, typeScale, type StatusKey } from '../../constants/theme';
-import { api, ApiError } from '../../lib/api';
+import { api, ApiError, mediaUrl } from '../../lib/api';
 import type { AdminAppointment, AdminUser, Appointment } from '../../types/api';
 
 type Filter = 'ALL' | Appointment['status'];
+type ViewMode = 'LIST' | 'CALENDAR';
+
+function localDateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function salonDateKey(iso = new Date().toISOString()) {
+  return new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'America/Vancouver' }).format(new Date(iso));
+}
+
+function monthCells(dateKey: string) {
+  const focus = new Date(`${dateKey}T12:00:00`);
+  const first = new Date(focus.getFullYear(), focus.getMonth(), 1, 12);
+  first.setDate(first.getDate() - first.getDay());
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(first);
+    date.setDate(first.getDate() + index);
+    return { key: localDateKey(date), day: date.getDate(), inMonth: date.getMonth() === focus.getMonth() };
+  });
+}
 
 function uiStatus(status: Appointment['status']): StatusKey {
   if (status === 'CONFIRMED') return 'confirmed';
@@ -25,16 +45,29 @@ function timeLabel(iso: string) {
   return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Vancouver' }).format(new Date(iso));
 }
 
+function dateParts(iso: string) {
+  const date = new Date(iso);
+  return {
+    day: new Intl.DateTimeFormat('en-US', { day: 'numeric', timeZone: 'America/Vancouver' }).format(date),
+    month: new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: 'America/Vancouver' }).format(date).toUpperCase(),
+  };
+}
+
 export default function AdminAppointmentsScreen() {
+  const router = useRouter();
   const [appointments, setAppointments] = useState<AdminAppointment[]>([]);
   const [clients, setClients] = useState<AdminUser[]>([]);
   const [filter, setFilter] = useState<Filter>('ALL');
+  const [viewMode, setViewMode] = useState<ViewMode>('LIST');
+  const [calendarDate, setCalendarDate] = useState(salonDateKey());
+  const [selectedDate, setSelectedDate] = useState(salonDateKey());
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<AdminAppointment | null>(null);
   const [price, setPrice] = useState('');
   const [notes, setNotes] = useState('');
+  const [referenceAppointment, setReferenceAppointment] = useState<AdminAppointment | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -53,6 +86,25 @@ export default function AdminAppointmentsScreen() {
   useFocusEffect(load);
   const names = useMemo(() => new Map(clients.map((client) => [client.id, client.name])), [clients]);
   const visible = filter === 'ALL' ? appointments : appointments.filter((item) => item.status === filter);
+  const calendarItems = useMemo(() => {
+    const grouped = new Map<string, AdminAppointment[]>();
+    visible.forEach((item) => {
+      const key = salonDateKey(item.startAt);
+      grouped.set(key, [...(grouped.get(key) ?? []), item]);
+    });
+    grouped.forEach((items) => items.sort((a, b) => a.startAt.localeCompare(b.startAt)));
+    return grouped;
+  }, [visible]);
+  const days = useMemo(() => monthCells(calendarDate), [calendarDate]);
+  const selectedDayItems = calendarItems.get(selectedDate) ?? [];
+
+  function moveMonth(amount: number) {
+    const next = new Date(`${calendarDate}T12:00:00`);
+    next.setMonth(next.getMonth() + amount, 1);
+    const key = localDateKey(next);
+    setCalendarDate(key);
+    setSelectedDate(key);
+  }
 
   async function action(item: AdminAppointment, endpoint: string, reason: string) {
     setBusy(item.id);
@@ -95,47 +147,48 @@ export default function AdminAppointmentsScreen() {
 
   const filters: Filter[] = ['ALL', 'PENDING_CONFIRMATION', 'CONFIRMED', 'CANCELLATION_REQUESTED', 'COMPLETED'];
 
+  function appointmentCard(item: AdminAppointment, showDate = true) {
+    return <HandRect key={item.id} padding={15} radius={radius.lg}>
+      <View style={styles.head}>
+        {showDate && <View style={styles.dateBlock}><Text style={styles.dateDay}>{dateParts(item.startAt).day}</Text><Text style={styles.dateMonth}>{dateParts(item.startAt).month}</Text></View>}
+        <View style={styles.timeBlock}><Text style={styles.timeText}>{timeLabel(item.startAt)}</Text><Text style={styles.durationText}>{item.durationMinutes} min</Text></View>
+        <View style={styles.main}>
+          <Text style={styles.client}>{names.get(item.customerId) ?? 'Client'}</Text>
+          <Text style={styles.when}>{dateLabel(item.startAt)} · ends {timeLabel(item.endAt)}</Text>
+          <Text style={styles.service}>{item.serviceName}</Text>
+        </View>
+        <StatusBadge status={uiStatus(item.status)} />
+      </View>
+      {item.note && <Text style={styles.note}>Client note · {item.note}</Text>}
+      {item.serviceNotes && <Text style={styles.adminNote}>Admin note · {item.serviceNotes}</Text>}
+      {item.referenceImages.length > 0 && <Pressable style={styles.references} onPress={() => setReferenceAppointment(item)}><View style={styles.referenceStack}>{item.referenceImages.slice(0, 3).map((image, index) => <View key={image.id} style={[styles.referenceDot, { marginLeft: index ? -10 : 0 }]}><Text style={styles.referencePaw}>🐾</Text></View>)}</View><Text style={styles.referenceText}>{item.referenceImages.length} client reference{item.referenceImages.length === 1 ? '' : 's'} · tap to view</Text></Pressable>}
+      <View style={styles.actions}>
+        <Pressable onPress={() => openDetails(item)}><Text style={styles.actionText}>visit details</Text></Pressable>
+        {item.status === 'PENDING_CONFIRMATION' && <><HandButton size="sm" color={colors.inkFaint} disabled={busy === item.id} onPress={() => action(item, 'reject', 'Rejected from iOS')}>Reject</HandButton><HandButton size="sm" color={colors.pinkInk} disabled={busy === item.id} onPress={() => action(item, 'confirm', 'Confirmed from iOS')}>Confirm</HandButton></>}
+        {item.status === 'CANCELLATION_REQUESTED' && <><HandButton size="sm" color={colors.inkFaint} disabled={busy === item.id} onPress={() => action(item, 'cancellation-requests/reject', 'Cancellation declined')}>Keep</HandButton><HandButton size="sm" color={colors.pinkInk} disabled={busy === item.id} onPress={() => action(item, 'cancellation-requests/approve', 'Cancellation approved')}>Cancel</HandButton></>}
+        {item.status === 'CONFIRMED' && new Date(item.startAt).getTime() <= Date.now() && <><HandButton size="sm" color={colors.inkFaint} disabled={busy === item.id} onPress={() => action(item, 'no-show', 'Marked no-show from iOS')}>No show</HandButton><HandButton size="sm" color={colors.blueInk} disabled={busy === item.id || new Date(item.endAt).getTime() > Date.now()} onPress={() => action(item, 'complete', 'Completed from iOS')}>Complete</HandButton></>}
+      </View>
+    </HandRect>;
+  }
+
   return (
     <Screen>
-      <ScreenHeader trailing={<Text style={styles.headerMeta}>{appointments.length} visits</Text>} />
+      <ScreenHeader />
       <EyebrowTitle eyebrow="booking desk" title="Appointments" trailing={<Doodle kind="sparkle" size={20} color={colors.blue} />} />
+      <View style={styles.viewSwitch}><HandButton size="sm" color={viewMode === 'CALENDAR' ? colors.blueInk : colors.pinkInk} onPress={() => setViewMode((current) => current === 'LIST' ? 'CALENDAR' : 'LIST')}>{viewMode === 'LIST' ? 'Switch to calendar view' : 'Switch to list view'}</HandButton></View>
       <View style={styles.filters}>
         {filters.map((value) => <HandChip key={value} active={filter === value} onPress={() => setFilter(value)}>{value === 'ALL' ? 'all' : value.toLowerCase().replaceAll('_', ' ')}</HandChip>)}
       </View>
       {error && <Text style={styles.error}>{error}</Text>}
-      {loading ? <ActivityIndicator color={colors.pinkInk} style={{ marginTop: 40 }} /> : (
-        <View style={styles.list}>
-          {visible.map((item) => (
-            <HandRect key={item.id} padding={15} radius={radius.lg}>
-              <View style={styles.head}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.client}>{names.get(item.customerId) ?? 'Client'}</Text>
-                  <Text style={styles.when}>{dateLabel(item.startAt)} · {timeLabel(item.startAt)}–{timeLabel(item.endAt)}</Text>
-                  <Text style={styles.service}>{item.serviceName} · {item.durationMinutes} min</Text>
-                </View>
-                <StatusBadge status={uiStatus(item.status)} />
-              </View>
-              {item.note && <Text style={styles.note}>“{item.note}”</Text>}
-              <View style={styles.actions}>
-                <Pressable onPress={() => openDetails(item)}><Text style={styles.actionText}>visit details</Text></Pressable>
-                {item.status === 'PENDING_CONFIRMATION' && <>
-                  <HandButton size="sm" color={colors.inkFaint} disabled={busy === item.id} onPress={() => action(item, 'reject', 'Rejected from iOS')}>Reject</HandButton>
-                  <HandButton size="sm" color={colors.pinkInk} disabled={busy === item.id} onPress={() => action(item, 'confirm', 'Confirmed from iOS')}>Confirm</HandButton>
-                </>}
-                {item.status === 'CANCELLATION_REQUESTED' && <>
-                  <HandButton size="sm" color={colors.inkFaint} disabled={busy === item.id} onPress={() => action(item, 'cancellation-requests/reject', 'Cancellation declined')}>Keep</HandButton>
-                  <HandButton size="sm" color={colors.pinkInk} disabled={busy === item.id} onPress={() => action(item, 'cancellation-requests/approve', 'Cancellation approved')}>Cancel</HandButton>
-                </>}
-                {item.status === 'CONFIRMED' && new Date(item.startAt).getTime() <= Date.now() && <>
-                  <HandButton size="sm" color={colors.inkFaint} disabled={busy === item.id} onPress={() => action(item, 'no-show', 'Marked no-show from iOS')}>No show</HandButton>
-                  <HandButton size="sm" color={colors.blueInk} disabled={busy === item.id || new Date(item.endAt).getTime() > Date.now()} onPress={() => action(item, 'complete', 'Completed from iOS')}>Complete</HandButton>
-                </>}
-              </View>
-            </HandRect>
-          ))}
-          {visible.length === 0 && <Text style={styles.empty}>No appointments in this view.</Text>}
-        </View>
-      )}
+      {loading ? <ActivityIndicator color={colors.pinkInk} style={{ marginTop: 40 }} /> : viewMode === 'LIST' ? <View style={styles.list}>{visible.map((item) => appointmentCard(item))}{visible.length === 0 && <Text style={styles.empty}>No appointments in this view.</Text>}</View> : <View style={styles.calendarSection}>
+        <HandRect padding={0} radius={radius.xl}>
+          <View style={styles.calendarHead}><Pressable onPress={() => moveMonth(-1)} style={styles.monthButton}><Icons.ChevL color={colors.ink} /></Pressable><View><Text style={styles.monthTitle}>{new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(new Date(`${calendarDate}T12:00:00`))}</Text><Text style={styles.monthMeta}>tap a day to view its schedule</Text></View><Pressable onPress={() => moveMonth(1)} style={styles.monthButton}><Icons.Chev color={colors.ink} /></Pressable></View>
+          <View style={styles.weekdays}>{['S','M','T','W','T','F','S'].map((day, index) => <Text style={styles.weekday} key={`${day}-${index}`}>{day}</Text>)}</View>
+          <View style={styles.calendarGrid}>{days.map((day) => { const items = calendarItems.get(day.key) ?? []; const isSelected = day.key === selectedDate; const isToday = day.key === salonDateKey(); return <Pressable key={day.key} onPress={() => setSelectedDate(day.key)} style={styles.calendarCell}><View style={[styles.calendarNumber, isSelected && styles.calendarNumberSelected, isToday && !isSelected && styles.calendarNumberToday]}><Text style={[styles.calendarNumberText, !day.inMonth && styles.calendarNumberOutside, isSelected && styles.calendarNumberTextSelected]}>{day.day}</Text></View><View style={styles.eventDots}>{items.slice(0, 3).map((item) => <View key={item.id} style={[styles.eventDot, item.status === 'PENDING_CONFIRMATION' && styles.eventPending, item.status === 'COMPLETED' && styles.eventCompleted, item.status === 'CANCELLATION_REQUESTED' && styles.eventCancel]} />)}</View></Pressable>; })}</View>
+        </HandRect>
+        <View style={styles.agendaHead}><View><Text style={styles.agendaEyebrow}>DAY SCHEDULE</Text><Text style={styles.agendaTitle}>{new Date(`${selectedDate}T12:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</Text></View><Text style={styles.agendaCount}>{selectedDayItems.length} APPT</Text></View>
+        <View style={styles.agendaList}>{selectedDayItems.map((item) => appointmentCard(item, false))}{selectedDayItems.length === 0 && <Text style={styles.empty}>A clear day — no appointments.</Text>}</View>
+      </View>}
 
       <Modal transparent visible={Boolean(selected)} animationType="fade" onRequestClose={() => setSelected(null)}>
         <Pressable style={styles.backdrop} onPress={() => setSelected(null)}>
@@ -148,27 +201,68 @@ export default function AdminAppointmentsScreen() {
                 <Field placeholder="Internal service notes" multiline value={notes} onChangeText={setNotes} />
               </View>
               <HandButton color={colors.pinkInk} full disabled={busy === selected?.id} onPress={saveDetails}>Save details</HandButton>
+              <HandButton color={colors.blueInk} full disabled={!selected} onPress={() => selected && router.push({ pathname: '/(admin)/upload', params: { appointmentId: selected.id, clientId: selected.customerId } })}>Upload photos</HandButton>
             </HandRect>
           </Pressable>
         </Pressable>
       </Modal>
+      <NailCardModal visible={Boolean(referenceAppointment)} onClose={() => setReferenceAppointment(null)} images={(referenceAppointment?.referenceImages ?? []).map((image) => ({ id: image.id, image_url: mediaUrl(image.url) }))} />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   headerMeta: { fontFamily: fonts.mono, fontSize: typeScale.meta, color: colors.inkSoft, textTransform: 'uppercase' },
+  viewSwitch: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm, alignItems: 'flex-end' },
   filters: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md, flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   list: { paddingHorizontal: spacing.lg, gap: 10 },
-  head: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  head: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  main: { flex: 1, minWidth: 0 },
+  dateBlock: { width: 46, height: 56, borderRadius: 15, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.blueInk, backgroundColor: colors.blueSoft, alignItems: 'center', justifyContent: 'center' },
+  dateDay: { fontFamily: fonts.display, fontSize: 21, lineHeight: 23, color: colors.ink },
+  dateMonth: { marginTop: 3, fontFamily: fonts.mono, fontSize: 7, color: colors.inkSoft },
+  timeBlock: { width: 67, height: 56, borderRadius: 15, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.pinkInk, backgroundColor: colors.pinkSoft, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
+  timeText: { fontFamily: fonts.display, fontSize: 11, color: colors.ink, textAlign: 'center' },
+  durationText: { marginTop: 4, fontFamily: fonts.mono, fontSize: 7, color: colors.pinkInk, textTransform: 'uppercase' },
   client: { fontFamily: fonts.display, fontSize: typeScale.section, color: colors.ink },
   when: { marginTop: 3, fontFamily: fonts.mono, fontSize: 9, color: colors.inkSoft, letterSpacing: letterSpacing.meta },
   service: { marginTop: 4, fontFamily: fonts.body, fontSize: 12, color: colors.inkSoft },
   note: { marginTop: 10, fontFamily: fonts.body, fontSize: 12, color: colors.inkSoft },
+  adminNote: { marginTop: 5, fontFamily: fonts.body, fontSize: 12, color: colors.blueInk },
+  references: { marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  referenceStack: { flexDirection: 'row' },
+  referenceDot: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: colors.ink, backgroundColor: colors.creamCard, alignItems: 'center', justifyContent: 'center' },
+  referencePaw: { fontSize: 13 },
+  referenceText: { flex: 1, fontFamily: fonts.body, fontSize: 10, color: colors.pinkInk },
   actions: { marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderStyle: 'dashed', borderTopColor: colors.creamHair, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   actionText: { fontFamily: fonts.mono, fontSize: 9, color: colors.pinkInk, textTransform: 'uppercase' },
   error: { paddingHorizontal: spacing.lg, textAlign: 'center', fontFamily: fonts.body, color: '#c0554f' },
   empty: { textAlign: 'center', paddingVertical: 30, fontFamily: fonts.body, color: colors.inkSoft },
+  calendarSection: { paddingHorizontal: spacing.lg, gap: 18 },
+  agendaList: { gap: 10 },
+  calendarHead: { minHeight: 72, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.creamHair },
+  monthButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 19, backgroundColor: colors.pinkSoft },
+  monthTitle: { fontFamily: fonts.display, fontSize: 19, color: colors.ink, textAlign: 'center' },
+  monthMeta: { marginTop: 3, fontFamily: fonts.mono, fontSize: 7, color: colors.inkFaint, letterSpacing: letterSpacing.meta, textTransform: 'uppercase', textAlign: 'center' },
+  weekdays: { flexDirection: 'row', paddingTop: 11 },
+  weekday: { width: '14.2857%', fontFamily: fonts.mono, fontSize: 8, color: colors.inkFaint, textAlign: 'center' },
+  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingVertical: 8 },
+  calendarCell: { width: '14.2857%', height: 49, alignItems: 'center' },
+  calendarNumber: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  calendarNumberSelected: { backgroundColor: colors.pinkInk },
+  calendarNumberToday: { borderWidth: 1.5, borderColor: colors.pinkInk },
+  calendarNumberText: { fontFamily: fonts.body, fontSize: 12, color: colors.ink },
+  calendarNumberOutside: { color: colors.inkFaint, opacity: 0.45 },
+  calendarNumberTextSelected: { color: colors.white, fontWeight: '700' },
+  eventDots: { minHeight: 7, marginTop: 3, flexDirection: 'row', gap: 2 },
+  eventDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.blueInk },
+  eventPending: { backgroundColor: '#c59835' },
+  eventCompleted: { backgroundColor: '#73a07b' },
+  eventCancel: { backgroundColor: colors.pinkInk },
+  agendaHead: { paddingHorizontal: 3, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  agendaEyebrow: { fontFamily: fonts.mono, fontSize: 8, color: colors.inkSoft, letterSpacing: letterSpacing.metaWide },
+  agendaTitle: { marginTop: 4, fontFamily: fonts.display, fontSize: 18, color: colors.ink },
+  agendaCount: { fontFamily: fonts.mono, fontSize: 8, color: colors.pinkInk, letterSpacing: letterSpacing.meta },
   backdrop: { flex: 1, backgroundColor: 'rgba(40,28,15,.55)', justifyContent: 'center', padding: 24 },
   modal: { width: '100%', maxWidth: 360, alignSelf: 'center' },
   modalTitle: { fontFamily: fonts.display, fontSize: 20, color: colors.ink },

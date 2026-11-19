@@ -5,6 +5,7 @@ export type CurrentProfile = ApiUser & {
   wechat: string | null;
   preferredNailStyle: string | null;
   allergyNotes: string | null;
+  avatarUrl: string | null;
 };
 
 export type Appointment = {
@@ -24,6 +25,7 @@ export type Appointment = {
     | 'REJECTED'
     | 'CANCELLED';
   note: string | null;
+  referenceImages: NailSetImage[];
 };
 
 export type AdminAppointment = Appointment & {
@@ -54,6 +56,7 @@ export type ServiceDefinition = {
   name: string;
   description: string | null;
   durationMinutes: number;
+  price: number;
   active: boolean;
   displayOrder: number;
 };
@@ -110,4 +113,10 @@ export type NotificationItem = {
   appointmentId: string | null;
   read: boolean;
   createdAt: string;
+};
+
+export type SalonContact = {
+  salonName: string;
+  wechatId: string | null;
+  contactMessage: string | null;
 };

@@ -12,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -43,17 +42,16 @@ public class ServiceCatalogService {
     @Transactional
     public AdminServiceDefinitionResponse create(AdminServiceDefinitionRequest request) {
         validateDuration(request.durationMinutes());
-        String code = normalizeCode(request.code());
-        if (repository.existsByCodeIgnoreCase(code)) {
-            throw new ApiException(HttpStatus.CONFLICT, "A service with this code already exists");
-        }
+        UUID id = UUID.randomUUID();
+        String code = "SVC_" + id.toString().substring(0, 8).toUpperCase();
 
         ServiceDefinition service = new ServiceDefinition(
-                UUID.randomUUID(),
+                id,
                 code,
                 request.name().trim(),
                 normalizeOptional(request.description()),
                 request.durationMinutes(),
+                request.price(),
                 request.active(),
                 request.displayOrder(),
                 clock.instant()
@@ -64,17 +62,13 @@ public class ServiceCatalogService {
     @Transactional
     public AdminServiceDefinitionResponse update(UUID serviceId, AdminServiceDefinitionRequest request) {
         validateDuration(request.durationMinutes());
-        String code = normalizeCode(request.code());
-        if (repository.existsByCodeIgnoreCaseAndIdNot(code, serviceId)) {
-            throw new ApiException(HttpStatus.CONFLICT, "A service with this code already exists");
-        }
-
         ServiceDefinition service = getRequired(serviceId);
         service.update(
-                code,
+                service.getCode(),
                 request.name().trim(),
                 normalizeOptional(request.description()),
                 request.durationMinutes(),
+                request.price(),
                 request.active(),
                 request.displayOrder(),
                 clock.instant()
@@ -94,13 +88,9 @@ public class ServiceCatalogService {
     }
 
     private void validateDuration(int durationMinutes) {
-        if (durationMinutes % 30 != 0) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Service duration must use 30-minute increments");
+        if (durationMinutes < 30 || durationMinutes > 300 || durationMinutes % 30 != 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Service duration must be 30 minutes to 5 hours in 30-minute increments");
         }
-    }
-
-    private String normalizeCode(String code) {
-        return code.trim().toUpperCase(Locale.ROOT);
     }
 
     private String normalizeOptional(String value) {

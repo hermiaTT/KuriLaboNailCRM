@@ -50,6 +50,7 @@ export function ClientProfilePage() {
   const [passwords, setPasswords] = useState({ current: '', next: '', confirm: '' });
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
     api<CurrentProfile>('/api/v1/users/me')
@@ -108,13 +109,30 @@ export function ClientProfilePage() {
     } finally { setChangingPassword(false); }
   }
 
+  async function uploadAvatar(file: File | undefined) {
+    if (!file) return;
+    setUploadingAvatar(true); setError(null);
+    const body = new FormData(); body.append('file', file);
+    try {
+      const updated = await api<CurrentProfile>('/api/v1/users/me/avatar', { method: 'POST', body });
+      setProfile(updated);
+      await refreshUser();
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : 'Unable to upload your profile photo.');
+    } finally { setUploadingAvatar(false); }
+  }
+
   return (
     <div className="client-page">
       <PageHeading eyebrow="ABOUT YOU" title="My profile" />
       {error && <div className="form-notice profile-notice" role="alert">{error}</div>}
       <div className="profile-grid">
         <PaperCard className="profile-identity">
-          <div className="profile-avatar">{profile?.name?.[0]?.toUpperCase() ?? 'K'}</div>
+          <label className="profile-avatar-picker">
+            <span className="profile-avatar">{profile?.avatarUrl ? <img src={profile.avatarUrl} alt="Profile" /> : profile?.name?.[0]?.toUpperCase() ?? 'K'}</span>
+            <input type="file" accept="image/*" disabled={uploadingAvatar} onChange={(event) => void uploadAvatar(event.target.files?.[0])} />
+            <small>{uploadingAvatar ? 'Uploading…' : 'Change photo'}</small>
+          </label>
           <h2>{profile?.name || (loading ? 'Loading…' : 'Kuri client')}</h2>
           <p>{profile?.phone}</p>
           <span className="profile-privacy-note">Only you and Kuri can see these details.</span>
