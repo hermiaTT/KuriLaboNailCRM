@@ -29,6 +29,7 @@ yarn-error.*
 *.log
 backend/kuri-api/backend.err
 backend/kuri-api/data/
+backups/
 
 # macOS
 .DS_Store
