@@ -4,6 +4,7 @@ import com.kurilabo.portfolio.application.NailSetService;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -24,6 +25,11 @@ public class AdminNailSetController {
 
     public AdminNailSetController(NailSetService nailSetService) {
         this.nailSetService = nailSetService;
+    }
+
+    @GetMapping
+    List<NailSetResponse> listForClient(@RequestParam UUID clientId) {
+        return nailSetService.getForClient(clientId);
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

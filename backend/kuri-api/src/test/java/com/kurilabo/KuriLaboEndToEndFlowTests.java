@@ -247,6 +247,19 @@ class KuriLaboEndToEndFlowTests {
                 .andReturn().getResponse().getContentAsString());
         String uploadedSetId = uploadedSet.get("id").asText();
 
+        mvc.perform(get("/api/v1/admin/appointments")
+                        .param("customerId", clientId)
+                        .header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == '" + pastVisitId + "')].customerId", hasItem(clientId)))
+                .andExpect(jsonPath("$[?(@.customerId != '" + clientId + "')]").isEmpty());
+        mvc.perform(get("/api/v1/admin/nail-sets")
+                        .param("clientId", clientId)
+                        .header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == '" + uploadedSetId + "')].appointmentId", hasItem(pastVisitId)))
+                .andExpect(jsonPath("$[?(@.clientId != '" + clientId + "')]").isEmpty());
+
         putJson("/api/v1/admin/nail-sets/" + uploadedSetId, adminToken, Map.of(
                 "title", "E2E nail set relinked",
                 "description", "Client-only history after relink",
@@ -336,6 +349,9 @@ class KuriLaboEndToEndFlowTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.avatarUrl").isNotEmpty())
                 .andReturn().getResponse().getContentAsString());
+        mvc.perform(get("/api/v1/admin/users/" + clientId).header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.avatarUrl").value(avatarProfile.get("avatarUrl").asText()));
         mvc.perform(get(avatarProfile.get("avatarUrl").asText()).param("download", "true"))
                 .andExpect(status().isOk())
                 .andExpect(result -> org.junit.jupiter.api.Assertions.assertTrue(

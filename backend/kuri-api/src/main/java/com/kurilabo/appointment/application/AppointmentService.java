@@ -206,8 +206,11 @@ public class AppointmentService {
     }
 
     @Transactional(readOnly = true)
-    public List<AdminAppointmentResponse> getAllAdminAppointments() {
-        return appointmentRepository.findAllByOrderByStartAtDesc().stream()
+    public List<AdminAppointmentResponse> getAllAdminAppointments(UUID customerId) {
+        List<Appointment> appointments = customerId == null
+                ? appointmentRepository.findAllByOrderByStartAtDesc()
+                : appointmentRepository.findByCustomer_IdOrderByStartAtDesc(customerId);
+        return appointments.stream()
                 .map(AdminAppointmentResponse::from)
                 .toList();
     }

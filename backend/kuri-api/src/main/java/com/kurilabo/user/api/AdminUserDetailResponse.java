@@ -21,6 +21,7 @@ public record AdminUserDetailResponse(
         String preferredNailStyle,
         String allergyNotes,
         String adminNotes,
+        String avatarUrl,
         Instant createdAt
 ) {
     public static AdminUserDetailResponse from(AppUser user, UserProfile profile) {
@@ -38,6 +39,7 @@ public record AdminUserDetailResponse(
                 profile.getPreferredNailStyle(),
                 profile.getAllergyNotes(),
                 profile.getAdminNotes(),
+                profile.getAvatarMedia() == null ? null : "/api/v1/media/" + profile.getAvatarMedia().getId() + "/content",
                 user.getCreatedAt()
         );
     }

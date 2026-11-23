@@ -33,6 +33,7 @@ export type AdminUserDetail = AdminUser & {
   preferredNailStyle: string | null;
   allergyNotes: string | null;
   adminNotes: string | null;
+  avatarUrl: string | null;
 };
 
 export type Appointment = {

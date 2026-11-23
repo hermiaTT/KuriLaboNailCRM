@@ -6,6 +6,7 @@ import { ClientShell } from './components/ClientShell';
 import { LoadingPage } from './components/UI';
 import { AppointmentsPage } from './pages/AppointmentsPage';
 import { ClientsPage } from './pages/ClientsPage';
+import { ClientDetailPage } from './pages/ClientDetailPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { LoginPage } from './pages/LoginPage';
 import { InspirationPage } from './pages/InspirationPage';
@@ -44,6 +45,7 @@ export function App() {
         <Route index element={<DashboardPage />} />
         <Route path="appointments" element={<AppointmentsPage />} />
         <Route path="clients" element={<ClientsPage />} />
+        <Route path="clients/:clientId" element={<ClientDetailPage />} />
         <Route path="schedule" element={<SchedulePage />} />
         <Route path="inspiration" element={<InspirationPage />} />
         <Route path="services" element={<ServicesPage />} />
