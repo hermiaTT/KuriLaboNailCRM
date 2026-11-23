@@ -1,6 +1,7 @@
 import type { AuthResponse } from '../types';
 
 const ACCESS_TOKEN_KEY = 'kuri_web_access_token';
+export const AUTH_EXPIRED_EVENT = 'kuri:auth-expired';
 
 export class ApiError extends Error {
   constructor(
@@ -61,6 +62,7 @@ async function refreshAccessToken() {
       })
       .catch(() => {
         setAccessToken(null);
+        window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
         return false;
       })
       .finally(() => {

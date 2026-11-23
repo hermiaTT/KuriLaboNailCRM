@@ -84,12 +84,17 @@ export default function AdminTabsLayout() {
         name="inspiration"
         options={{
           title: 'Gallery',
+          href: null,
           tabBarIcon: ({ focused }) => (
             <TabBarIcon focused={focused} icon={(c, s) => <Icons.Photos color={c} size={s}/>} label="Gallery"/>
           ),
         }}
       />
       <Tabs.Screen name="client/[id]" options={{ href: null }} />
+      <Tabs.Screen name="notifications" options={{ href: null }} />
+      <Tabs.Screen name="create-appointment" options={{ href: null }} />
+      <Tabs.Screen name="services" options={{ href: null }} />
+      <Tabs.Screen name="profile" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -1,6 +1,7 @@
 package com.kurilabo.appointment.api;
 
 import com.kurilabo.appointment.application.AppointmentService;
+import com.kurilabo.appointment.application.AppointmentReferenceService;
 import jakarta.validation.Valid;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -9,6 +10,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.MediaType;
 
 import java.util.UUID;
 import java.util.List;
@@ -18,9 +22,17 @@ import java.util.List;
 public class AppointmentController {
 
     private final AppointmentService appointmentService;
+    private final AppointmentReferenceService referenceService;
 
-    public AppointmentController(AppointmentService appointmentService) {
+    public AppointmentController(AppointmentService appointmentService, AppointmentReferenceService referenceService) {
         this.appointmentService = appointmentService;
+        this.referenceService = referenceService;
+    }
+
+    @PostMapping(value = "/{appointmentId}/references", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    AppointmentResponse uploadReferences(JwtAuthenticationToken authentication, @PathVariable UUID appointmentId,
+                                         @RequestParam("files") java.util.List<MultipartFile> files) {
+        return referenceService.upload(currentUserId(authentication), appointmentId, files);
     }
 
     @PostMapping

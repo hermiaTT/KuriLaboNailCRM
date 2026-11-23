@@ -30,7 +30,8 @@ import {
   typeScale,
 } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { api, ApiError } from '../../lib/api';
+import type { CurrentProfile } from '../../types/api';
 
 function formatDisplay(d: Date): string {
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -43,11 +44,12 @@ function formatDb(d: Date): string {
 export default function EditProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { profile: authProfile } = useAuth();
+  const { refreshUser } = useAuth();
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [instagram, setInstagram] = useState('');
+  const [wechat, setWechat] = useState('');
   const [preferredStyle, setPreferredStyle] = useState('');
   const [allergyNotes, setAllergyNotes] = useState('');
   const [birthday, setBirthday] = useState<Date | null>(null);
@@ -56,53 +58,68 @@ export default function EditProfileScreen() {
   const [fetching, setFetching] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authProfile?.id) return;
-    supabase
-      .from('profiles')
-      .select('name, phone, birthday, instagram, preferred_nail_style, allergy_notes')
-      .eq('id', authProfile.id)
-      .single()
-      .then(({ data }) => {
-        if (data) {
-          setName(data.name ?? '');
-          setPhone(data.phone ?? '');
-          setInstagram(data.instagram ?? '');
-          setPreferredStyle(data.preferred_nail_style ?? '');
-          setAllergyNotes(data.allergy_notes ?? '');
-          if (data.birthday) setBirthday(new Date(data.birthday + 'T00:00:00'));
-        }
-        setFetching(false);
-      });
-  }, [authProfile?.id]);
+    api<CurrentProfile>('/api/v1/users/me')
+      .then((data) => {
+        setName(data.name ?? '');
+        setPhone(data.phone ?? '');
+        setInstagram(data.instagram ?? '');
+        setWechat(data.wechat ?? '');
+        setPreferredStyle(data.preferredNailStyle ?? '');
+        setAllergyNotes(data.allergyNotes ?? '');
+        if (data.birthday) setBirthday(new Date(data.birthday + 'T00:00:00'));
+      })
+      .catch((cause) => setError(cause instanceof ApiError ? cause.message : 'Unable to load your profile.'))
+      .finally(() => setFetching(false));
+  }, []);
 
   async function handleSave() {
-    if (!name.trim()) {
-      setError('Name is required.');
+    if (!name.trim() || !phone.trim()) {
+      setError('Name and phone number are required.');
       return;
     }
     setError(null);
     setSaving(true);
 
-    const { error: dbError } = await supabase
-      .from('profiles')
-      .update({
+    try {
+      await api<CurrentProfile>('/api/v1/users/me', {
+        method: 'PUT',
+        body: JSON.stringify({
         name: name.trim(),
-        phone: phone.trim() || null,
+        phone: phone.trim(),
         instagram: instagram.trim() || null,
-        preferred_nail_style: preferredStyle.trim() || null,
-        allergy_notes: allergyNotes.trim() || null,
+        wechat: wechat.trim() || null,
+        preferredNailStyle: preferredStyle.trim() || null,
+        allergyNotes: allergyNotes.trim() || null,
         birthday: birthday ? formatDb(birthday) : null,
-      })
-      .eq('id', authProfile!.id);
-
-    setSaving(false);
-    if (dbError) {
-      setError(dbError.message);
-    } else {
+        }),
+      });
+      await refreshUser();
       router.back();
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : 'Unable to save your profile.');
+    } finally {
+      setSaving(false);
     }
+  }
+
+  async function handlePasswordChange() {
+    if (newPassword.length < 8) { setPasswordMessage('New password must be at least 8 characters.'); return; }
+    if (newPassword !== confirmPassword) { setPasswordMessage('New passwords do not match.'); return; }
+    setChangingPassword(true); setPasswordMessage(null);
+    try {
+      await api('/api/v1/users/me/password', { method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }) });
+      setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
+      setPasswordMessage('Password updated. Use it the next time you sign in.');
+    } catch (cause) {
+      setPasswordMessage(cause instanceof ApiError ? cause.message : 'Unable to update your password.');
+    } finally { setChangingPassword(false); }
   }
 
   if (fetching) {
@@ -154,7 +171,7 @@ export default function EditProfileScreen() {
               <View style={{ gap: 12 }}>
                 <Field placeholder="Name" value={name} onChangeText={setName} />
                 <Field
-                  placeholder="Phone (optional)"
+                  placeholder="Phone number"
                   keyboardType="phone-pad"
                   value={phone}
                   onChangeText={setPhone}
@@ -164,6 +181,12 @@ export default function EditProfileScreen() {
                   autoCapitalize="none"
                   value={instagram}
                   onChangeText={setInstagram}
+                />
+                <Field
+                  placeholder="WeChat (optional)"
+                  autoCapitalize="none"
+                  value={wechat}
+                  onChangeText={setWechat}
                 />
 
                 {/* Birthday picker */}
@@ -235,6 +258,20 @@ export default function EditProfileScreen() {
               {saving ? 'Saving…' : 'Save changes →'}
             </HandButton>
           </View>
+
+          <View style={styles.row}>
+            <Text style={styles.sectionLabel}>Security</Text>
+            <HandRect padding={20} radius={radius.lg}>
+              <View style={{ gap: 12 }}>
+                <Text style={styles.securityTitle}>Change password</Text>
+                <Field placeholder="Current password" secureTextEntry autoCapitalize="none" value={currentPassword} onChangeText={setCurrentPassword} />
+                <Field placeholder="New password · 8+ characters" secureTextEntry autoCapitalize="none" value={newPassword} onChangeText={setNewPassword} />
+                <Field placeholder="Confirm new password" secureTextEntry autoCapitalize="none" value={confirmPassword} onChangeText={setConfirmPassword} />
+                {passwordMessage && <Text style={styles.passwordMessage}>{passwordMessage}</Text>}
+                <HandButton color={colors.blueInk} full disabled={changingPassword || !currentPassword} onPress={handlePasswordChange}>{changingPassword ? 'Updating…' : 'Update password'}</HandButton>
+              </View>
+            </HandRect>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -301,4 +338,6 @@ const styles = StyleSheet.create({
     color: '#e05c5c',
     textAlign: 'center',
   },
+  securityTitle: { fontFamily: fonts.display, fontSize: 17, color: colors.ink },
+  passwordMessage: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: colors.blueInk, textAlign: 'center' },
 });

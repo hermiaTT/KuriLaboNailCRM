@@ -1,0 +1,7 @@
+error when starting dev server:
+Error: Port 3000 is already in use
+    at httpServerStart (file:///C:/Users/hermi/OneDrive/%E6%A1%8C%E9%9D%A2/KuriLaboCRM/web/node_modules/vite/dist/node/chunks/node.js:14673:10)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async startServer (file:///C:/Users/hermi/OneDrive/%E6%A1%8C%E9%9D%A2/KuriLaboCRM/web/node_modules/vite/dist/node/chunks/node.js:25081:30)
+    at async Object.listen (file:///C:/Users/hermi/OneDrive/%E6%A1%8C%E9%9D%A2/KuriLaboCRM/web/node_modules/vite/dist/node/chunks/node.js:24887:4)
+    at async CAC.<anonymous> (file:///C:/Users/hermi/OneDrive/%E6%A1%8C%E9%9D%A2/KuriLaboCRM/web/node_modules/vite/dist/node/cli.js:734:3)

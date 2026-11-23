@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import { EmptyState, PageHeading, PaperCard, StatusBadge } from '../components/UI';
 import { api, ApiError } from '../lib/api';
 import type { AdminUser, AdminUserDetail } from '../types';
 
 export function ClientsPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [clients, setClients] = useState<AdminUser[]>([]);
   const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +24,13 @@ export function ClientsPage() {
       .then((users) => setClients(users.filter((user) => user.role === 'USER')))
       .catch(() => setError('Unable to load clients.'));
   }, []);
+
+  useEffect(() => {
+    const state = location.state as { editClientId?: string } | null;
+    if (!state?.editClientId) return;
+    void openClient(state.editClientId);
+    navigate('/clients', { replace: true, state: null });
+  }, [location.state, navigate]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -132,7 +142,7 @@ export function ClientsPage() {
           <div className="data-table">
             <div className="table-head"><span>Client</span><span>Contact</span><span>Joined</span><span>Status</span></div>
             {filtered.map((client) => (
-              <button className="table-row" key={client.id} onClick={() => void openClient(client.id)} disabled={loadingDetails}>
+              <button className="table-row" key={client.id} onClick={() => navigate(`/clients/${client.id}`)} disabled={loadingDetails}>
                 <span className="person-cell"><i className="mini-avatar">{client.name[0]?.toUpperCase()}</i><span><strong>{client.name} {client.accountType === 'GUEST' && <em className="guest-client-badge">Guest</em>}</strong><small>{client.email ?? 'Admin-created client'}</small></span></span>
                 <span>{client.phone || 'No phone yet'}</span>
                 <span>{new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(client.createdAt))}</span>

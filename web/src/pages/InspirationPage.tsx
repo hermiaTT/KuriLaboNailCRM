@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type DragEvent, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { NailSetGallery } from '../components/NailSetGallery';
@@ -18,6 +18,7 @@ export function InspirationPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [fileInputKey, setFileInputKey] = useState(0);
+  const [draggingFiles, setDraggingFiles] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [manageItem, setManageItem] = useState<NailSet | null>(null);
   const [editClientId, setEditClientId] = useState('');
@@ -53,6 +54,26 @@ export function InspirationPage() {
   function chooseAppointment(value: string) {
     setAppointmentId(value);
     if (value) setClientId('');
+  }
+
+  function addFiles(nextFiles: FileList | File[]) {
+    const images = Array.from(nextFiles).filter((file) => file.type.startsWith('image/'));
+    setFiles((current) => {
+      const seen = new Set(current.map((file) => `${file.name}:${file.size}:${file.lastModified}`));
+      const additions = images.filter((file) => {
+        const key = `${file.name}:${file.size}:${file.lastModified}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      return [...current, ...additions].slice(0, 12);
+    });
+  }
+
+  function dropFiles(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setDraggingFiles(false);
+    addFiles(event.dataTransfer.files);
   }
 
   async function upload(event: FormEvent<HTMLFormElement>) {
@@ -130,9 +151,15 @@ export function InspirationPage() {
       <PaperCard className="upload-studio-card">
         <div className="upload-studio-intro"><p className="eyebrow">NEW NAIL SET</p><h2>Upload a little gallery</h2><p>Add up to 12 photos. Linking a client or appointment is optional—unlinked archive photos still appear in Inspiration.</p></div>
         <form onSubmit={upload}>
-          <label className="upload-dropzone">
-            <input key={fileInputKey} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={(event) => setFiles(Array.from(event.target.files ?? []).slice(0, 12))} />
-            <span>＋</span><strong>Choose photos</strong><small>JPEG, PNG, WebP or GIF · up to 12</small>
+          <label
+            className={`upload-dropzone${draggingFiles ? ' is-dragging' : ''}`}
+            onDragEnter={(event) => { event.preventDefault(); setDraggingFiles(true); }}
+            onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; }}
+            onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDraggingFiles(false); }}
+            onDrop={dropFiles}
+          >
+            <input key={fileInputKey} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={(event) => addFiles(event.target.files ?? [])} />
+            <span>{draggingFiles ? '↓' : '＋'}</span><strong>{draggingFiles ? 'Drop photos here' : 'Drag photos here or click to choose'}</strong><small>JPEG, PNG, WebP or GIF · up to 12</small>
           </label>
           {previews.length > 0 && <div className="upload-preview-strip">{previews.map((preview, index) => <div key={`${preview.file.name}-${index}`}><img src={preview.url} alt="" /><span>{index === 0 ? 'cover' : index + 1}</span></div>)}</div>}
           <div className="form-pair"><label>Set title <span className="optional">optional</span><input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={200} placeholder="Soft chrome garden" /></label><label>Client <span className="optional">optional</span><select value={clientId} onChange={(event) => setClientId(event.target.value)} disabled={Boolean(appointmentId)}><option value="">No client</option>{clients.map((client) => <option value={client.id} key={client.id}>{client.name}</option>)}</select></label></div>

@@ -37,6 +37,7 @@ export function NailSetGallery({ items, onFavorite, onManage, emptyMessage = 'No
               <img src={item.images[0]?.url} alt={item.title} loading="lazy" />
               {item.images.length > 1 && <span className="image-count">{item.images.length} photos</span>}
             </button>
+            {item.images[0] && <a className="paw-download" href={`${item.images[0].url}?download=true`} download aria-label={`Download ${item.title}`}>🐾</a>}
             <div className="nail-set-copy">
               <div><h3>{item.title}</h3><span className="nail-set-actions">{onManage && <button className="manage-set-button" onClick={() => onManage(item)}>Manage</button>}{onFavorite && <button className={`favorite-button ${item.favorited ? 'saved' : ''}`} onClick={() => onFavorite(item)} aria-label={item.favorited ? 'Remove from saved inspiration' : 'Save inspiration'}>{item.favorited ? '♥' : '♡'}</button>}</span></div>
               {item.description && <p>{item.description}</p>}
@@ -75,6 +76,7 @@ export function NailSetViewer({
         <div className="nail-viewer-stage">
           {item.images.length > 1 && <button className="viewer-arrow previous" onClick={() => move(-1)} aria-label="Previous photo">‹</button>}
           <img src={image?.url} alt={`${item.title} photo ${activeImage + 1}`} />
+          {image && <a className="paw-download viewer-download" href={`${image.url}?download=true`} download aria-label="Download this photo">🐾</a>}
           {item.images.length > 1 && <button className="viewer-arrow next" onClick={() => move(1)} aria-label="Next photo">›</button>}
         </div>
         <div className="nail-viewer-info">

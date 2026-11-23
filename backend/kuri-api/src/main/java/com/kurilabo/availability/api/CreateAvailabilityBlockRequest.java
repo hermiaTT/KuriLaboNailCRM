@@ -8,6 +8,7 @@ import java.time.LocalTime;
 
 public record CreateAvailabilityBlockRequest(
         @NotNull LocalDate date,
+        LocalDate endDate,
         boolean fullDay,
         LocalTime startTime,
         LocalTime endTime,

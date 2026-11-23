@@ -5,6 +5,7 @@ import com.kurilabo.appointment.domain.AppointmentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.jpa.repository.EntityGraph;
 
 import java.time.Instant;
 import java.util.Collection;
@@ -25,8 +26,14 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
             @Param("statuses") Collection<AppointmentStatus> statuses
     );
 
+    @EntityGraph(attributePaths = {"customer", "serviceDefinition", "referenceMedia", "referenceMedia.mediaAsset"})
     List<Appointment> findByCustomer_IdOrderByStartAtDesc(UUID customerId);
 
+    @EntityGraph(attributePaths = {"customer", "serviceDefinition", "referenceMedia", "referenceMedia.mediaAsset"})
     List<Appointment> findAllByOrderByStartAtDesc();
+
+    @Override
+    @EntityGraph(attributePaths = {"customer", "serviceDefinition", "referenceMedia", "referenceMedia.mediaAsset"})
+    java.util.Optional<Appointment> findById(UUID id);
 }
 

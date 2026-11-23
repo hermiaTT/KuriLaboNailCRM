@@ -16,7 +16,8 @@ public record CurrentUserResponse(
         String instagram,
         String wechat,
         String preferredNailStyle,
-        String allergyNotes
+        String allergyNotes,
+        String avatarUrl
 ) {
     public static CurrentUserResponse from(AppUser user, UserProfile profile) {
         return new CurrentUserResponse(
@@ -29,7 +30,8 @@ public record CurrentUserResponse(
                 profile.getInstagram(),
                 profile.getWechat(),
                 profile.getPreferredNailStyle(),
-                profile.getAllergyNotes()
+                profile.getAllergyNotes(),
+                profile.getAvatarMedia() == null ? null : "/api/v1/media/" + profile.getAvatarMedia().getId() + "/content"
         );
     }
 }

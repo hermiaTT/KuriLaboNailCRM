@@ -4,6 +4,10 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import com.kurilabo.portfolio.domain.MediaAsset;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -33,6 +37,10 @@ public class UserProfile {
 
     @Column(name = "admin_notes")
     private String adminNotes;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "avatar_media_id")
+    private MediaAsset avatarMedia;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -87,6 +95,12 @@ public class UserProfile {
 
     public String getAdminNotes() {
         return adminNotes;
+    }
+
+    public MediaAsset getAvatarMedia() { return avatarMedia; }
+    public void setAvatarMedia(MediaAsset avatarMedia, Instant now) {
+        this.avatarMedia = avatarMedia;
+        this.updatedAt = now;
     }
 
     public void updateByAdmin(

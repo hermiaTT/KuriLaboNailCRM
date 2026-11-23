@@ -11,11 +11,13 @@ import {
   StyleSheet,
   Text,
   View,
+  Alert,
 } from 'react-native';
 import { colors, fonts, radius } from '../../constants/theme';
 import { HandRect } from './HandRect';
 import { Icons } from './Icons';
 import { NailHand, type NailTone } from './NailHand';
+import { saveImageToLibrary } from '../../lib/downloadImage';
 
 export type CardImage = { id?: string; image_url?: string | null };
 
@@ -129,6 +131,14 @@ export function NailCardModal({
                 </View>
               )}
 
+              {images[idx]?.image_url && (
+                <Pressable style={styles.downloadBtn} hitSlop={8} onPress={() => {
+                  saveImageToLibrary(images[idx].image_url!).then(() => Alert.alert('Saved', 'The photo was saved to your library.')).catch((error) => Alert.alert('Unable to save', error instanceof Error ? error.message : 'Please try again.'));
+                }}>
+                  <Text style={styles.downloadGlyph}>🐾</Text>
+                </Pressable>
+              )}
+
               {/* arrows */}
               {n > 1 && (
                 <>
@@ -237,4 +247,6 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 10,
   },
   closeGlyph: { color: colors.ink, fontSize: 17, lineHeight: 20 },
+  downloadBtn: { position: 'absolute', top: 12, right: 12, width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,253,247,.94)', borderWidth: 1.3, borderColor: colors.ink, alignItems: 'center', justifyContent: 'center', zIndex: 5 },
+  downloadGlyph: { fontSize: 18 },
 });

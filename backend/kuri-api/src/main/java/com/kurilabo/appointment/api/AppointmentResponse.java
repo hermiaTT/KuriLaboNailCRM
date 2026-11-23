@@ -4,6 +4,7 @@ import com.kurilabo.appointment.domain.Appointment;
 
 import java.time.Instant;
 import java.util.UUID;
+import java.util.List;
 
 public record AppointmentResponse(
         UUID id,
@@ -14,7 +15,8 @@ public record AppointmentResponse(
         Instant startAt,
         Instant endAt,
         String status,
-        String note
+        String note,
+        List<AppointmentImageResponse> referenceImages
 ) {
     public static AppointmentResponse from(Appointment appointment) {
         return new AppointmentResponse(
@@ -26,7 +28,8 @@ public record AppointmentResponse(
                 appointment.getStartAt(),
                 appointment.getEndAt(),
                 appointment.getStatus().name(),
-                appointment.getCustomerNote()
+                appointment.getCustomerNote(),
+                appointment.getReferenceMedia().stream().map(AppointmentImageResponse::from).toList()
         );
     }
 }

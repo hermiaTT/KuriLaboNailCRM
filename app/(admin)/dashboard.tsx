@@ -20,8 +20,9 @@ import {
   typeScale,
 } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
-
-import { supabase } from '../../lib/supabase';
+import { api, mediaUrl } from '../../lib/api';
+import type { AdminUser, Appointment, NailSet } from '../../types/api';
+import type { StatusKey } from '../../constants/theme';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -40,24 +41,21 @@ function todayLabel() {
   });
 }
 
-function currentWeekRange() {
-  const now = new Date();
-  const day = now.getDay();
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  return {
-    start: monday.toISOString().split('T')[0],
-    end: sunday.toISOString().split('T')[0],
-  };
+function fmtTime(iso: string) {
+  return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Vancouver' }).format(new Date(iso));
 }
 
-function fmtTime(t: string) {
-  if (!t) return '';
-  const [h, m] = t.split(':');
-  const hour = parseInt(h, 10);
-  return `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`;
+function dayKey(iso: string | Date) {
+  const date = typeof iso === 'string' ? new Date(iso) : iso;
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Vancouver' }).format(date);
+}
+
+function uiStatus(status: Appointment['status']): StatusKey {
+  if (status === 'CONFIRMED') return 'confirmed';
+  if (status === 'COMPLETED') return 'done';
+  if (status === 'NO_SHOW') return 'no_show';
+  if (status === 'CANCELLED' || status === 'REJECTED') return 'cancelled';
+  return 'pending';
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -96,82 +94,34 @@ export default function AdminDashboardScreen() {
   );
 
   async function fetchAll() {
-    const now = new Date();
-    const today = now.toISOString().split('T')[0];
-    const { start: weekStart, end: weekEnd } = currentWeekRange();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-
-    const [
-      todayApptsRes,
-      pendingRes,
-      weekCountRes,
-      newUsersRes,
-      uploadsRes,
-      clientsRes,
-      recentUploadsRes,
-    ] = await Promise.all([
-      supabase
-        .from('appointments')
-        .select('id, status, start_time, end_time, profiles(name)')
-        .eq('date', today)
-        .in('status', ['pending', 'confirmed']),
-
-      supabase
-        .from('appointments')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'pending'),
-
-      supabase
-        .from('appointments')
-        .select('id', { count: 'exact', head: true })
-        .gte('date', weekStart).lte('date', weekEnd)
-        .in('status', ['pending', 'confirmed', 'done']),
-
-      supabase
-        .from('profiles')
-        .select('id', { count: 'exact', head: true })
-        .eq('role', 'user')
-        .gte('created_at', monthStart),
-
-      supabase
-        .from('inspiration_images')
-        .select('id', { count: 'exact', head: true })
-        .gte('created_at', thirtyDaysAgo),
-
-      supabase
-        .from('profiles')
-        .select('id, name, phone')
-        .eq('role', 'user')
-        .order('created_at', { ascending: false })
-        .limit(3),
-
-      supabase
-        .from('inspiration_images')
-        .select('id, image_url')
-        .order('created_at', { ascending: false })
-        .limit(6),
-    ]);
-
-    const merged: TodayAppt[] = (todayApptsRes.data ?? []).map((a: any) => ({
-      id: a.id,
-      status: a.status,
-      clientName: Array.isArray(a.profiles)
-        ? (a.profiles[0]?.name ?? '—')
-        : (a.profiles?.name ?? '—'),
-      startTime: a.start_time,
-      endTime: a.end_time,
-    }));
-
-    setTodayAppts(merged);
-    setTodayCount(merged.length);
-    setPendingCount((pendingRes as any).count ?? 0);
-    setWeekCount((weekCountRes as any).count ?? 0);
-    setNewUsersCount((newUsersRes as any).count ?? 0);
-    setUploadsCount((uploadsRes as any).count ?? 0);
-    setRecentClients((clientsRes.data ?? []) as RecentClient[]);
-    setRecentUploads((recentUploadsRes.data ?? []) as RecentUpload[]);
-    setLoading(false);
+    setLoading(true);
+    try {
+      const [appointments, allUsers, nailSets] = await Promise.all([
+        api<Appointment[]>('/api/v1/admin/appointments'),
+        api<AdminUser[]>('/api/v1/admin/users'),
+        api<NailSet[]>('/api/v1/inspiration'),
+      ]);
+      const clients = allUsers.filter((user) => user.role === 'USER');
+      const names = new Map(clients.map((client) => [client.id, client.name]));
+      const today = dayKey(new Date());
+      const merged = appointments
+        .filter((item) => dayKey(item.startAt) === today && !['CANCELLED', 'REJECTED'].includes(item.status))
+        .sort((a, b) => a.startAt.localeCompare(b.startAt))
+        .map((item) => ({ id: item.id, status: uiStatus(item.status), clientName: names.get(item.customerId) ?? 'Client', startTime: item.startAt, endTime: item.endAt }));
+      const weekEnd = Date.now() + 7 * 24 * 60 * 60 * 1000;
+      const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
+      const images = nailSets.flatMap((set) => set.images).slice(0, 6).map((image) => ({ id: image.id, image_url: mediaUrl(image.url) }));
+      setTodayAppts(merged);
+      setTodayCount(merged.length);
+      setPendingCount(appointments.filter((item) => item.status === 'PENDING_CONFIRMATION').length);
+      setWeekCount(appointments.filter((item) => { const start = new Date(item.startAt).getTime(); return start >= Date.now() && start <= weekEnd; }).length);
+      setNewUsersCount(clients.filter((client) => new Date(client.createdAt).getTime() >= monthStart).length);
+      setUploadsCount(nailSets.reduce((total, set) => total + set.images.length, 0));
+      setRecentClients(clients.slice(0, 3));
+      setRecentUploads(images);
+    } finally {
+      setLoading(false);
+    }
   }
 
   const adminInitial = profile?.name?.[0]?.toUpperCase() ?? 'K';
@@ -203,17 +153,20 @@ export default function AdminDashboardScreen() {
           </Text>
         </View>
         <View style={styles.headerRight}>
+          <Pressable onPress={() => router.push('/(admin)/notifications')} style={styles.logoutBtn}>
+            <Icons.Bell color={colors.inkSoft} size={17} />
+          </Pressable>
           <Pressable onPress={signOut} style={styles.logoutBtn}>
             <Icons.LogOut color={colors.inkSoft} size={16} />
           </Pressable>
-          <View style={styles.avatar}>
+          <Pressable style={styles.avatar} onPress={() => router.push('/(admin)/profile')}>
             <Text style={styles.avatarInitial}>{adminInitial}</Text>
             {!loading && pendingCount > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeNum}>{pendingCount > 9 ? '9+' : pendingCount}</Text>
               </View>
             )}
-          </View>
+          </Pressable>
         </View>
       </View>
 
@@ -272,7 +225,7 @@ export default function AdminDashboardScreen() {
                         {fmtTime(a.startTime)} – {fmtTime(a.endTime)}
                       </Text>
                     </View>
-                    <StatusBadge status={a.status as any} />
+                    <StatusBadge status={a.status as StatusKey} />
                   </View>
                 ))
               )}
@@ -335,6 +288,16 @@ export default function AdminDashboardScreen() {
                 ))}
               </View>
             )}
+          </View>
+
+          {/* Block out time CTA */}
+          <View style={styles.row}>
+            <HandRect padding={16} radius={radius.lg} fill={colors.blueSoft} stroke={colors.blueInk}>
+              <View style={styles.ctaRow}>
+                <View style={{ flex: 1, minWidth: 0 }}><Text style={styles.ctaTitle}>Service menu</Text><Text style={styles.ctaBody}>Add, edit or disable treatments.</Text></View>
+                <HandButton color={colors.blueInk} size="sm" onPress={() => router.push('/(admin)/services')}>Manage</HandButton>
+              </View>
+            </HandRect>
           </View>
 
           {/* Block out time CTA */}

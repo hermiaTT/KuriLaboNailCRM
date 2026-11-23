@@ -54,19 +54,19 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
 
   async function handleSignUp() {
-    if (!name || !email || !password) {
-      setError('Please fill in name, email, and password.');
+    if (!name || !phone || !password) {
+      setError('Please fill in name, phone, and password.');
       return;
     }
     setError(null);
     setLoading(true);
-    const { error } = await signUp(
-      email,
+    const { error } = await signUp({
+      email: email || undefined,
       password,
       name,
-      phone || undefined,
-      birthday ? formatDb(birthday) : undefined,
-    );
+      phone,
+      birthday: birthday ? formatDb(birthday) : undefined,
+    });
     setLoading(false);
     if (error) setError(error);
   }
@@ -112,13 +112,13 @@ export default function RegisterScreen() {
               <View style={{ gap: 12 }}>
                 <Field placeholder="Name" value={name} onChangeText={setName}/>
                 <Field
-                  placeholder="Email"
+                  placeholder="Email (optional)"
                   autoCapitalize="none"
                   keyboardType="email-address"
                   value={email}
                   onChangeText={setEmail}
                 />
-                <Field placeholder="Phone (optional)" keyboardType="phone-pad" value={phone} onChangeText={setPhone}/>
+                <Field placeholder="Phone number" keyboardType="phone-pad" value={phone} onChangeText={setPhone}/>
 
                 {/* Birthday picker */}
                 <Pressable onPress={() => setShowPicker(v => !v)}>

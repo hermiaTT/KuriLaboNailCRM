@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-import { api, setAccessToken } from '../lib/api';
+import { api, AUTH_EXPIRED_EVENT, setAccessToken } from '../lib/api';
 import type { AuthResponse, UserSummary } from '../types';
 
 type AuthContextValue = {
@@ -25,6 +25,12 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserSummary | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const handleExpiredSession = () => setUser(null);
+    window.addEventListener(AUTH_EXPIRED_EVENT, handleExpiredSession);
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handleExpiredSession);
+  }, []);
 
   const refreshUser = useCallback(async () => {
     setUser(await api<UserSummary>('/api/v1/users/me'));

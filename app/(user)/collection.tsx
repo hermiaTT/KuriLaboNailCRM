@@ -25,49 +25,23 @@ import {
   spacing,
   typeScale,
 } from '../../constants/theme';
-import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
-
-type NailImage = { id: string; image_url: string; display_order: number };
-type Collection = {
-  id: string;
-  title: string | null;
-  date: string | null;
-  description: string | null;
-  tags: string[] | null;
-  created_at: string;
-  nail_images: NailImage[];
-};
+import { api, mediaUrl } from '../../lib/api';
+import type { NailSet } from '../../types/api';
 
 const CARD_HEIGHTS = [220, 180, 240, 200, 240, 180, 220, 240];
 
 export default function CollectionScreen() {
-  const { session } = useAuth();
-  const [collections, setCollections] = useState<Collection[]>([]);
+  const [collections, setCollections] = useState<NailSet[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeCol, setActiveCol] = useState<Collection | null>(null);
+  const [activeCol, setActiveCol] = useState<NailSet | null>(null);
 
   useFocusEffect(
     useCallback(() => {
-      if (!session?.user.id) return;
       setLoading(true);
-      supabase
-        .from('collections')
-        .select('id, title, date, description, tags, created_at, nail_images(id, image_url, display_order)')
-        .eq('client_id', session.user.id)
-        .order('created_at', { ascending: false })
-        .then(({ data }) => {
-          setCollections(
-            (data ?? []).map((c: any) => ({
-              ...c,
-              nail_images: [...(c.nail_images ?? [])].sort(
-                (a: NailImage, b: NailImage) => a.display_order - b.display_order,
-              ),
-            })),
-          );
-          setLoading(false);
-        });
-    }, [session?.user.id]),
+      api<NailSet[]>('/api/v1/nail-sets/mine')
+        .then(setCollections)
+        .finally(() => setLoading(false));
+    }, []),
   );
 
   const leftCol = collections.filter((_, i) => i % 2 === 0);
@@ -103,7 +77,7 @@ export default function CollectionScreen() {
           {[leftCol, rightCol].map((col, ci) => (
             <View key={ci} style={[styles.col, ci === 1 && { marginTop: 24 }]}>
               {col.map((c, i) => {
-                const cover = c.nail_images[0];
+                const cover = c.images[0];
                 const h = CARD_HEIGHTS[(ci * 10 + i) % CARD_HEIGHTS.length];
                 const rot = (ci + i) % 3 === 0 ? '-0.8deg' : (ci + i) % 3 === 1 ? '0.7deg' : '0deg';
                 return (
@@ -116,29 +90,27 @@ export default function CollectionScreen() {
                       <View style={[styles.imgBox, { height: h }]}>
                         {cover ? (
                           <Image
-                            source={{ uri: cover.image_url }}
+                            source={{ uri: mediaUrl(cover.url) }}
                             style={StyleSheet.absoluteFill}
                             resizeMode="cover"
                           />
                         ) : (
                           <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.creamCard }]} />
                         )}
-                        {c.nail_images.length > 1 && (
+                        {c.images.length > 1 && (
                           <View style={styles.countBadge}>
-                            <Text style={styles.countText}>1 / {c.nail_images.length}</Text>
+                            <Text style={styles.countText}>1 / {c.images.length}</Text>
                           </View>
                         )}
                       </View>
                       <View style={styles.cardMeta}>
                         <Text style={styles.cardDate}>
-                          {formatDate(c.date ?? c.created_at)}
+                          {formatDate(c.createdAt)}
                         </Text>
                         {c.description ? (
                           <Text style={styles.cardDesc} numberOfLines={2}>{c.description}</Text>
                         ) : null}
-                        {c.tags?.[0] ? (
-                          <Text style={styles.cardTag}>#{c.tags[0]}</Text>
-                        ) : null}
+                        <Text style={styles.cardTag}>{c.title}</Text>
                       </View>
                     </HandRect>
                   </Pressable>
@@ -152,7 +124,7 @@ export default function CollectionScreen() {
       <NailCardModal
         visible={!!activeCol}
         onClose={() => setActiveCol(null)}
-        images={activeCol?.nail_images ?? []}
+        images={(activeCol?.images ?? []).map((image) => ({ id: image.id, image_url: mediaUrl(image.url) }))}
       />
     </Screen>
   );

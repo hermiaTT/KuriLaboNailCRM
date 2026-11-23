@@ -1,10 +1,12 @@
 import React, { useCallback, useState } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
   Doodle,
   EyebrowTitle,
+  Field,
+  HandButton,
   HandRect,
   Icons,
   NailCardModal,
@@ -20,39 +22,36 @@ import {
   spacing,
   typeScale,
 } from '../../constants/theme';
-import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { api, ApiError, mediaUrl } from '../../lib/api';
+import type { StatusKey } from '../../constants/theme';
+import type { Appointment, NailSet, NailSetImage, SalonContact } from '../../types/api';
 
-type VisitImage = { id: string; image_url: string; display_order: number };
+type Visit = Appointment & { images: NailSetImage[] };
 
-type Visit = {
-  id: string;
-  status: string;
-  price: number | null;
-  service_notes: string | null;
-  date: string;
-  start_time: string;
-  end_time: string;
-  images: VisitImage[];
-};
-
-function fmtTime(t: string) {
-  const [h, m] = t.split(':');
-  const hour = parseInt(h, 10);
-  return `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`;
+function fmtTime(iso: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric', minute: '2-digit', timeZone: 'America/Vancouver',
+  }).format(new Date(iso));
 }
 
-function fmtDate(dateStr: string) {
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/Vancouver',
   });
 }
 
-function timeTag(dateStr: string, todayStr: string) {
-  if (dateStr === todayStr) return 'today';
-  return dateStr > todayStr ? 'upcoming' : 'past';
+function timeTag(iso: string) {
+  const start = new Date(iso).getTime();
+  if (Math.abs(start - Date.now()) < 24 * 60 * 60 * 1000) return 'today';
+  return start > Date.now() ? 'upcoming' : 'past';
+}
+
+function uiStatus(status: Appointment['status']): StatusKey {
+  if (status === 'CONFIRMED') return 'confirmed';
+  if (status === 'COMPLETED') return 'done';
+  if (status === 'NO_SHOW') return 'no_show';
+  if (status === 'CANCELLED' || status === 'REJECTED') return 'cancelled';
+  return 'pending';
 }
 
 /**
@@ -61,54 +60,58 @@ function timeTag(dateStr: string, todayStr: string) {
  */
 export default function AppointmentsScreen() {
   const router = useRouter();
-  const { session } = useAuth();
-
   const [loading, setLoading] = useState(true);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [activeVisit, setActiveVisit] = useState<Visit | null>(null);
+  const [unlinkedSets, setUnlinkedSets] = useState<NailSet[]>([]);
+  const [activeSet, setActiveSet] = useState<NailSet | null>(null);
+  const [contact, setContact] = useState<SalonContact | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<Visit | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
-      if (!session?.user.id) return;
-      fetchAll(session.user.id);
-    }, [session?.user.id]),
+      fetchAll();
+    }, []),
   );
 
-  async function fetchAll(userId: string) {
+  async function fetchAll() {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('appointments')
-      .select('id, status, price, service_notes, date, start_time, end_time')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-    if (error) console.error('[UserAppointments] fetchAll error:', error);
-
-    const rows = (data ?? []).map((a: any) => ({
-      ...a,
-      images: [] as VisitImage[],
-    })) as Visit[];
-
-    const doneIds = rows.filter((v) => v.status === 'done').map((v) => v.id);
-    if (doneIds.length > 0) {
-      const { data: imgs } = await supabase
-        .from('appointment_images')
-        .select('id, appointment_id, image_url, display_order')
-        .in('appointment_id', doneIds)
-        .order('display_order', { ascending: true });
-
-      const byAppt: Record<string, VisitImage[]> = {};
-      for (const img of imgs ?? []) {
-        byAppt[img.appointment_id] = byAppt[img.appointment_id] || [];
-        byAppt[img.appointment_id].push(img);
-      }
-      for (const v of rows) v.images = byAppt[v.id] ?? [];
+    try {
+      const [appointments, nailSets, salonContact] = await Promise.all([
+        api<Appointment[]>('/api/v1/appointments/me'),
+        api<NailSet[]>('/api/v1/nail-sets/mine'),
+        api<SalonContact>('/api/v1/salon/contact'),
+      ]);
+      setContact(salonContact);
+      setUnlinkedSets(nailSets.filter((item) => !item.appointmentId));
+      const imagesByAppointment = new Map(
+        nailSets.filter((item) => item.appointmentId).map((item) => [item.appointmentId!, item.images]),
+      );
+      setVisits(
+        appointments
+          .map((item) => ({ ...item, images: imagesByAppointment.get(item.id) ?? [] }))
+          .sort((a, b) => b.startAt.localeCompare(a.startAt)),
+      );
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : 'Unable to load your appointments.');
+    } finally {
+      setLoading(false);
     }
-
-    setVisits(rows);
-    setLoading(false);
   }
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  async function requestCancellation() {
+    if (!cancelTarget) return;
+    setBusy(true); setError(null);
+    try {
+      const updated = await api<Appointment>(`/api/v1/appointments/${cancelTarget.id}/cancellation-requests`, { method: 'POST', body: JSON.stringify({ reason: cancelReason.trim() || null }) });
+      setVisits((current) => current.map((item) => item.id === updated.id ? { ...item, ...updated } : item));
+      setCancelTarget(null); setCancelReason('');
+    } catch (cause) { setError(cause instanceof ApiError ? cause.message : 'Unable to send cancellation request.'); }
+    finally { setBusy(false); }
+  }
 
   return (
     <Screen>
@@ -126,6 +129,8 @@ export default function AppointmentsScreen() {
         trailing={<Doodle kind="swirl" size={20} color={colors.coral} style={{ transform: [{ rotate: '-10deg' }] }}/>}
       />
 
+      {error && <Text style={styles.error}>{error}</Text>}
+
       {loading ? (
         <View style={styles.loadingWrap}>
           <ActivityIndicator color={colors.pinkInk} />
@@ -134,45 +139,61 @@ export default function AppointmentsScreen() {
         <View style={styles.list}>
           {visits.map((v) => {
             const hasImages = v.images.length > 0;
+            const canCancel = v.status === 'CONFIRMED' && new Date(v.startAt).getTime() > Date.now() + 24 * 60 * 60 * 1000;
+            const contactOnly = v.status === 'CONFIRMED' && new Date(v.startAt).getTime() > Date.now() && !canCancel;
             return (
               <HandRect key={v.id} padding={16} radius={radius.lg}>
                 <View style={styles.head}>
                   <View>
-                    <Text style={styles.date}>{fmtDate(v.date)}</Text>
+                    <Text style={styles.date}>{fmtDate(v.startAt)}</Text>
                     <Text style={styles.time}>
-                      {fmtTime(v.start_time)} – {fmtTime(v.end_time)}
+                      {fmtTime(v.startAt)} – {fmtTime(v.endAt)}
                     </Text>
                   </View>
-                  <StatusBadge status={v.status as any}/>
+                  <StatusBadge status={uiStatus(v.status)}/>
                 </View>
                 <View style={styles.divider}/>
                 <View style={styles.foot}>
-                  <Text style={styles.tag}>{timeTag(v.date, todayStr)}</Text>
-                  {hasImages && (
+                  <Text style={styles.tag}>{timeTag(v.startAt)}</Text>
+                  {canCancel ? <Pressable style={styles.detailBtn} onPress={() => setCancelTarget(v)}><Text style={styles.cancelText}>request cancellation</Text></Pressable> : hasImages && (
                     <Pressable style={styles.detailBtn} onPress={() => setActiveVisit(v)}>
                       <Text style={styles.detailText}>details</Text>
                       <Icons.Chev color={colors.pinkInk} size={14}/>
                     </Pressable>
                   )}
                 </View>
-                {v.status === 'done' && (
+                {v.status === 'CANCELLATION_REQUESTED' && <Text style={styles.hint}>Cancellation requested — this time remains reserved until Kuri reviews it.</Text>}
+                {contactOnly && <Text style={styles.hint}>Within 24 hours — contact Kuri directly if you need help.</Text>}
+                {v.status === 'COMPLETED' && hasImages && (
                   <View style={styles.doneInfo}>
-                    {v.price != null && <Text style={styles.priceText}>${v.price}</Text>}
-                    {v.service_notes && <Text style={styles.noteText}>{v.service_notes}</Text>}
-                    {hasImages && (
-                      <Pressable style={styles.thumbRow} onPress={() => setActiveVisit(v)}>
-                        {v.images.slice(0, 4).map((img) => (
-                          <Image key={img.id} source={{ uri: img.image_url }} style={styles.thumb} />
-                        ))}
-                      </Pressable>
-                    )}
+                    <Pressable style={styles.thumbRow} onPress={() => setActiveVisit(v)}>
+                      {v.images.slice(0, 4).map((img) => (
+                        <Image key={img.id} source={{ uri: mediaUrl(img.url) }} style={styles.thumb} />
+                      ))}
+                    </Pressable>
                   </View>
                 )}
               </HandRect>
             );
           })}
 
-          {visits.length === 0 && (
+          {unlinkedSets.map((set) => (
+            <Pressable key={set.id} onPress={() => setActiveSet(set)}>
+              <HandRect padding={16} radius={radius.lg}>
+                <View style={styles.head}>
+                  <View>
+                    <Text style={styles.date}>{set.title}</Text>
+                    <Text style={styles.time}>nail history · no appointment date</Text>
+                  </View>
+                  <Icons.Photos color={colors.pinkInk} />
+                </View>
+                {set.description && <Text style={styles.hint}>{set.description}</Text>}
+                <Text style={styles.setLink}>View {set.images.length} photo{set.images.length === 1 ? '' : 's'} →</Text>
+              </HandRect>
+            </Pressable>
+          ))}
+
+          {visits.length === 0 && unlinkedSets.length === 0 && (
             <HandRect padding={28} radius={radius.lg} dashed style={{ alignItems: 'center', gap: 10 }}>
               <Doodle kind="sparkle" size={32} color={colors.blue}/>
               <Text style={styles.emptyTitle}>No visits yet</Text>
@@ -182,11 +203,15 @@ export default function AppointmentsScreen() {
         </View>
       )}
 
+      <View style={styles.contactWrap}><HandRect padding={18} radius={radius.lg} fill={colors.blueSoft} stroke={colors.blueInk}><Text style={styles.contactEyebrow}>need help?</Text><Text style={styles.contactTitle}>Contact the nail artist</Text><Text style={styles.contactBody}>{contact?.contactMessage || 'For special requests or help within 24 hours, contact Kuri directly.'}</Text>{contact?.wechatId && <Text selectable style={styles.wechat}>WeChat · {contact.wechatId}</Text>}</HandRect></View>
+
       <NailCardModal
-        visible={!!activeVisit}
-        onClose={() => setActiveVisit(null)}
-        images={activeVisit?.images ?? []}
+        visible={!!activeVisit || !!activeSet}
+        onClose={() => { setActiveVisit(null); setActiveSet(null); }}
+        images={(activeVisit?.images ?? activeSet?.images ?? []).map((image) => ({ id: image.id, image_url: mediaUrl(image.url) }))}
       />
+
+      <Modal transparent visible={Boolean(cancelTarget)} animationType="fade" onRequestClose={() => setCancelTarget(null)}><Pressable style={styles.backdrop} onPress={() => setCancelTarget(null)}><Pressable style={styles.modal} onPress={() => undefined}><HandRect padding={20} radius={radius.xl}><Text style={styles.modalTitle}>Request cancellation</Text><Text style={styles.modalBody}>Kuri will review the request. Your appointment remains reserved until it is approved.</Text><Field containerStyle={{ marginVertical: 14 }} placeholder="Reason (optional)" multiline value={cancelReason} onChangeText={setCancelReason} /><HandButton full color={colors.pinkInk} disabled={busy} onPress={requestCancellation}>{busy ? 'Sending…' : 'Send request'}</HandButton></HandRect></Pressable></Pressable></Modal>
     </Screen>
   );
 }
@@ -271,4 +296,17 @@ const styles = StyleSheet.create({
     color: colors.inkSoft,
     textAlign: 'center',
   },
+  error: { paddingHorizontal: spacing.lg, paddingBottom: 8, textAlign: 'center', fontFamily: fonts.body, fontSize: 12, color: '#c0554f' },
+  cancelText: { fontFamily: fonts.mono, fontSize: 8, color: colors.pinkInk, textTransform: 'uppercase' },
+  hint: { marginTop: 10, fontFamily: fonts.body, fontSize: 11, lineHeight: 16, color: colors.inkSoft },
+  setLink: { marginTop: 10, fontFamily: fonts.mono, fontSize: 9, color: colors.pinkInk, textTransform: 'uppercase' },
+  contactWrap: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
+  contactEyebrow: { fontFamily: fonts.mono, fontSize: 9, color: colors.blueInk, textTransform: 'uppercase' },
+  contactTitle: { marginTop: 5, fontFamily: fonts.display, fontSize: 17, color: colors.ink },
+  contactBody: { marginTop: 5, fontFamily: fonts.body, fontSize: 12, lineHeight: 18, color: colors.inkSoft },
+  wechat: { marginTop: 10, fontFamily: fonts.mono, fontSize: 11, color: colors.blueInk },
+  backdrop: { flex: 1, backgroundColor: 'rgba(40,28,15,.55)', justifyContent: 'center', padding: 24 },
+  modal: { width: '100%', maxWidth: 360, alignSelf: 'center' },
+  modalTitle: { fontFamily: fonts.display, fontSize: 20, color: colors.ink },
+  modalBody: { marginTop: 5, fontFamily: fonts.body, fontSize: 12, lineHeight: 18, color: colors.inkSoft },
 });

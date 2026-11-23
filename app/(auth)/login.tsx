@@ -24,19 +24,19 @@ import { useAuth } from '../../context/AuthContext';
 export default function LoginScreen() {
   const router = useRouter();
   const { signIn } = useAuth();
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function handleSignIn() {
-    if (!email || !password) {
-      setError('Please enter your email and password.');
+    if (!phone || !password) {
+      setError('Please enter your phone number and password.');
       return;
     }
     setError(null);
     setLoading(true);
-    const { error } = await signIn(email, password);
+    const { error } = await signIn(phone, password);
     setLoading(false);
     if (error) setError(error);
     // On success, _layout.tsx handles the redirect automatically
@@ -74,11 +74,10 @@ export default function LoginScreen() {
 
             <View style={{ gap: 12, marginTop: 14 }}>
               <Field
-                placeholder="Email"
-                autoCapitalize="none"
-                keyboardType="email-address"
-                value={email}
-                onChangeText={setEmail}
+                placeholder="Phone number"
+                keyboardType="phone-pad"
+                value={phone}
+                onChangeText={setPhone}
               />
               <Field
                 placeholder="Password"

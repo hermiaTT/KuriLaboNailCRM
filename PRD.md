@@ -8,6 +8,19 @@
 
 Kuri Labo 是一个 iOS-first 的美甲预约与客户管理 App，整体风格偏可爱、简洁、柔和，灵感来自日系和韩系美甲店应用。
 
+## 当前预约与媒体规则（优先级高于下方旧版 MVP 描述）
+
+- Basic / Complex 作为迁移后的初始服务保留，并和其他服务一样可由 Admin 修改价格、时长、描述或停用；系统不再把它们写死在业务逻辑中。
+- Admin 管理服务目录；每项服务包含 name、description、price、duration 和 active 状态。内部 code 由系统自动生成，不在界面显示。
+- 服务时长从 30 分钟到 5 小时，以 30 分钟递增。
+- Client 预约时先选择服务，再选择能容纳完整服务时长的日期和开始时间；提交后状态为 Pending confirmation。
+- Client 可在预约时上传最多 6 张参考图。Admin 在待确认预约中可以看到客户、日期、服务、时长、时间、客户备注和参考图。
+- Admin 可以为每个预约增加内部备注；预约列表使用独立的日期块与时间/时长块展示。
+- Client 预约和服务时长保持 30 分钟递增；Admin 创建预约或补录历史预约时可使用 5 分钟递增。
+- 单日部分时段的 Block 使用 30 分钟递增。Admin 也可按包含首尾日期的整日范围封锁，例如 12 月 4 日至 10 日会完整封锁 7 天。
+- Client 与 Admin 均可上传和更换头像。
+- Inspiration、历史作品和预约参考图均支持通过狗爪按钮下载到设备相册。
+
 系统分为两个端：
 
 - User 端：给客户使用，用于注册登录、管理个人资料、查看自己的美甲记录、浏览美甲灵感图、预约时间。
@@ -565,20 +578,21 @@ Kuri Labo 的 UI 风格应强调：
 
 ### 后端 / 数据库
 
-推荐使用 Supabase：
+使用统一的自建后端：
 
-- Supabase Auth
+- Spring Boot REST API
 - PostgreSQL
-- Supabase Storage
+- JWT access / refresh token authentication
+- S3-compatible object storage
 
 优点：
 
-- 注册登录简单
-- 图片上传方便
-- 非常适合 mobile app MVP
+- 网页端与移动端共享同一套业务规则
+- 登录、预约并发和权限控制集中在后端
+- 图片通过统一媒体接口上传和访问
 - SQL 数据结构清晰
 - 后续扩展性好
-- 很适合 vibe coding workflow
+- 可逐步加入 outbox、Kafka 和独立 worker
 
 ---
 
@@ -637,7 +651,8 @@ Tech stack:
 - Expo
 - TypeScript
 - Expo Router
-- Supabase
+- Spring Boot API
+- PostgreSQL
 
 The app has two roles:
 - user

@@ -3,6 +3,7 @@ package com.kurilabo.servicecatalog.api;
 import com.kurilabo.servicecatalog.domain.ServiceDefinition;
 
 import java.util.UUID;
+import java.math.BigDecimal;
 
 public record AdminServiceDefinitionResponse(
         UUID id,
@@ -10,6 +11,7 @@ public record AdminServiceDefinitionResponse(
         String name,
         String description,
         int durationMinutes,
+        BigDecimal price,
         boolean active,
         int displayOrder
 ) {
@@ -20,6 +22,7 @@ public record AdminServiceDefinitionResponse(
                 service.getName(),
                 service.getDescription(),
                 service.getDurationMinutes(),
+                service.getPrice(),
                 service.isActive(),
                 service.getDisplayOrder()
         );

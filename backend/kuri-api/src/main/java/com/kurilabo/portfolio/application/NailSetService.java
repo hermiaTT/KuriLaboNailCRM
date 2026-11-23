@@ -158,6 +158,14 @@ public class NailSetService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<NailSetResponse> getForClient(UUID clientId) {
+        getClient(clientId);
+        return nailSetRepository.findByClient_IdOrderByCreatedAtDesc(clientId).stream()
+                .map(item -> NailSetResponse.from(item, false))
+                .toList();
+    }
+
     @Transactional
     public NailSetResponse update(UUID adminId, UUID nailSetId, UpdateNailSetRequest request) {
         getUser(adminId);

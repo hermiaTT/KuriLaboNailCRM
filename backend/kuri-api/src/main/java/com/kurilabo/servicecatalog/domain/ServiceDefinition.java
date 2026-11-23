@@ -6,6 +6,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Entity
@@ -25,6 +26,9 @@ public class ServiceDefinition {
 
     @Column(name = "duration_minutes", nullable = false)
     private int durationMinutes;
+
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal price;
 
     @Column(nullable = false)
     private boolean active;
@@ -47,6 +51,7 @@ public class ServiceDefinition {
             String name,
             String description,
             int durationMinutes,
+            BigDecimal price,
             boolean active,
             int displayOrder,
             Instant now
@@ -56,6 +61,7 @@ public class ServiceDefinition {
         this.name = name;
         this.description = description;
         this.durationMinutes = durationMinutes;
+        this.price = price;
         this.active = active;
         this.displayOrder = displayOrder;
         this.createdAt = now;
@@ -82,6 +88,8 @@ public class ServiceDefinition {
         return durationMinutes;
     }
 
+    public BigDecimal getPrice() { return price; }
+
     public boolean isActive() {
         return active;
     }
@@ -95,6 +103,7 @@ public class ServiceDefinition {
             String name,
             String description,
             int durationMinutes,
+            BigDecimal price,
             boolean active,
             int displayOrder,
             Instant now
@@ -103,6 +112,7 @@ public class ServiceDefinition {
         this.name = name;
         this.description = description;
         this.durationMinutes = durationMinutes;
+        this.price = price;
         this.active = active;
         this.displayOrder = displayOrder;
         this.updatedAt = now;

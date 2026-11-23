@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
+import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
   Doodle,
@@ -20,35 +21,13 @@ import {
   typeScale,
 } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { api, mediaUrl } from '../../lib/api';
+import type { Appointment, CurrentProfile, NailSet } from '../../types/api';
+import type { StatusKey } from '../../constants/theme';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type FullProfile = {
-  name: string;
-  phone: string | null;
-  birthday: string | null;
-  instagram: string | null;
-  preferred_nail_style: string | null;
-  allergy_notes: string | null;
-  created_at: string;
-};
-
-type NextAppt = {
-  id: string;
-  status: string;
-  date: string;
-  start_time: string;
-  end_time: string;
-};
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function memberSince(iso: string) {
-  return new Date(iso)
-    .toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-    .toLowerCase();
-}
 
 function fmtBirthday(iso: string) {
   return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', {
@@ -57,18 +36,28 @@ function fmtBirthday(iso: string) {
   });
 }
 
-function fmtTime(t: string) {
-  const [h, m] = t.split(':');
-  const hour = parseInt(h, 10);
-  return `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`;
+function fmtTime(iso: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'America/Vancouver',
+  }).format(new Date(iso));
 }
 
-function fmtSlotDate(dateStr: string) {
-  const d = new Date(dateStr + 'T00:00:00');
+function fmtSlotDate(iso: string) {
+  const d = new Date(iso);
   return {
-    month: d.toLocaleDateString('en-US', { month: 'short' }).toLowerCase(),
-    day: String(d.getDate()),
+    month: new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: 'America/Vancouver' }).format(d).toLowerCase(),
+    day: new Intl.DateTimeFormat('en-US', { day: 'numeric', timeZone: 'America/Vancouver' }).format(d),
   };
+}
+
+function uiStatus(status: Appointment['status']): StatusKey {
+  if (status === 'CONFIRMED') return 'confirmed';
+  if (status === 'COMPLETED') return 'done';
+  if (status === 'NO_SHOW') return 'no_show';
+  if (status === 'CANCELLED' || status === 'REJECTED') return 'cancelled';
+  return 'pending';
 }
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
@@ -77,65 +66,57 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { session, profile: authProfile, signOut } = useAuth();
 
-  const [data, setData] = useState<FullProfile | null>(null);
+  const [data, setData] = useState<CurrentProfile | null>(null);
   const [visitCount, setVisitCount] = useState(0);
   const [savedCount, setSavedCount] = useState(0);
-  const [nextAppt, setNextAppt] = useState<NextAppt | null>(null);
+  const [designCount, setDesignCount] = useState(0);
+  const [nextAppt, setNextAppt] = useState<Appointment | null>(null);
   const [loading, setLoading] = useState(true);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       if (!authProfile?.id) return;
-      fetchAll(authProfile.id);
+      fetchAll();
     }, [authProfile?.id]),
   );
 
-  async function fetchAll(userId: string) {
+  async function fetchAll() {
     try {
-      const today = new Date().toISOString().split('T')[0];
-
-      const [profileRes, visitsRes, savedRes, apptRes] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select('name, phone, birthday, instagram, preferred_nail_style, allergy_notes, created_at')
-          .eq('id', userId)
-          .single(),
-
-        supabase
-          .from('appointments')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', userId)
-          .in('status', ['confirmed', 'done']),
-
-        supabase
-          .from('nail_collection_items')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', userId),
-
-        supabase
-          .from('appointments')
-          .select('id, status, date, start_time, end_time')
-          .eq('user_id', userId)
-          .in('status', ['pending', 'confirmed'])
-          .order('created_at', { ascending: true })
-          .limit(10),
+      const [profileRes, appointments, mine, inspiration] = await Promise.all([
+        api<CurrentProfile>('/api/v1/users/me'),
+        api<Appointment[]>('/api/v1/appointments/me'),
+        api<NailSet[]>('/api/v1/nail-sets/mine'),
+        api<NailSet[]>('/api/v1/inspiration'),
       ]);
 
-      if (apptRes.error) console.error('[ProfileScreen] nextAppt fetch error:', apptRes.error);
+      setData(profileRes);
+      setVisitCount(appointments.filter((item) => item.status === 'COMPLETED').length);
+      setSavedCount(inspiration.filter((item) => item.favorited).length);
+      setDesignCount(mine.length);
 
-      setData(profileRes.data ?? null);
-      setVisitCount(visitsRes.count ?? 0);
-      setSavedCount(savedRes.count ?? 0);
-
-      const upcoming = (apptRes.data ?? [])
-        .filter((a) => a.date >= today)
-        .sort((a, b) => (a.date > b.date ? 1 : -1))[0] ?? null;
-      setNextAppt(upcoming as NextAppt | null);
+      const upcoming = appointments
+        .filter((item) => new Date(item.endAt).getTime() >= Date.now() && !['CANCELLED', 'REJECTED'].includes(item.status))
+        .sort((a, b) => a.startAt.localeCompare(b.startAt))[0] ?? null;
+      setNextAppt(upcoming);
     } catch (e) {
       console.error('[ProfileScreen] fetchAll error:', e);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function chooseAvatar() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return;
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.85 });
+    if (result.canceled) return;
+    const asset = result.assets[0];
+    const body = new FormData();
+    body.append('file', { uri: asset.uri, name: asset.fileName || 'avatar.jpg', type: asset.mimeType || 'image/jpeg' } as any);
+    setUploadingAvatar(true);
+    try { setData(await api<CurrentProfile>('/api/v1/users/me/avatar', { method: 'POST', body })); }
+    finally { setUploadingAvatar(false); }
   }
 
   if (loading) {
@@ -152,16 +133,16 @@ export default function ProfileScreen() {
   const email = session?.user.email ?? '—';
   const name = data?.name ?? authProfile?.name ?? '—';
   const initial = name[0]?.toUpperCase() ?? '?';
-  const since = data?.created_at ? memberSince(data.created_at) : '—';
+  const since = 'online member';
 
   const prefBody = [
-    data?.preferred_nail_style,
-    data?.allergy_notes ? `${data.allergy_notes}` : null,
+    data?.preferredNailStyle,
+    data?.allergyNotes,
   ]
     .filter(Boolean)
     .join(' · ') || 'No preferences set yet';
 
-  const slotDate = nextAppt ? fmtSlotDate(nextAppt.date) : null;
+  const slotDate = nextAppt ? fmtSlotDate(nextAppt.startAt) : null;
 
   return (
     <Screen>
@@ -171,7 +152,7 @@ export default function ProfileScreen() {
             <Pressable style={styles.iconBtn} onPress={() => router.push('/(user)/edit-profile')}>
               <Icons.Edit color={colors.inkSoft} size={18} />
             </Pressable>
-            <Pressable style={styles.iconBtn}>
+            <Pressable style={styles.iconBtn} onPress={() => router.push('/(user)/notifications')}>
               <Icons.Bell />
             </Pressable>
           </View>
@@ -180,16 +161,18 @@ export default function ProfileScreen() {
 
       {/* Avatar hero */}
       <View style={styles.hero}>
-        <View style={styles.avatarRing}>
-          <View style={[styles.avatarRingBorder, StyleSheet.absoluteFillObject]} />
+        <Pressable style={styles.avatarRing} onPress={chooseAvatar} disabled={uploadingAvatar}>
+          <View style={[styles.avatarRingBorder, StyleSheet.absoluteFill]} />
           <View style={styles.avatarInner}>
-            <Text style={styles.avatarInitial}>{initial}</Text>
+            {data?.avatarUrl ? <Image source={{ uri: mediaUrl(data.avatarUrl) }} style={styles.avatarImage} /> : <Text style={styles.avatarInitial}>{initial}</Text>}
           </View>
           <Doodle kind="flower" size={28} color={colors.yellow}
             style={{ position: 'absolute', top: -4, right: -4, transform: [{ rotate: '15deg' }] }} />
           <Doodle kind="sparkle" size={22} color={colors.blue}
             style={{ position: 'absolute', bottom: 4, left: -6, transform: [{ rotate: '-12deg' }] }} />
-        </View>
+          {uploadingAvatar && <ActivityIndicator style={StyleSheet.absoluteFill} color={colors.pinkInk} />}
+        </Pressable>
+        <Text style={styles.avatarHint}>tap photo to change</Text>
         <Text style={styles.name}>{name}</Text>
         <Text style={styles.metaWide}>member since {since}</Text>
         <Pressable onPress={signOut} style={styles.signOutBtn}>
@@ -204,7 +187,7 @@ export default function ProfileScreen() {
           {[
             { v: visitCount, l: 'visits',  d: 'heart',   c: colors.pink,   nav: () => router.push('/(user)/appointments') },
             { v: savedCount, l: 'saved',   d: 'star',    c: colors.blue,   nav: () => router.push('/(user)/collection') },
-            { v: 0,          l: 'designs', d: 'sparkle', c: colors.yellow, nav: () => router.push('/(user)/inspiration') },
+            { v: designCount, l: 'designs', d: 'sparkle', c: colors.yellow, nav: () => router.push('/(user)/inspiration') },
           ].map((s, i) => (
             <Pressable
               key={s.l}
@@ -273,11 +256,11 @@ export default function ProfileScreen() {
                 </View>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={styles.visitTime}>
-                    {fmtTime(nextAppt!.start_time)} — {fmtTime(nextAppt!.end_time)}
+                    {fmtTime(nextAppt.startAt)} — {fmtTime(nextAppt.endAt)}
                   </Text>
                   <Text style={styles.visitDesc}>with Kuri</Text>
                 </View>
-                <StatusBadge status={nextAppt.status as any} />
+                <StatusBadge status={uiStatus(nextAppt.status)} />
               </View>
             </HandRect>
           </Pressable>
@@ -310,12 +293,14 @@ const styles = StyleSheet.create({
   avatarInner: {
     width: 110, height: 110, borderRadius: 55,
     backgroundColor: colors.pinkSoft,
-    alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
   avatarInitial: {
     fontFamily: fonts.display, fontSize: 48, color: colors.pinkInk,
     letterSpacing: letterSpacing.display,
   },
+  avatarImage: { width: '100%', height: '100%' },
+  avatarHint: { marginTop: 8, fontFamily: fonts.mono, fontSize: 8, color: colors.inkFaint, textTransform: 'uppercase' },
   name: {
     marginTop: 14,
     fontFamily: fonts.display, fontSize: 24, color: colors.ink,

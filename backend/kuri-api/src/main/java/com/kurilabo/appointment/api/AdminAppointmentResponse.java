@@ -5,6 +5,7 @@ import com.kurilabo.appointment.domain.Appointment;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.List;
 
 public record AdminAppointmentResponse(
         UUID id,
@@ -17,7 +18,8 @@ public record AdminAppointmentResponse(
         String status,
         String note,
         String serviceNotes,
-        BigDecimal finalPrice
+        BigDecimal finalPrice,
+        List<AppointmentImageResponse> referenceImages
 ) {
     public static AdminAppointmentResponse from(Appointment appointment) {
         return new AdminAppointmentResponse(
@@ -31,7 +33,8 @@ public record AdminAppointmentResponse(
                 appointment.getStatus().name(),
                 appointment.getCustomerNote(),
                 appointment.getServiceNotes(),
-                appointment.getFinalPrice()
+                appointment.getFinalPrice(),
+                appointment.getReferenceMedia().stream().map(AppointmentImageResponse::from).toList()
         );
     }
 }
