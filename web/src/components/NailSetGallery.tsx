@@ -1,3 +1,4 @@
+import { t, useLanguage } from '../lib/i18n';
 import { useEffect, useState } from 'react';
 
 import type { NailSet } from '../types';
@@ -10,7 +11,8 @@ type NailSetGalleryProps = {
   emptyMessage?: string;
 };
 
-export function NailSetGallery({ items, onFavorite, onManage, emptyMessage = 'No inspiration sets yet.' }: NailSetGalleryProps) {
+export function NailSetGallery({ items, onFavorite, onManage, emptyMessage = t("No inspiration sets yet.") }: NailSetGalleryProps) {
+  useLanguage();
   const [openItem, setOpenItem] = useState<NailSet | null>(null);
   const [activeImage, setActiveImage] = useState(0);
 
@@ -33,13 +35,13 @@ export function NailSetGallery({ items, onFavorite, onManage, emptyMessage = 'No
       <div className="nail-set-grid">
         {items.map((item, index) => (
           <article className={`nail-set-card tone-${index % 3}`} key={item.id}>
-            <button className="nail-set-open" onClick={() => setOpenItem(item)} aria-label={`Open ${item.title}`}>
+            <button className="nail-set-open" onClick={() => setOpenItem(item)} aria-label={t("Open {title}", { title: item.title })}>
               <img src={item.images[0]?.url} alt={item.title} loading="lazy" />
-              {item.images.length > 1 && <span className="image-count">{item.images.length} photos</span>}
+              {item.images.length > 1 && <span className="image-count">{item.images.length} {t("photos")}</span>}
             </button>
-            {item.images[0] && <a className="paw-download" href={`${item.images[0].url}?download=true`} download aria-label={`Download ${item.title}`}>🐾</a>}
+            {item.images[0] && <a className="paw-download" href={`${item.images[0].url}?download=true`} download aria-label={t("Download {title}", { title: item.title })}>🐾</a>}
             <div className="nail-set-copy">
-              <div><h3>{item.title}</h3><span className="nail-set-actions">{onManage && <button className="manage-set-button" onClick={() => onManage(item)}>Manage</button>}{onFavorite && <button className={`favorite-button ${item.favorited ? 'saved' : ''}`} onClick={() => onFavorite(item)} aria-label={item.favorited ? 'Remove from saved inspiration' : 'Save inspiration'}>{item.favorited ? '♥' : '♡'}</button>}</span></div>
+              <div><h3>{item.title}</h3><span className="nail-set-actions">{onManage && <button className="manage-set-button" onClick={() => onManage(item)}>{t("Manage")}</button>}{onFavorite && <button className={`favorite-button ${item.favorited ? 'saved' : ''}`} onClick={() => onFavorite(item)} aria-label={item.favorited ? t("Remove from saved inspiration") : t("Save inspiration")}>{item.favorited ? '♥' : '♡'}</button>}</span></div>
               {item.description && <p>{item.description}</p>}
             </div>
           </article>
@@ -64,6 +66,7 @@ export function NailSetViewer({
   onClose: () => void;
   onFavorite?: (item: NailSet) => void;
 }) {
+  useLanguage();
   const image = item.images[activeImage] ?? item.images[0];
   function move(direction: number) {
     setActiveImage((activeImage + direction + item.images.length) % item.images.length);
@@ -72,16 +75,16 @@ export function NailSetViewer({
   return (
     <div className="modal-backdrop nail-viewer-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <PaperCard className="nail-viewer" >
-        <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
+        <button className="modal-close" onClick={onClose} aria-label={t("Close")}>×</button>
         <div className="nail-viewer-stage">
-          {item.images.length > 1 && <button className="viewer-arrow previous" onClick={() => move(-1)} aria-label="Previous photo">‹</button>}
-          <img src={image?.url} alt={`${item.title} photo ${activeImage + 1}`} />
-          {image && <a className="paw-download viewer-download" href={`${image.url}?download=true`} download aria-label="Download this photo">🐾</a>}
-          {item.images.length > 1 && <button className="viewer-arrow next" onClick={() => move(1)} aria-label="Next photo">›</button>}
+          {item.images.length > 1 && <button className="viewer-arrow previous" onClick={() => move(-1)} aria-label={t("Previous photo")}>‹</button>}
+          <img src={image?.url} alt={t("{title} photo {count}", { title: item.title, count: activeImage + 1 })} />
+          {image && <a className="paw-download viewer-download" href={`${image.url}?download=true`} download aria-label={t("Download this photo")}>🐾</a>}
+          {item.images.length > 1 && <button className="viewer-arrow next" onClick={() => move(1)} aria-label={t("Next photo")}>›</button>}
         </div>
         <div className="nail-viewer-info">
-          <div><p className="eyebrow">NAIL SET · {activeImage + 1}/{item.images.length}</p><h2>{item.title}</h2>{item.description && <p>{item.description}</p>}</div>
-          {onFavorite && <button className={`favorite-button large ${item.favorited ? 'saved' : ''}`} onClick={() => onFavorite(item)}>{item.favorited ? '♥ Saved' : '♡ Save'}</button>}
+          <div><p className="eyebrow">{t("NAIL SET ·")}{activeImage + 1}/{item.images.length}</p><h2>{item.title}</h2>{item.description && <p>{item.description}</p>}</div>
+          {onFavorite && <button className={`favorite-button large ${item.favorited ? 'saved' : ''}`} onClick={() => onFavorite(item)}>{item.favorited ? t("♥ Saved") : t("♡ Save")}</button>}
         </div>
         {item.images.length > 1 && <div className="viewer-thumbnails">{item.images.map((thumbnail, index) => <button className={index === activeImage ? 'active' : ''} key={thumbnail.id} onClick={() => setActiveImage(index)}><img src={thumbnail.url} alt="" /></button>)}</div>}
       </PaperCard>

@@ -5,7 +5,11 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import com.kurilabo.user.domain.Client;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -25,20 +29,20 @@ public class AppUser {
     @Column(name = "password_hash")
     private String passwordHash;
 
-    @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "account_type", nullable = false, columnDefinition = "account_type")
-    private AccountType accountType;
+    @Column(name = "login_phone", nullable = false, unique = true, length = 40)
+    private String loginPhone;
+
+    @Column(name = "phone_verified_at")
+    private Instant phoneVerifiedAt;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "client_id", unique = true)
+    private Client client;
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(nullable = false, columnDefinition = "user_role")
     private UserRole role;
-
-    @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(nullable = false, columnDefinition = "user_status")
-    private UserStatus status;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -49,30 +53,16 @@ public class AppUser {
     protected AppUser() {
     }
 
-    public AppUser(UUID id, String email, String passwordHash, UserRole role) {
+    public AppUser(UUID id, String email, String passwordHash, String loginPhone, UserRole role, Client client) {
         Instant now = Instant.now();
         this.id = id;
         this.email = email;
         this.passwordHash = passwordHash;
-        this.accountType = AccountType.REGISTERED;
+        this.loginPhone = loginPhone;
+        this.client = client;
         this.role = role;
-        this.status = UserStatus.ACTIVE;
         this.createdAt = now;
         this.updatedAt = now;
-    }
-
-    public static AppUser guest(UUID id) {
-        AppUser user = new AppUser();
-        Instant now = Instant.now();
-        user.id = id;
-        user.email = null;
-        user.passwordHash = null;
-        user.accountType = AccountType.GUEST;
-        user.role = UserRole.USER;
-        user.status = UserStatus.ACTIVE;
-        user.createdAt = now;
-        user.updatedAt = now;
-        return user;
     }
 
     public UUID getId() {
@@ -87,33 +77,37 @@ public class AppUser {
         return passwordHash;
     }
 
-    public AccountType getAccountType() {
-        return accountType;
-    }
+    public String getLoginPhone() { return loginPhone; }
+    public Instant getPhoneVerifiedAt() { return phoneVerifiedAt; }
+    public Client getClient() { return client; }
 
     public UserRole getRole() {
         return role;
-    }
-
-    public UserStatus getStatus() {
-        return status;
     }
 
     public Instant getCreatedAt() {
         return createdAt;
     }
 
-    public void updateAccess(UserRole role, UserStatus status, Instant now) {
-        this.role = role;
-        this.status = status;
+    public void updatePassword(String passwordHash, Instant now) {
+        this.passwordHash = passwordHash;
         this.updatedAt = now;
     }
 
-    public void updatePassword(String passwordHash, Instant now) {
-        if (accountType != AccountType.REGISTERED) {
-            throw new IllegalStateException("Guest clients do not have passwords.");
-        }
-        this.passwordHash = passwordHash;
+    public void updateLoginPhone(String loginPhone, Instant now) {
+        this.loginPhone = loginPhone;
+        this.phoneVerifiedAt = null;
+        this.updatedAt = now;
+    }
+
+    public void markPhoneVerified(Instant now) {
+        this.phoneVerifiedAt = now;
+        this.updatedAt = now;
+    }
+
+    public void linkClient(Client client, Instant now) {
+        if (role != UserRole.USER) throw new IllegalStateException("Only client accounts can link to a client record.");
+        this.client = client;
         this.updatedAt = now;
     }
 }

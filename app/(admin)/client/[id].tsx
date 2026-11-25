@@ -1,7 +1,9 @@
+import { t, getLocale, useLanguage } from '../../../shared/i18n';
 import React, { useCallback, useState } from 'react';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Modal,
   Pressable,
@@ -41,6 +43,7 @@ type Visit = {
 };
 
 export default function AdminClientDetailScreen() {
+  useLanguage();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -55,9 +58,7 @@ export default function AdminClientDetailScreen() {
   const [savingNotes, setSavingNotes] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
   const [showMerge, setShowMerge] = useState(false);
-  const [showReset, setShowReset] = useState(false);
   const [mergeTargetId, setMergeTargetId] = useState('');
-  const [newPassword, setNewPassword] = useState('');
   const [actionBusy, setActionBusy] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [draft, setDraft] = useState<AdminUserDetail | null>(null);
@@ -120,8 +121,6 @@ export default function AdminClientDetailScreen() {
           preferredNailStyle: client.preferredNailStyle,
           allergyNotes: client.allergyNotes,
           adminNotes: notes.trim() || null,
-          role: client.role,
-          status: client.status,
         }),
       });
       setClient(updated);
@@ -136,7 +135,7 @@ export default function AdminClientDetailScreen() {
 
   async function mergeGuest() {
     if (!id || !mergeTargetId) {
-      setActionMessage('Choose the registered client to merge into.');
+      setActionMessage(t("Choose the registered client to merge into."));
       return;
     }
     setActionBusy(true);
@@ -144,34 +143,12 @@ export default function AdminClientDetailScreen() {
     try {
       await api<AdminUserDetail>(`/api/v1/admin/users/${id}/merge`, {
         method: 'POST',
-        body: JSON.stringify({ targetUserId: mergeTargetId }),
+        body: JSON.stringify({ targetClientId: mergeTargetId }),
       });
       setShowMerge(false);
       router.replace(`/(admin)/client/${mergeTargetId}`);
     } catch (cause) {
-      setActionMessage(cause instanceof ApiError ? cause.message : 'Unable to merge this client.');
-    } finally {
-      setActionBusy(false);
-    }
-  }
-
-  async function resetPassword() {
-    if (!id || newPassword.length < 8) {
-      setActionMessage('Temporary password must be at least 8 characters.');
-      return;
-    }
-    setActionBusy(true);
-    setActionMessage(null);
-    try {
-      await api(`/api/v1/admin/users/${id}/password-reset`, {
-        method: 'POST',
-        body: JSON.stringify({ newPassword }),
-      });
-      setNewPassword('');
-      setShowReset(false);
-      setActionMessage('Password reset. Share the temporary password securely with the client.');
-    } catch (cause) {
-      setActionMessage(cause instanceof ApiError ? cause.message : 'Unable to reset this password.');
+      setActionMessage(cause instanceof ApiError ? cause.message : t("Unable to merge this client."));
     } finally {
       setActionBusy(false);
     }
@@ -191,16 +168,37 @@ export default function AdminClientDetailScreen() {
           name: draft.name.trim(), phone: draft.phone?.trim() || null, birthday: draft.birthday || null,
           instagram: draft.instagram?.trim() || null, wechat: draft.wechat?.trim() || null,
           preferredNailStyle: draft.preferredNailStyle?.trim() || null, allergyNotes: draft.allergyNotes?.trim() || null,
-          adminNotes: draft.adminNotes?.trim() || null, role: draft.role, status: draft.status,
+          adminNotes: draft.adminNotes?.trim() || null,
         }),
       });
-      setClient(updated); setNotes(updated.adminNotes ?? ''); setDraft(null); setActionMessage('Client profile updated.');
-    } catch (cause) { setActionMessage(cause instanceof ApiError ? cause.message : 'Unable to update client profile.'); }
+      setClient(updated); setNotes(updated.adminNotes ?? ''); setDraft(null); setActionMessage(t("Client profile updated."));
+    } catch (cause) { setActionMessage(cause instanceof ApiError ? cause.message : t("Unable to update client profile.")); }
     finally { setActionBusy(false); }
   }
 
+  function deleteGuest() {
+    if (!id || client?.accountType !== 'GUEST') return;
+    Alert.alert(
+      t("Delete client"),
+      t("Delete {name} from the client book? Appointments, photos and history will be preserved in the archive.", { name: client.name }),
+      [
+        { text: t("Cancel"), style: 'cancel' },
+        { text: t("Delete client"), style: 'destructive', onPress: async () => {
+          setActionBusy(true); setActionMessage(null);
+          try {
+            await api<void>(`/api/v1/admin/users/${id}`, { method: 'DELETE' });
+            setDraft(null);
+            router.replace('/(admin)/users');
+          } catch (cause) {
+            setActionMessage(cause instanceof ApiError ? cause.message : t("Unable to delete this client."));
+          } finally { setActionBusy(false); }
+        } },
+      ],
+    );
+  }
+
   function formatDate(v: Visit) {
-    return new Date(v.date).toLocaleDateString('en-US', {
+    return new Date(v.date).toLocaleDateString(getLocale(), {
       month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/Vancouver',
     });
   }
@@ -226,13 +224,13 @@ export default function AdminClientDetailScreen() {
         <View style={styles.row}>
           <Pressable onPress={() => router.back()} style={styles.back}>
             <Icons.ChevL color={colors.ink} />
-            <Text style={styles.backText}>back</Text>
+            <Text style={styles.backText}>{t("back")}</Text>
           </Pressable>
         </View>
 
         <EyebrowTitle
-          eyebrow="client"
-          title={client?.name ?? '—'}
+          eyebrow={t("client")}
+          title={client?.adminDisplayName ?? '—'}
           trailing={<Doodle kind="heart" size={18} color={colors.pink} style={{ transform: [{ rotate: '-12deg' }] }} />}
         />
 
@@ -240,39 +238,35 @@ export default function AdminClientDetailScreen() {
         <View style={styles.row}>
           <HandRect padding={14} radius={radius.lg}>
             <Text style={styles.meta} numberOfLines={1}>
-              {client?.email}
+              {client?.clientName || client?.email || t("No customer name")}
               {client?.phone ? `  ·  ${client.phone}` : ''}
             </Text>
             {client?.instagram && <Text style={styles.handle}>{client.instagram}</Text>}
-            <View style={styles.profileEditRow}><Text style={styles.accountType}>{client?.accountType?.toLowerCase()} · {client?.status?.toLowerCase()}</Text><HandButton size="sm" color={colors.inkSoft} onPress={() => client && setDraft({ ...client })}>Edit profile</HandButton></View>
+            <View style={styles.profileEditRow}><Text style={styles.accountType}>{client?.accountType?.toLowerCase()}</Text><HandButton size="sm" color={colors.inkSoft} onPress={() => client && setDraft({ ...client })}>{t("Edit profile")}</HandButton></View>
           </HandRect>
         </View>
 
         <View style={styles.row}>
-          <View style={styles.accountActions}>
-            {client?.accountType === 'GUEST' ? (
-              <HandButton color={colors.blueInk} size="sm" onPress={() => { setActionMessage(null); setShowMerge(true); }}>Merge with registered client</HandButton>
-            ) : (
-              <HandButton color={colors.inkSoft} size="sm" onPress={() => { setActionMessage(null); setShowReset(true); }}>Reset password</HandButton>
-            )}
-          </View>
+          {client?.accountType === 'GUEST' && <View style={styles.accountActions}>
+            <HandButton color={colors.blueInk} size="sm" onPress={() => { setActionMessage(null); setShowMerge(true); }}>{t("Merge with registered client")}</HandButton>
+          </View>}
           {actionMessage && <Text style={styles.actionMessage}>{actionMessage}</Text>}
         </View>
 
         {/* Notes */}
         <View style={styles.row}>
-          <Text style={styles.sectionLabel}>notes</Text>
+          <Text style={styles.sectionLabel}>{t("notes")}</Text>
           <HandRect padding={14} radius={radius.lg}>
             <Field
-              placeholder="Add a note about this client…"
+              placeholder={t("Add a note about this client…")}
               value={notes}
               onChangeText={setNotes}
               multiline
             />
             <View style={styles.notesFooter}>
-              {notesSaved && <Text style={styles.savedText}>Saved ✓</Text>}
+              {notesSaved && <Text style={styles.savedText}>{t("Saved ✓")}</Text>}
               <HandButton color={colors.pinkInk} size="sm" onPress={saveNotes} disabled={savingNotes}>
-                {savingNotes ? 'Saving…' : 'Save note'}
+                {savingNotes ? t("Saving…") : t("Save note")}
               </HandButton>
             </View>
           </HandRect>
@@ -280,11 +274,11 @@ export default function AdminClientDetailScreen() {
 
         {/* Past visits */}
         <View style={styles.row}>
-          <Text style={styles.sectionLabel}>past visits</Text>
+          <Text style={styles.sectionLabel}>{t("past visits")}</Text>
           {visits.length === 0 ? (
             <HandRect padding={20} radius={radius.lg} dashed style={{ alignItems: 'center', gap: 6 }}>
               <Doodle kind="swirl" size={24} color={colors.blue} />
-              <Text style={styles.emptyTitle}>No visits yet</Text>
+              <Text style={styles.emptyTitle}>{t("No visits yet")}</Text>
             </HandRect>
           ) : (
             <View style={{ gap: 10 }}>
@@ -304,9 +298,9 @@ export default function AdminClientDetailScreen() {
                         <View style={{ flex: 1, minWidth: 0 }}>
                           <Text style={styles.visitDate}>{formatDate(v)}</Text>
                           <Text style={styles.visitMeta}>
-                            {v.price != null ? `$${v.price}` : 'no price set'}
+                            {v.price != null ? `$${v.price}` : t("no price set")}
                             {'  ·  '}
-                            {v.images.length} photo{v.images.length !== 1 ? 's' : ''}
+                            {v.images.length} {t("photo")}{v.images.length !== 1 ? 's' : ''}
                           </Text>
                           {v.description && (
                             <Text style={styles.visitDesc} numberOfLines={1}>{v.description}</Text>
@@ -333,39 +327,25 @@ export default function AdminClientDetailScreen() {
         <Pressable style={styles.backdrop} onPress={() => setShowMerge(false)}>
           <Pressable style={styles.modal} onPress={() => undefined}>
             <HandRect padding={20} radius={radius.xl}>
-              <Text style={styles.modalTitle}>Merge guest client</Text>
-              <Text style={styles.modalText}>Appointments, photos and notes will move to the selected registered account.</Text>
+              <Text style={styles.modalTitle}>{t("Merge guest client")}</Text>
+              <Text style={styles.modalText}>{t("Appointments, photos and notes will move to the selected registered account.")}</Text>
               <ScrollView style={styles.optionList} nestedScrollEnabled>
                 {allClients.filter((item) => item.accountType === 'REGISTERED' && item.id !== id).map((item) => (
                   <Pressable key={item.id} onPress={() => setMergeTargetId(item.id)} style={[styles.option, mergeTargetId === item.id && styles.optionSelected]}>
-                    <Text style={styles.optionName}>{item.name}</Text>
-                    <Text style={styles.optionMeta}>{item.phone || item.email || 'No contact information'}</Text>
+                    <Text style={styles.optionName}>{item.adminDisplayName}</Text>
+                    <Text style={styles.optionMeta}>{item.clientName || item.phone || item.loginPhone || t("No contact information")}</Text>
                   </Pressable>
                 ))}
               </ScrollView>
               {actionMessage && <Text style={styles.modalError}>{actionMessage}</Text>}
-              <HandButton full color={colors.pinkInk} disabled={actionBusy || !mergeTargetId} onPress={mergeGuest}>{actionBusy ? 'Merging…' : 'Merge client'}</HandButton>
-            </HandRect>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      <Modal transparent visible={showReset} animationType="fade" onRequestClose={() => setShowReset(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setShowReset(false)}>
-          <Pressable style={styles.modal} onPress={() => undefined}>
-            <HandRect padding={20} radius={radius.xl}>
-              <Text style={styles.modalTitle}>Reset client password</Text>
-              <Text style={styles.modalText}>Set a temporary password with at least 8 characters.</Text>
-              <Field containerStyle={{ marginVertical: 16 }} placeholder="Temporary password" secureTextEntry value={newPassword} onChangeText={setNewPassword} autoCapitalize="none" />
-              {actionMessage && <Text style={styles.modalError}>{actionMessage}</Text>}
-              <HandButton full color={colors.pinkInk} disabled={actionBusy} onPress={resetPassword}>{actionBusy ? 'Resetting…' : 'Reset password'}</HandButton>
+              <HandButton full color={colors.pinkInk} disabled={actionBusy || !mergeTargetId} onPress={mergeGuest}>{actionBusy ? t("Merging…") : t("Merge client")}</HandButton>
             </HandRect>
           </Pressable>
         </Pressable>
       </Modal>
 
       <Modal transparent visible={Boolean(draft)} animationType="fade" onRequestClose={() => setDraft(null)}>
-        <Pressable style={styles.backdrop} onPress={() => setDraft(null)}><Pressable style={styles.modal} onPress={() => undefined}><HandRect padding={20} radius={radius.xl}><Text style={styles.modalTitle}>Edit client profile</Text><ScrollView style={styles.profileForm} keyboardShouldPersistTaps="handled"><View style={{ gap: 10 }}><Field placeholder="Unique name" value={draft?.name ?? ''} onChangeText={(value) => editField('name', value)} /><Field placeholder={draft?.accountType === 'GUEST' ? 'Phone (optional)' : 'Phone'} keyboardType="phone-pad" value={draft?.phone ?? ''} onChangeText={(value) => editField('phone', value || null)} /><Field placeholder="Birthday · YYYY-MM-DD (optional)" value={draft?.birthday ?? ''} onChangeText={(value) => editField('birthday', value || null)} /><Field placeholder="Instagram (optional)" value={draft?.instagram ?? ''} onChangeText={(value) => editField('instagram', value || null)} /><Field placeholder="WeChat (optional)" value={draft?.wechat ?? ''} onChangeText={(value) => editField('wechat', value || null)} /><Field placeholder="Preferred nail style" multiline value={draft?.preferredNailStyle ?? ''} onChangeText={(value) => editField('preferredNailStyle', value || null)} /><Field placeholder="Allergy or sensitivity notes" multiline value={draft?.allergyNotes ?? ''} onChangeText={(value) => editField('allergyNotes', value || null)} /><Field placeholder="Private admin notes" multiline value={draft?.adminNotes ?? ''} onChangeText={(value) => editField('adminNotes', value || null)} /><Text style={styles.optionMeta}>Account status</Text><View style={styles.statusRow}><HandButton size="sm" color={draft?.status === 'ACTIVE' ? colors.blueInk : colors.inkFaint} onPress={() => editField('status', 'ACTIVE')}>Active</HandButton><HandButton size="sm" color={draft?.status === 'DISABLED' ? colors.pinkInk : colors.inkFaint} onPress={() => editField('status', 'DISABLED')}>Disabled</HandButton></View></View></ScrollView>{actionMessage && <Text style={styles.modalError}>{actionMessage}</Text>}<HandButton full color={colors.pinkInk} disabled={actionBusy} onPress={saveProfile}>{actionBusy ? 'Saving…' : 'Save client profile'}</HandButton></HandRect></Pressable></Pressable>
+        <Pressable style={styles.backdrop} onPress={() => setDraft(null)}><Pressable style={styles.modal} onPress={() => undefined}><HandRect padding={20} radius={radius.xl}><Text style={styles.modalTitle}>{t("Edit client profile")}</Text><ScrollView style={styles.profileForm} keyboardShouldPersistTaps="handled"><View style={{ gap: 10 }}><Field placeholder={t("Unique name")} value={draft?.name ?? ''} onChangeText={(value) => editField('name', value)} /><Field placeholder={draft?.accountType === 'GUEST' ? t("Phone (optional)") : t("Phone")} keyboardType="phone-pad" value={draft?.phone ?? ''} onChangeText={(value) => editField('phone', value || null)} /><Field placeholder={t("Birthday · YYYY-MM-DD (optional)")} value={draft?.birthday ?? ''} onChangeText={(value) => editField('birthday', value || null)} /><Field placeholder={t("Instagram (optional)")} value={draft?.instagram ?? ''} onChangeText={(value) => editField('instagram', value || null)} /><Field placeholder={t("WeChat (optional)")} value={draft?.wechat ?? ''} onChangeText={(value) => editField('wechat', value || null)} /><Field placeholder={t("Preferred nail style")} multiline value={draft?.preferredNailStyle ?? ''} onChangeText={(value) => editField('preferredNailStyle', value || null)} /><Field placeholder={t("Allergy or sensitivity notes")} multiline value={draft?.allergyNotes ?? ''} onChangeText={(value) => editField('allergyNotes', value || null)} /><Field placeholder={t("Private admin notes")} multiline value={draft?.adminNotes ?? ''} onChangeText={(value) => editField('adminNotes', value || null)} /></View></ScrollView>{actionMessage && <Text style={styles.modalError}>{actionMessage}</Text>}<HandButton full color={colors.pinkInk} disabled={actionBusy} onPress={saveProfile}>{actionBusy ? t("Saving…") : t("Save client profile")}</HandButton>{draft?.accountType === 'GUEST' && <View style={{ marginTop: 12 }}><HandButton full color={colors.inkSoft} disabled={actionBusy} onPress={deleteGuest}>{t("Delete client")}</HandButton></View>}</HandRect></Pressable></Pressable>
       </Modal>
     </View>
   );
@@ -428,5 +408,4 @@ const styles = StyleSheet.create({
   optionMeta: { marginTop: 2, fontFamily: fonts.body, fontSize: 11, color: colors.inkSoft },
   modalError: { marginBottom: 10, fontFamily: fonts.body, fontSize: 12, color: '#c0554f' },
   profileForm: { maxHeight: 470, marginVertical: 14 },
-  statusRow: { flexDirection: 'row', gap: 8, marginBottom: 5 },
 });

@@ -1,3 +1,4 @@
+import { t, useLanguage } from '../../shared/i18n';
 import React, { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -22,6 +23,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 
 export default function LoginScreen() {
+  useLanguage();
   const router = useRouter();
   const { signIn } = useAuth();
   const [phone, setPhone] = useState('');
@@ -31,7 +33,7 @@ export default function LoginScreen() {
 
   async function handleSignIn() {
     if (!phone || !password) {
-      setError('Please enter your phone number and password.');
+      setError("Please enter your phone number and password.");
       return;
     }
     setError(null);
@@ -59,8 +61,8 @@ export default function LoginScreen() {
               </View>
             </BrushHighlight>
             <View style={styles.tagline}>
-              <Text style={styles.taglineText}>Soft nails, easy booking,</Text>
-              <Text style={styles.taglineText}>cozy memories.</Text>
+              <Text style={styles.taglineText}>{t("Soft nails, easy booking,")}</Text>
+              <Text style={styles.taglineText}>{t("cozy memories.")}</Text>
             </View>
             <ScribbleUnderline color={colors.pinkInk} width={56} height={6} style={{ marginTop: 14 }}/>
           </View>
@@ -68,26 +70,26 @@ export default function LoginScreen() {
           {/* Form card */}
           <HandRect padding={20} radius={radius.lg} style={styles.card}>
             <View style={styles.cardHead}>
-              <Text style={styles.welcome}>Welcome back</Text>
+              <Text style={styles.welcome}>{t("Welcome back")}</Text>
               <Doodle kind="heart" size={20} color={colors.pink} style={{ transform: [{ rotate: '-10deg' }] }}/>
             </View>
 
             <View style={{ gap: 12, marginTop: 14 }}>
               <Field
-                placeholder="Phone number"
+                placeholder={t("Phone number · 10 digits")}
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={setPhone}
               />
               <Field
-                placeholder="Password"
+                placeholder={t("Password")}
                 secureTextEntry
                 value={password}
                 onChangeText={setPassword}
               />
             </View>
 
-            {error && <Text style={styles.errorText}>{error}</Text>}
+            {error && <Text style={styles.errorText}>{t(error)}</Text>}
 
             <View style={{ marginTop: 18 }}>
               <HandButton
@@ -96,19 +98,19 @@ export default function LoginScreen() {
                 onPress={handleSignIn}
                 disabled={loading}
               >
-                {loading ? 'Signing in…' : 'Sign in'}
+                {loading ? t("Signing in…") : t("Sign in")}
               </HandButton>
             </View>
 
             <Pressable style={styles.forgot}>
-              <Text style={styles.forgotText}>forgot password?</Text>
+              <Text style={styles.forgotText}>{t("forgot password?")}</Text>
             </Pressable>
           </HandRect>
 
           {/* Register link */}
           <Pressable onPress={() => router.push('/(auth)/register')} style={styles.linkBtn}>
-            <Text style={styles.linkText}>New here? </Text>
-            <Text style={[styles.linkText, { color: colors.pinkInk }]}>Create a profile →</Text>
+            <Text style={styles.linkText}>{t("New here?")}</Text>
+            <Text style={[styles.linkText, { color: colors.pinkInk }]}>{t("Create a profile →")}</Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>

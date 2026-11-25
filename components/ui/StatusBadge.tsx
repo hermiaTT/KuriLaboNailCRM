@@ -1,3 +1,4 @@
+import { statusLabel, useLanguage } from '../../shared/i18n';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, fonts, letterSpacing, radius, statusColors, type StatusKey } from '../../constants/theme';
@@ -14,11 +15,12 @@ interface StatusBadgeProps {
  *   <StatusBadge status="confirmed"/>
  */
 export function StatusBadge({ status }: StatusBadgeProps) {
+  useLanguage();
   const c = statusColors[status];
   return (
     <View style={[styles.pill, { backgroundColor: c.bg, borderColor: c.ring }]}>
       <View style={[styles.dot, { backgroundColor: c.ring }]} />
-      <Text style={[styles.label, { color: c.fg }]}>{status}</Text>
+      <Text style={[styles.label, { color: c.fg }]}>{statusLabel(status)}</Text>
     </View>
   );
 }

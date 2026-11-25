@@ -11,6 +11,7 @@ export type CurrentProfile = ApiUser & {
 export type Appointment = {
   id: string;
   customerId: string;
+  customerName?: string;
   serviceId: string | null;
   serviceName: string;
   durationMinutes: number;
@@ -79,12 +80,16 @@ export type Availability = {
 
 export type AdminUser = {
   id: string;
+  accountId: string | null;
   email: string | null;
   accountType: 'REGISTERED' | 'GUEST';
   role: 'USER' | 'ADMIN';
-  status: 'ACTIVE' | 'DISABLED';
   name: string;
+  clientName: string | null;
+  adminDisplayName: string;
   phone: string | null;
+  loginPhone: string | null;
+  nextAppointmentAt?: string | null;
   createdAt: string;
 };
 
@@ -112,6 +117,7 @@ export type NotificationItem = {
   title: string;
   message: string;
   appointmentId: string | null;
+    clientId: string | null;
   read: boolean;
   createdAt: string;
 };

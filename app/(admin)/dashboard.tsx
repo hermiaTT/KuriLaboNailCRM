@@ -1,3 +1,4 @@
+import { t, getLocale, useLanguage } from '../../shared/i18n';
 import React, { useCallback, useState } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -28,13 +29,13 @@ import type { StatusKey } from '../../constants/theme';
 
 function greeting() {
   const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 18) return 'Good afternoon';
-  return 'Good evening';
+  if (h < 12) return t("Good morning");
+  if (h < 18) return t("Good afternoon");
+  return t("Good evening");
 }
 
 function todayLabel() {
-  return new Date().toLocaleDateString('en-US', {
+  return new Date().toLocaleDateString(getLocale(), {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
@@ -42,7 +43,7 @@ function todayLabel() {
 }
 
 function fmtTime(iso: string) {
-  return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Vancouver' }).format(new Date(iso));
+  return new Intl.DateTimeFormat(getLocale(), { hour: 'numeric', minute: '2-digit', timeZone: 'America/Vancouver' }).format(new Date(iso));
 }
 
 function dayKey(iso: string | Date) {
@@ -74,6 +75,7 @@ type RecentUpload = { id: string; image_url: string };
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function AdminDashboardScreen() {
+  useLanguage();
   const router = useRouter();
   const { profile, signOut } = useAuth();
 
@@ -107,7 +109,7 @@ export default function AdminDashboardScreen() {
       const merged = appointments
         .filter((item) => dayKey(item.startAt) === today && !['CANCELLED', 'REJECTED'].includes(item.status))
         .sort((a, b) => a.startAt.localeCompare(b.startAt))
-        .map((item) => ({ id: item.id, status: uiStatus(item.status), clientName: names.get(item.customerId) ?? 'Client', startTime: item.startAt, endTime: item.endAt }));
+        .map((item) => ({ id: item.id, status: uiStatus(item.status), clientName: item.customerName ?? names.get(item.customerId) ?? t("Client"), startTime: item.startAt, endTime: item.endAt }));
       const weekEnd = Date.now() + 7 * 24 * 60 * 60 * 1000;
       const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
       const images = nailSets.flatMap((set) => set.images).slice(0, 6).map((image) => ({ id: image.id, image_url: mediaUrl(image.url) }));
@@ -127,10 +129,10 @@ export default function AdminDashboardScreen() {
   const adminInitial = profile?.name?.[0]?.toUpperCase() ?? 'K';
 
   const STAT_TILES = [
-    { v: todayCount,    l: 'today',     sub: `${pendingCount} pending`, c: colors.pink,   d: 'flower'  as const },
-    { v: weekCount,     l: 'this week', sub: 'appointments',              c: colors.blue,   d: 'sparkle' as const },
-    { v: newUsersCount, l: 'new users', sub: 'this month',              c: colors.green,  d: 'star'    as const },
-    { v: uploadsCount,  l: 'uploads',   sub: 'last 30 d',               c: colors.yellow, d: 'heart'   as const },
+    { v: todayCount,    l: t("today"),     sub: t("{count} pending", { count: pendingCount }), c: colors.pink,   d: 'flower'  as const },
+    { v: weekCount,     l: t("this week"), sub: t("appointments"),              c: colors.blue,   d: 'sparkle' as const },
+    { v: newUsersCount, l: t("new users"), sub: t("this month"),              c: colors.green,  d: 'star'    as const },
+    { v: uploadsCount,  l: t('uploads'),   sub: t("last 30 d"),               c: colors.yellow, d: 'heart'   as const },
   ];
 
   return (
@@ -149,7 +151,7 @@ export default function AdminDashboardScreen() {
           <Text style={styles.sub}>
             {loading
               ? '...'
-              : `${todayCount} visit${todayCount !== 1 ? 's' : ''} today${pendingCount > 0 ? `, ${pendingCount} to confirm` : ''}`}
+              : `${t('{count} visits today', { count: todayCount })}${pendingCount > 0 ? ` · ${t('{count} to confirm', { count: pendingCount })}` : ''}`}
           </Text>
         </View>
         <View style={styles.headerRight}>
@@ -201,17 +203,17 @@ export default function AdminDashboardScreen() {
           <View style={styles.row}>
             <View style={styles.sectionHead}>
               <View style={styles.sectionTitleRow}>
-                <Text style={styles.sectionTitle}>Today's schedule</Text>
+                <Text style={styles.sectionTitle}>{t("Today's schedule")}</Text>
                 <Doodle kind="sparkle" size={14} color={colors.pinkInk} style={{ transform: [{ rotate: '-15deg' }] }} />
               </View>
               <Pressable onPress={() => router.push('/(admin)/appointments')}>
-                <Text style={styles.seeAll}>see all</Text>
+                <Text style={styles.seeAll}>{t("see all")}</Text>
               </Pressable>
             </View>
             <HandRect padding={0} radius={radius.lg}>
               {todayAppts.length === 0 ? (
                 <View style={styles.emptyRow}>
-                  <Text style={styles.emptyText}>No appointments today 🌸</Text>
+                  <Text style={styles.emptyText}>{t("No appointments today 🌸")}</Text>
                 </View>
               ) : (
                 todayAppts.slice(0, 3).map((a, i, arr) => (
@@ -235,15 +237,15 @@ export default function AdminDashboardScreen() {
           {/* New clients */}
           <View style={styles.row}>
             <View style={styles.sectionHead}>
-              <Text style={styles.sectionTitle}>New clients</Text>
+              <Text style={styles.sectionTitle}>{t("New clients")}</Text>
               <Pressable onPress={() => router.push('/(admin)/users')}>
-                <Text style={styles.seeAll}>view all</Text>
+                <Text style={styles.seeAll}>{t("view all")}</Text>
               </Pressable>
             </View>
             <HandRect padding={0} radius={radius.lg}>
               {recentClients.length === 0 ? (
                 <View style={styles.emptyRow}>
-                  <Text style={styles.emptyText}>No clients yet</Text>
+                  <Text style={styles.emptyText}>{t("No clients yet")}</Text>
                 </View>
               ) : (
                 recentClients.map((u, i, arr) => (
@@ -265,14 +267,14 @@ export default function AdminDashboardScreen() {
           {/* Recent uploads */}
           <View style={styles.row}>
             <View style={styles.sectionHead}>
-              <Text style={styles.sectionTitle}>Recent uploads</Text>
+              <Text style={styles.sectionTitle}>{t("Recent uploads")}</Text>
               <Pressable onPress={() => router.push('/(admin)/upload')}>
-                <Text style={styles.seeAll}>+ add</Text>
+                <Text style={styles.seeAll}>{t("+ add")}</Text>
               </Pressable>
             </View>
             {recentUploads.length === 0 ? (
               <HandRect padding={16} radius={radius.lg}>
-                <Text style={[styles.emptyText, { textAlign: 'center' }]}>No uploads yet</Text>
+                <Text style={[styles.emptyText, { textAlign: 'center' }]}>{t("No uploads yet")}</Text>
               </HandRect>
             ) : (
               <View style={styles.uploadGrid}>
@@ -294,8 +296,8 @@ export default function AdminDashboardScreen() {
           <View style={styles.row}>
             <HandRect padding={16} radius={radius.lg} fill={colors.blueSoft} stroke={colors.blueInk}>
               <View style={styles.ctaRow}>
-                <View style={{ flex: 1, minWidth: 0 }}><Text style={styles.ctaTitle}>Service menu</Text><Text style={styles.ctaBody}>Add, edit or disable treatments.</Text></View>
-                <HandButton color={colors.blueInk} size="sm" onPress={() => router.push('/(admin)/services')}>Manage</HandButton>
+                <View style={{ flex: 1, minWidth: 0 }}><Text style={styles.ctaTitle}>{t("Service menu")}</Text><Text style={styles.ctaBody}>{t("Add, edit or disable treatments.")}</Text></View>
+                <HandButton color={colors.blueInk} size="sm" onPress={() => router.push('/(admin)/services')}>{t("Manage")}</HandButton>
               </View>
             </HandRect>
           </View>
@@ -305,12 +307,11 @@ export default function AdminDashboardScreen() {
             <HandRect padding={16} radius={radius.lg} fill={colors.pinkSoft} stroke={colors.pinkInk}>
               <View style={styles.ctaRow}>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.ctaTitle}>Block out time?</Text>
-                  <Text style={styles.ctaBody}>Close slots for breaks or holidays.</Text>
+                  <Text style={styles.ctaTitle}>{t("Block out time?")}</Text>
+                  <Text style={styles.ctaBody}>{t("Close slots for breaks or holidays.")}</Text>
                 </View>
                 <HandButton color={colors.pinkInk} size="sm" onPress={() => router.push('/(admin)/slots')}>
-                  Manage
-                </HandButton>
+                  {t("Manage")}</HandButton>
               </View>
             </HandRect>
           </View>

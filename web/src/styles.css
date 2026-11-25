@@ -49,6 +49,7 @@ h1, h2, h3, .brand, .stat-card strong, .date-block strong, .time-tile strong {
 }
 
 .muted { color: var(--ink-soft); }
+.field-hint { display: block; margin-top: 6px; color: var(--ink-faint); font-size: 10px; font-weight: 500; }
 .brand { position: relative; display: inline-block; isolation: isolate; font-size: 25px; line-height: 1.1; white-space: nowrap; }
 .brand > span:last-child { position: relative; z-index: 1; }
 .brand-brush { position: absolute; z-index: 0; inset: 6px -10px -1px -8px; background: var(--blue); opacity: .72; border-radius: 48% 40% 55% 42%; transform: rotate(-2deg); }
@@ -140,6 +141,9 @@ h1, h2, h3, .brand, .stat-card strong, .date-block strong, .time-tile strong {
 .table-row { min-height: 72px; border: 0; border-bottom: 1px dashed var(--hair); background: transparent; font-size: 12px; }
 .table-row:last-child { border-bottom: 0; }
 .table-row:hover { background: var(--cream); }
+.client-row-link { min-width: 0; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; }
+.client-row-link:hover strong { color: var(--pink-ink); }
+.client-manage-button { min-height: 36px; padding: 8px 14px; justify-self: start; font-size: 11px; }
 .person-cell { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .person-cell strong, .person-cell small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .person-cell strong { font-family: 'Special Elite'; font-weight: 400; font-size: 14px; }
@@ -595,6 +599,17 @@ textarea { min-height: 82px; resize: vertical; }
 .schedule-notice { display: flex; justify-content: space-between; align-items: center; }
 .schedule-notice button { border: 0; background: transparent; color: inherit; font-size: 18px; }
 .modal-backdrop { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(72,50,29,.24); backdrop-filter: blur(5px); }
+.confirm-modal-backdrop { position: fixed; z-index: 80; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(72,50,29,.32); backdrop-filter: blur(7px); }
+.confirm-modal { width: min(430px,100%); padding: 30px; text-align: center; animation: modal-in 180ms ease-out; }
+.confirm-modal::after { display: none; }
+.confirm-modal-mark { width: 42px; height: 42px; display: grid; place-items: center; margin: 0 auto 15px; border: 1px dashed var(--blue-ink); border-radius: 50%; background: var(--blue-soft); color: var(--blue-ink); font-family: 'Special Elite'; font-size: 19px; }
+.confirm-modal-danger .confirm-modal-mark { border-color: #a84848; background: #fff0ed; color: #a84848; }
+.confirm-modal h2 { margin: 0; font-size: 22px; }
+.confirm-modal-message { margin-top: 11px; color: var(--ink-soft); font-size: 13px; line-height: 1.65; }
+.confirm-modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 24px; }
+.confirm-modal-actions button { width: 100%; }
+.confirm-danger-button { min-height: 46px; padding: 12px 20px; border: 1px solid #a84848; border-radius: 999px; background: #a84848; color: white; font-family: 'Special Elite'; font-size: 14px; box-shadow: 3px 3px 0 rgba(92,63,34,.12); }
+.confirm-danger-button:disabled, .confirm-modal-actions button:disabled { opacity: .55; cursor: wait; }
 .schedule-modal { width: min(510px,100%); max-height: calc(100vh - 40px); overflow-x: hidden; overflow-y: auto; padding: 29px; animation: modal-in 200ms ease-out; }
 .schedule-modal::after { display: none; }
 @keyframes modal-in { from { opacity: 0; transform: scale(.97) translateY(5px); } }
@@ -649,12 +664,12 @@ textarea { min-height: 82px; resize: vertical; }
   .table-card::after { display: none; }
   .data-table { min-width: 0; display: grid; gap: 11px; }
   .table-head { display: none; }
-  .table-row { grid-template-columns: minmax(0,1fr) auto; grid-template-areas: 'person status' 'contact contact' 'joined joined'; gap: 8px 12px; min-height: 0; padding: 15px 16px; border: 1.4px solid var(--ink); border-radius: 18px; background: var(--card); box-shadow: 3px 3px 0 rgba(92,63,34,.07); }
+  .table-row { grid-template-columns: minmax(0,1fr) auto; grid-template-areas: 'person manage' 'contact contact' 'appointment appointment'; gap: 8px 12px; min-height: 0; padding: 15px 16px; border: 1.4px solid var(--ink); border-radius: 18px; background: var(--card); box-shadow: 3px 3px 0 rgba(92,63,34,.07); }
   .table-row:last-child { border-bottom: 1.4px solid var(--ink); }
   .table-row > :nth-child(1) { grid-area: person; }
   .table-row > :nth-child(2) { grid-area: contact; padding-left: 48px; color: var(--ink-soft); }
-  .table-row > :nth-child(3) { grid-area: joined; padding-left: 48px; color: var(--ink-faint); font-size: 10px; }
-  .table-row > :nth-child(4) { grid-area: status; align-self: start; justify-self: end; }
+  .table-row > :nth-child(3) { grid-area: appointment; padding-left: 48px; color: var(--ink-faint); font-size: 10px; }
+  .table-row > :nth-child(4) { grid-area: manage; align-self: start; justify-self: end; }
   .appointment-row { align-items: flex-start; flex-wrap: wrap; }
   .appointment-admin-meta, .row-actions { width: calc(100% - 72px); margin-left: 72px; padding-left: 0; justify-content: flex-start; }
   .appointment-admin-meta { display: flex; }
@@ -803,6 +818,9 @@ textarea { min-height: 82px; resize: vertical; }
 .client-account-tool h3 { margin: 5px 0 7px; }
 .client-account-tool > p:not(.eyebrow) { color: var(--ink-soft); font-size: 13px; }
 .client-account-tool select { width: 100%; margin: 10px 0; }
+.client-account-tool.delete-client-tool { border: 1px dashed #b95757; background: #fff3f0; }
+.delete-client-button { min-height: 40px; padding: 9px 17px; border: 1px solid #a84848; border-radius: 999px; background: transparent; color: #a84848; font-family: 'Special Elite'; font-size: 12px; }
+.delete-client-button:hover:not(:disabled) { background: #a84848; color: white; }
 .inline-account-action { display: grid; grid-template-columns: 1fr auto; gap: 10px; margin-top: 12px; }
 .account-message { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,.75); color: var(--ink-soft); font-size: 12px; }
 .profile-security-card { grid-column: 2; }

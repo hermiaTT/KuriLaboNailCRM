@@ -1,3 +1,4 @@
+import { t, getLocale, useLanguage } from '../../shared/i18n';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -9,6 +10,7 @@ import { api, ApiError } from '../../lib/api';
 import type { AdminUser, Appointment, NailSet } from '../../types/api';
 
 export default function AdminUploadScreen() {
+  useLanguage();
   const router = useRouter();
   const params = useLocalSearchParams<{ appointmentId?: string; clientId?: string }>();
   const [assets, setAssets] = useState<ImagePicker.ImagePickerAsset[]>([]);
@@ -22,7 +24,7 @@ export default function AdminUploadScreen() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const load = useCallback(() => { Promise.all([api<AdminUser[]>('/api/v1/admin/users'), api<Appointment[]>('/api/v1/admin/appointments')]).then(([users, visits]) => { setClients(users.filter((user) => user.role === 'USER')); setAppointments(visits); }).catch(() => setError('Unable to load clients and appointments.')); }, []);
+  const load = useCallback(() => { Promise.all([api<AdminUser[]>('/api/v1/admin/users'), api<Appointment[]>('/api/v1/admin/appointments')]).then(([users, visits]) => { setClients(users.filter((user) => user.role === 'USER')); setAppointments(visits); }).catch(() => setError("Unable to load clients and appointments.")); }, []);
   useFocusEffect(load);
   useEffect(() => {
     if (params.clientId) setClientId(params.clientId);
@@ -33,13 +35,13 @@ export default function AdminUploadScreen() {
 
   async function pickImages() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) { setError('Photo library access is required.'); return; }
+    if (!permission.granted) { setError("Photo library access is required."); return; }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, orderedSelection: true, quality: 0.85, selectionLimit: 12 });
     if (!result.canceled) setAssets(result.assets.slice(0, 12));
   }
 
   async function upload() {
-    if (!assets.length) { setError('Choose at least one photo.'); return; }
+    if (!assets.length) { setError("Choose at least one photo."); return; }
     const body = new FormData();
     assets.forEach((asset, index) => body.append('files', { uri: asset.uri, name: asset.fileName || `nail-${index + 1}.jpg`, type: asset.mimeType || 'image/jpeg' } as any));
     if (title.trim()) body.append('title', title.trim());
@@ -50,18 +52,18 @@ export default function AdminUploadScreen() {
     try {
       await api<NailSet>('/api/v1/admin/nail-sets', { method: 'POST', body });
       setAssets([]); setTitle(''); setDescription(''); setClientId(''); setAppointmentId(''); setSuccess(true);
-    } catch (cause) { setError(cause instanceof ApiError ? cause.message : 'Upload failed.'); }
+    } catch (cause) { setError(cause instanceof ApiError ? cause.message : "Upload failed."); }
     finally { setUploading(false); }
   }
 
-  return <Screen><ScreenHeader /><EyebrowTitle eyebrow="upload" title="Add photos" trailing={<Doodle kind="sparkle" size={20} color={colors.coral} />} />
-    <View style={styles.row}><Pressable onPress={pickImages}><HandRect padding={20} radius={radius.lg} dashed><View style={styles.picker}><Text style={styles.plus}>＋</Text><Text style={styles.pickerTitle}>Choose up to 12 photos</Text><Text style={styles.meta}>JPEG, PNG, WebP or GIF</Text></View></HandRect></Pressable></View>
+  return <Screen><ScreenHeader /><EyebrowTitle eyebrow={t("upload")} title={t("Add photos")} trailing={<Doodle kind="sparkle" size={20} color={colors.coral} />} />
+    <View style={styles.row}><Pressable onPress={pickImages}><HandRect padding={20} radius={radius.lg} dashed><View style={styles.picker}><Text style={styles.plus}>＋</Text><Text style={styles.pickerTitle}>{t("Choose up to 12 photos")}</Text><Text style={styles.meta}>{t("JPEG, PNG, WebP or GIF")}</Text></View></HandRect></Pressable></View>
     {assets.length > 0 && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.previews}>{assets.map((asset) => <View key={asset.uri}><Image source={{ uri: asset.uri }} style={styles.preview} /><Pressable style={styles.remove} onPress={() => setAssets((current) => current.filter((item) => item.uri !== asset.uri))}><Text style={{ color: colors.white }}>×</Text></Pressable></View>)}</ScrollView>}
-    <View style={styles.row}><HandRect padding={16} radius={radius.lg}><View style={{ gap: 10 }}><Field placeholder="Set title (optional)" value={title} onChangeText={setTitle} /><Field placeholder="Description (optional)" multiline value={description} onChangeText={setDescription} /></View></HandRect></View>
-    <View style={styles.row}><Text style={styles.label}>Client · optional</Text><View style={styles.chips}><HandChip active={!clientId} onPress={() => { setClientId(''); setAppointmentId(''); }}>No client</HandChip>{clients.slice(0, 12).map((client) => <HandChip key={client.id} active={clientId === client.id} onPress={() => { setClientId(client.id); setAppointmentId(''); }}>{client.name}</HandChip>)}</View></View>
-    <View style={styles.row}><Text style={styles.label}>Appointment · optional</Text><View style={styles.chips}><HandChip active={!appointmentId} onPress={() => setAppointmentId('')}>No appointment</HandChip>{visibleAppointments.map((item) => <HandChip key={item.id} active={appointmentId === item.id} onPress={() => { setAppointmentId(item.id); setClientId(item.customerId); }}>{names.get(item.customerId) || 'Client'} · {new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'America/Vancouver' }).format(new Date(item.startAt))}</HandChip>)}</View></View>
-    {error && <Text style={styles.error}>{error}</Text>}{success && <Text style={styles.success}>Nail set uploaded ✓</Text>}
-    <View style={styles.row}><HandButton full size="lg" color={colors.pinkInk} disabled={uploading || !assets.length} onPress={upload}>{uploading ? 'Uploading…' : `Publish ${assets.length || ''} photo${assets.length === 1 ? '' : 's'}`}</HandButton><Pressable onPress={() => router.push('/(admin)/inspiration')} style={styles.library}><Icons.ChevL color={colors.inkSoft} /><Text style={styles.meta}>Back to library</Text></Pressable></View>
+    <View style={styles.row}><HandRect padding={16} radius={radius.lg}><View style={{ gap: 10 }}><Field placeholder={t("Set title (optional)")} value={title} onChangeText={setTitle} /><Field placeholder={t("Description (optional)")} multiline value={description} onChangeText={setDescription} /></View></HandRect></View>
+    <View style={styles.row}><Text style={styles.label}>{t("Client · optional")}</Text><View style={styles.chips}><HandChip active={!clientId} onPress={() => { setClientId(''); setAppointmentId(''); }}>{t("No client")}</HandChip>{clients.slice(0, 12).map((client) => <HandChip key={client.id} active={clientId === client.id} onPress={() => { setClientId(client.id); setAppointmentId(''); }}>{client.name}</HandChip>)}</View></View>
+    <View style={styles.row}><Text style={styles.label}>{t("Appointment · optional")}</Text><View style={styles.chips}><HandChip active={!appointmentId} onPress={() => setAppointmentId('')}>{t("No appointment")}</HandChip>{visibleAppointments.map((item) => <HandChip key={item.id} active={appointmentId === item.id} onPress={() => { setAppointmentId(item.id); setClientId(item.customerId); }}>{item.customerName ?? names.get(item.customerId) ?? t("Client")} · {new Intl.DateTimeFormat(getLocale(), { month: 'short', day: 'numeric', timeZone: 'America/Vancouver' }).format(new Date(item.startAt))}</HandChip>)}</View></View>
+    {error && <Text style={styles.error}>{t(error)}</Text>}{success && <Text style={styles.success}>{t("Nail set uploaded ✓")}</Text>}
+    <View style={styles.row}><HandButton full size="lg" color={colors.pinkInk} disabled={uploading || !assets.length} onPress={upload}>{uploading ? t("Uploading…") : t("Publish {count} photos", { count: assets.length })}</HandButton><Pressable onPress={() => router.push('/(admin)/inspiration')} style={styles.library}><Icons.ChevL color={colors.inkSoft} /><Text style={styles.meta}>{t("Back to library")}</Text></Pressable></View>
   </Screen>;
 }
 

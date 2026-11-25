@@ -42,9 +42,6 @@ public class AppointmentReferenceService {
     public AppointmentResponse upload(UUID userId, UUID appointmentId, List<MultipartFile> files) {
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Appointment was not found."));
-        if (!appointment.getCustomer().getId().equals(userId)) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "You cannot update this appointment.");
-        }
         if (appointment.getStatus() != AppointmentStatus.PENDING_CONFIRMATION) {
             throw new ApiException(HttpStatus.CONFLICT, "Reference photos can only be added while the appointment is pending.");
         }
@@ -53,6 +50,9 @@ public class AppointmentReferenceService {
         }
         AppUser user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "User no longer exists."));
+        if (user.getClient() == null || !appointment.getCustomer().getId().equals(user.getClient().getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "You cannot update this appointment.");
+        }
         List<String> storedKeys = new ArrayList<>();
         try {
             int order = appointment.getReferenceMedia().size();

@@ -1,3 +1,4 @@
+import { t, useLanguage } from '../lib/i18n';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -6,6 +7,7 @@ import { ApiError } from '../lib/api';
 import { Brand, PaperCard } from '../components/UI';
 
 export function LoginPage() {
+  useLanguage();
   const { user, login } = useAuth();
   const navigate = useNavigate();
   const [phone, setPhone] = useState('');
@@ -25,7 +27,7 @@ export function LoginPage() {
     try {
       await login(phone.trim(), password);
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Unable to reach the Kuri Labo server.');
+      setError(cause instanceof ApiError ? cause.message : "Unable to reach the Kuri Labo server.");
     } finally {
       setSubmitting(false);
     }
@@ -36,23 +38,23 @@ export function LoginPage() {
       <div className="confetti" aria-hidden="true" />
       <section className="login-intro">
         <Brand />
-        <p className="eyebrow">YOUR NAIL STORY</p>
-        <h1>A cozy place for your next set.</h1>
-        <p>Save inspiration, request appointments and keep your nail memories together.</p>
+        <p className="eyebrow">{t("YOUR NAIL STORY")}</p>
+        <h1>{t("A cozy place for your next set.")}</h1>
+        <p>{t("Save inspiration, request appointments and keep your nail memories together.")}</p>
         <div className="login-doodle" aria-hidden="true">✿</div>
       </section>
       <PaperCard className="login-card">
-        <p className="eyebrow">WELCOME BACK</p>
-        <h2>Sign in to Kuri Labo</h2>
-        <p className="muted">Welcome back—your next nail idea is waiting.</p>
+        <p className="eyebrow">{t("WELCOME BACK")}</p>
+        <h2>{t("Sign in to Kuri Labo")}</h2>
+        <p className="muted">{t("Welcome back—your next nail idea is waiting.")}</p>
         <form onSubmit={handleSubmit}>
-          <label>Phone number<input type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="778-555-1234" required /></label>
-          <label>Password<input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Your password" required /></label>
-          {error && <p className="form-error" role="alert">{error}</p>}
-          <button className="primary-button" disabled={submitting}>{submitting ? 'Signing in…' : 'Sign in'}</button>
+          <label>{t("Phone number")}<input type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="778-555-1234" required /><small className="field-hint">{t("Enter your 10-digit phone number. +1 is optional.")}</small></label>
+          <label>{t("Password")}<input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("Your password")} required /></label>
+          {error && <p className="form-error" role="alert">{t(error)}</p>}
+          <button className="primary-button" disabled={submitting}>{submitting ? t("Signing in…") : t("Sign in")}</button>
         </form>
-        <p className="login-help">New to Kuri Labo? <Link to="/register">Create your account</Link></p>
-        <p className="login-help password-help">Forgot your password? Contact Kuri for a temporary password.</p>
+        <p className="login-help">{t("New to Kuri Labo?")}<Link to="/register">{t("Create your account")}</Link></p>
+        <p className="login-help password-help">{t("Forgot your password? Contact Kuri for help.")}</p>
       </PaperCard>
     </div>
   );

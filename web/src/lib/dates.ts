@@ -1,3 +1,4 @@
+import { getLocale } from './i18n';
 export const SALON_TIME_ZONE = 'America/Vancouver';
 
 const dateParts = new Intl.DateTimeFormat('en-CA', {
@@ -29,7 +30,7 @@ export function salonMinutes(value: Date | string) {
 }
 
 export function formatSalonTime(value: Date | string) {
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(getLocale(), {
     timeZone: SALON_TIME_ZONE,
     hour: 'numeric',
     minute: '2-digit',
@@ -58,11 +59,11 @@ export function addDays(dateKey: string, amount: number) {
 }
 
 export function monthLabel(dateKey: string) {
-  return new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(parseDateKey(dateKey));
+  return new Intl.DateTimeFormat(getLocale(), { month: 'long', year: 'numeric' }).format(parseDateKey(dateKey));
 }
 
 export function longDateLabel(dateKey: string) {
-  return new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric' }).format(parseDateKey(dateKey));
+  return new Intl.DateTimeFormat(getLocale(), { weekday: 'long', month: 'long', day: 'numeric' }).format(parseDateKey(dateKey));
 }
 
 export function calendarDays(dateKey: string) {

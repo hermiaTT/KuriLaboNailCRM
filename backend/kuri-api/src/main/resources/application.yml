@@ -40,4 +40,6 @@ kuri:
     # Development fallback only. Production must provide AUTH_TOKEN_SECRET.
     token-secret: ${AUTH_TOKEN_SECRET:kuri-local-development-secret-change-me}
     secure-cookie: ${AUTH_SECURE_COOKIE:false}
+    # Set CLIENT_CLAIM_MODE=TEST_AUTO locally only. Production stays approval-based until OTP ships.
+    client-claim-mode: ${CLIENT_CLAIM_MODE:ADMIN_APPROVAL}
 

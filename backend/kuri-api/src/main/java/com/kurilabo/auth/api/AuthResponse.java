@@ -1,6 +1,7 @@
 package com.kurilabo.auth.api;
 
 import com.kurilabo.auth.application.AuthSession;
+import com.kurilabo.auth.domain.UserRole;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -21,9 +22,12 @@ public record AuthResponse(
                         session.user().getId(),
                         session.user().getEmail(),
                         session.user().getRole().name(),
-                        session.profile().getName(),
-                        session.profile().getPhone(),
-                        session.profile().getBirthday()
+                        session.client() == null ? null : session.client().getId(),
+                        session.user().getRole() == UserRole.ADMIN ? session.adminProfile().getName() : session.client().getClientName(),
+                        session.user().getLoginPhone(),
+                        session.client() == null ? null : session.client().getContactPhone(),
+                        session.client() == null ? null : session.client().getBirthday(),
+                        session.user().getRole() == UserRole.ADMIN ? session.adminProfile().getPreferredLanguage() : session.client().getPreferredLanguage()
                 )
         );
     }
@@ -32,9 +36,12 @@ public record AuthResponse(
             UUID id,
             String email,
             String role,
+            UUID clientId,
             String name,
             String phone,
-            LocalDate birthday
+            String contactPhone,
+            LocalDate birthday,
+            String preferredLanguage
     ) {
     }
 }

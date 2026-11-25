@@ -13,7 +13,9 @@ public interface MediaAssetRepository extends JpaRepository<MediaAsset, UUID> {
             ) or exists (
                 select 1 from appointment_reference_media arm where arm.media_asset_id = :mediaId
             ) or exists (
-                select 1 from user_profile up where up.avatar_media_id = :mediaId
+                select 1 from client c where c.avatar_media_id = :mediaId
+            ) or exists (
+                select 1 from admin_profile ap where ap.avatar_media_id = :mediaId
             )
             """, nativeQuery = true)
     boolean isVisibleMedia(@org.springframework.data.repository.query.Param("mediaId") UUID mediaId);

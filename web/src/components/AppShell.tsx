@@ -1,3 +1,4 @@
+import { t, useLanguage } from '../lib/i18n';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
@@ -15,33 +16,34 @@ const navigation = [
 ];
 
 export function AppShell() {
+  useLanguage();
   const { user, logout } = useAuth();
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="sidebar-brand"><Brand /><p>studio manager</p></div>
+        <div className="sidebar-brand"><Brand /><p>{t("studio manager")}</p></div>
         <nav>
           {navigation.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end}>
               <Icon name={item.icon} />
-              <span>{item.label}</span>
+              <span>{t(item.label)}</span>
             </NavLink>
           ))}
         </nav>
         <div className="sidebar-notifications"><NotificationLink to="/notifications" /></div>
         <div className="sidebar-profile">
-          <Link className="avatar" to="/profile" aria-label="Open profile">{user?.avatarUrl ? <img src={user.avatarUrl} alt="" /> : user?.name?.[0]?.toUpperCase() ?? 'K'}</Link>
-          <div><strong>{user?.name ?? 'Kuri'}</strong><small>administrator</small></div>
-          <button onClick={() => void logout()} aria-label="Sign out"><Icon name="logout" /></button>
+          <Link className="avatar" to="/profile" aria-label={t("Open profile")}>{user?.avatarUrl ? <img src={user.avatarUrl} alt="" /> : user?.name?.[0]?.toUpperCase() ?? 'K'}</Link>
+          <div><strong>{user?.name ?? 'Kuri'}</strong><small>{t("administrator")}</small></div>
+          <button onClick={() => void logout()} aria-label={t("Sign out")}><Icon name="logout" /></button>
         </div>
       </aside>
-      <div className="mobile-admin-bar"><Brand /><div><NotificationLink to="/notifications" label={false} /><span className="mini-avatar">{user?.avatarUrl ? <img src={user.avatarUrl} alt="" /> : user?.name?.[0]?.toUpperCase() ?? 'K'}</span><button onClick={() => void logout()} aria-label="Sign out"><Icon name="logout" /></button></div></div>
+      <div className="mobile-admin-bar"><Brand /><div><NotificationLink to="/notifications" label={false} /><span className="mini-avatar">{user?.avatarUrl ? <img src={user.avatarUrl} alt="" /> : user?.name?.[0]?.toUpperCase() ?? 'K'}</span><button onClick={() => void logout()} aria-label={t("Sign out")}><Icon name="logout" /></button></div></div>
       <main className="content"><Outlet /></main>
       <nav className="mobile-nav">
         {navigation.slice(0, 5).map((item) => (
           <NavLink key={item.to} to={item.to} end={item.end}>
             <Icon name={item.icon} />
-            <span>{item.label}</span>
+            <span>{t(item.label)}</span>
           </NavLink>
         ))}
       </nav>

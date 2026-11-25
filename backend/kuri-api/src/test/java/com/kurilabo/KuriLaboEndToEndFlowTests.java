@@ -5,8 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kurilabo.auth.domain.AppUser;
 import com.kurilabo.auth.domain.UserRole;
 import com.kurilabo.auth.infrastructure.AppUserRepository;
-import com.kurilabo.user.domain.UserProfile;
-import com.kurilabo.user.infrastructure.UserProfileRepository;
+import com.kurilabo.user.domain.AdminProfile;
+import com.kurilabo.user.infrastructure.AdminProfileRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,13 +28,14 @@ import java.util.UUID;
 
 import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest(properties = "kuri.media.root=target/test-media")
+@SpringBootTest(properties = {"kuri.media.root=target/test-media", "kuri.auth.client-claim-mode=TEST_AUTO"})
 @AutoConfigureMockMvc
 @Transactional
 class KuriLaboEndToEndFlowTests {
@@ -42,7 +43,7 @@ class KuriLaboEndToEndFlowTests {
     @Autowired MockMvc mvc;
     private final ObjectMapper objectMapper = new ObjectMapper();
     @Autowired AppUserRepository userRepository;
-    @Autowired UserProfileRepository profileRepository;
+    @Autowired AdminProfileRepository adminProfileRepository;
     @Autowired PasswordEncoder passwordEncoder;
 
     private String adminPhone;
@@ -53,8 +54,8 @@ class KuriLaboEndToEndFlowTests {
         suffix = UUID.randomUUID().toString().substring(0, 8);
         adminPhone = "+1604" + String.format("%07d", Math.abs(suffix.hashCode()) % 10_000_000);
         UUID adminId = UUID.randomUUID();
-        userRepository.save(new AppUser(adminId, null, passwordEncoder.encode("admin123"), UserRole.ADMIN));
-        profileRepository.save(new UserProfile(adminId, "E2E Admin " + suffix, adminPhone, null));
+        userRepository.save(new AppUser(adminId, null, passwordEncoder.encode("admin123"), adminPhone, UserRole.ADMIN, null));
+        adminProfileRepository.save(new AdminProfile(adminId, "E2E Admin " + suffix, java.time.Instant.now()));
     }
 
     @AfterEach
@@ -118,7 +119,7 @@ class KuriLaboEndToEndFlowTests {
                 "deviceName", "E2E test"
         )).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
         String clientToken = registration.get("accessToken").asText();
-        String clientId = registration.path("user").path("id").asText();
+        String clientId = registration.path("user").path("clientId").asText();
 
         mvc.perform(get("/api/v1/services").header("Authorization", bearer(clientToken)))
                 .andExpect(status().isOk())
@@ -201,10 +202,10 @@ class KuriLaboEndToEndFlowTests {
                         .header("Authorization", bearer(adminToken)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.clientId").value(guestId));
 
-        postJson("/api/v1/admin/users/" + guestId + "/merge", adminToken, Map.of("targetUserId", clientId))
+        postJson("/api/v1/admin/users/" + guestId + "/merge", adminToken, Map.of("targetClientId", clientId))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(clientId));
         mvc.perform(get("/api/v1/admin/users/" + guestId).header("Authorization", bearer(adminToken)))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").doesNotExist());
         mvc.perform(get("/api/v1/appointments/me").header("Authorization", bearer(clientToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.id == '" + guestAppointmentId + "')].customerId", hasItem(clientId)));
@@ -297,6 +298,9 @@ class KuriLaboEndToEndFlowTests {
                 .andReturn().getResponse().getContentAsString());
         String publicMediaUrl = publicSet.path("images").get(0).path("url").asText();
 
+        mvc.perform(get("/api/v1/inspiration").header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.title == 'E2E public inspiration')].favorited", hasItem(false)));
         mvc.perform(get("/api/v1/inspiration").header("Authorization", bearer(clientToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.title == 'E2E public inspiration')].images.length()", hasItem(1)));
@@ -362,10 +366,135 @@ class KuriLaboEndToEndFlowTests {
                 "currentPassword", "client123", "newPassword", "client456"
         )).andExpect(status().isNoContent());
         login(clientPhone, "client456");
+    }
 
-        postJson("/api/v1/admin/users/" + clientId + "/password-reset", adminToken, Map.of("newPassword", "temporary789"))
+    @Test
+    void languagePreferencePersistsAcrossClientsAndRejectsUnsupportedValues() throws Exception {
+        String token = login(adminPhone, "admin123");
+        var details = new java.util.HashMap<String, Object>();
+        details.put("name", "E2E Admin " + suffix);
+        details.put("phone", adminPhone);
+        details.put("preferredLanguage", "zh-CN");
+        putJson("/api/v1/users/me", token, details)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.preferredLanguage").value("zh-CN"));
+        adminProfileRepository.flush();
+        for (String clientType : java.util.List.of("WEB", "MOBILE")) {
+            postJson("/api/v1/auth/login", null, Map.of("phone", adminPhone, "password", "admin123",
+                    "clientType", clientType, "deviceName", "Language test"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.user.preferredLanguage").value("zh-CN"));
+        }
+        mvc.perform(get("/api/v1/users/me").header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.preferredLanguage").value("zh-CN"));
+        // Older clients must preserve the account preference when this field is omitted.
+        details.remove("preferredLanguage");
+        putJson("/api/v1/users/me", token, details)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.preferredLanguage").value("zh-CN"));
+        details.put("preferredLanguage", "fr");
+        putJson("/api/v1/users/me", token, details).andExpect(status().isBadRequest());
+        details.put("preferredLanguage", "en");
+        putJson("/api/v1/users/me", token, details)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.preferredLanguage").value("en"));
+    }
+
+    @Test
+    void registrationClaimsPhoneMatchedClientAndCustomerNamesMayRepeat() throws Exception {
+        String adminToken = login(adminPhone, "admin123");
+        String claimPhone = "+1778" + String.format("%07d", Math.abs((suffix + "claim").hashCode()) % 10_000_000);
+        JsonNode guest = json(postJson("/api/v1/admin/users/guests", adminToken, Map.of(
+                "name", "Internal " + suffix, "phone", claimPhone
+        )).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        String historicalClientId = guest.get("id").asText();
+
+        JsonNode appointment = json(postJson("/api/v1/admin/appointments", adminToken, Map.of(
+                "customerId", historicalClientId,
+                "serviceId", "10000000-0000-0000-0000-000000000001",
+                "customServiceName", "",
+                "date", LocalDate.now().plusDays(220).toString(),
+                "startTime", "14:05", "endTime", "15:05", "note", "Before registration"
+        )).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+
+        String sharedName = "Repeatable Customer " + suffix;
+        JsonNode claimed = json(postJson("/api/v1/auth/register", null, Map.of(
+                "email", "claim-" + suffix + "@kuri.test", "password", "client123",
+                "name", sharedName, "phone", claimPhone, "birthday", "1994-06-10",
+                "clientType", "WEB", "deviceName", "Claim test"
+        )).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        String claimedToken = claimed.get("accessToken").asText();
+        org.junit.jupiter.api.Assertions.assertEquals(historicalClientId, claimed.path("user").path("clientId").asText());
+        org.junit.jupiter.api.Assertions.assertNotEquals(historicalClientId, claimed.path("user").path("id").asText());
+        mvc.perform(get("/api/v1/notifications").header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.type == 'CLIENT_REGISTERED_AUTO_LINKED')].clientId", hasItem(historicalClientId)))
+                .andExpect(jsonPath("$[?(@.type == 'CLIENT_REGISTERED_AUTO_LINKED')].title", hasItem("New client linked")));
+        mvc.perform(get("/api/v1/appointments/me").header("Authorization", bearer(claimedToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == '" + appointment.get("id").asText() + "')].customerId", hasItem(historicalClientId)));
+
+        String secondPhone = "+1778" + String.format("%07d", Math.abs((suffix + "repeat").hashCode()) % 10_000_000);
+        JsonNode second = json(postJson("/api/v1/auth/register", null, Map.of(
+                "email", "repeat-" + suffix + "@kuri.test", "password", "client123",
+                "name", sharedName, "phone", secondPhone, "birthday", "1996-03-12",
+                "clientType", "MOBILE", "deviceName", "Duplicate name test"
+        )).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        String secondClientId = second.path("user").path("clientId").asText();
+        org.junit.jupiter.api.Assertions.assertNotEquals(historicalClientId, secondClientId);
+        mvc.perform(get("/api/v1/notifications").header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.type == 'CLIENT_REGISTERED_REVIEW')].clientId", hasItem(secondClientId)))
+                .andExpect(jsonPath("$[?(@.type == 'CLIENT_REGISTERED_REVIEW')].title", hasItem("New client registered")));
+    }
+
+    @Test
+    void adminCanArchiveGuestWithoutDeletingAppointmentHistory() throws Exception {
+        String adminToken = login(adminPhone, "admin123");
+        JsonNode guest = json(postJson("/api/v1/admin/users/guests", adminToken, Map.of(
+                "name", "Archive Guest " + suffix
+        )).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        String clientId = guest.get("id").asText();
+
+        JsonNode appointment = json(postJson("/api/v1/admin/appointments", adminToken, Map.of(
+                "customerId", clientId,
+                "serviceId", "10000000-0000-0000-0000-000000000001",
+                "customServiceName", "",
+                "date", LocalDate.now().plusDays(230).toString(),
+                "startTime", "10:15",
+                "endTime", "11:45",
+                "note", "Preserve after archive"
+        )).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+
+        mvc.perform(get("/api/v1/admin/users").header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == '" + clientId + "')].nextAppointmentAt").isNotEmpty());
+
+        mvc.perform(delete("/api/v1/admin/users/" + clientId).header("Authorization", bearer(adminToken)))
                 .andExpect(status().isNoContent());
-        login(clientPhone, "temporary789");
+        mvc.perform(get("/api/v1/admin/users").header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == '" + clientId + "')]").isEmpty());
+        mvc.perform(get("/api/v1/admin/appointments").param("customerId", clientId)
+                        .header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == '" + appointment.get("id").asText() + "')].note",
+                        hasItem("Preserve after archive")));
+
+        String registeredPhone = "+1778" + String.format("%07d", Math.abs((suffix + "archive").hashCode()) % 10_000_000);
+        JsonNode registered = json(postJson("/api/v1/auth/register", null, Map.of(
+                "email", "archive-" + suffix + "@kuri.test",
+                "password", "client123",
+                "name", "Registered Archive Test",
+                "phone", registeredPhone,
+                "birthday", "1995-01-01",
+                "clientType", "WEB",
+                "deviceName", "Archive test"
+        )).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        mvc.perform(delete("/api/v1/admin/users/" + registered.path("user").path("clientId").asText())
+                        .header("Authorization", bearer(adminToken)))
+                .andExpect(status().isConflict());
     }
 
     private String login(String phone, String password) throws Exception {

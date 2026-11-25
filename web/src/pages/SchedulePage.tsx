@@ -1,3 +1,4 @@
+import { formatClock, weekDayLabels, t, useLanguage } from '../lib/i18n';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
@@ -38,14 +39,11 @@ function minutesToTime(value: number) {
 }
 
 function formatSlotTime(value: number) {
-  const hour = Math.floor(value / 60);
-  const minute = value % 60;
-  const suffix = hour >= 12 ? 'PM' : 'AM';
-  const displayHour = hour % 12 || 12;
-  return `${displayHour}:${String(minute).padStart(2, '0')} ${suffix}`;
+  return formatClock(minutesToTime(value));
 }
 
 export function SchedulePage() {
+  useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedDate, setSelectedDate] = useState(todayInSalon());
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -76,7 +74,7 @@ export function SchedulePage() {
       api<ServiceDefinition[]>('/api/v1/admin/services'),
     ]).then(([nextAppointments, nextUsers, nextServices]) => {
       setAppointments(nextAppointments);
-      setClients(nextUsers.filter((user) => user.role === 'USER' && user.status === 'ACTIVE'));
+      setClients(nextUsers.filter((user) => user.role === 'USER'));
       setServices(nextServices.filter((service) => service.active));
     });
   }
@@ -88,11 +86,11 @@ export function SchedulePage() {
   }
 
   useEffect(() => {
-    loadCore().catch(() => setError('Unable to load the studio schedule.'));
+    loadCore().catch(() => setError("Unable to load the studio schedule."));
   }, []);
 
   useEffect(() => {
-    loadBlocks().catch(() => setError('Unable to load blocked times.'));
+    loadBlocks().catch(() => setError("Unable to load blocked times."));
   }, [monthDays[0].key, monthDays[monthDays.length - 1].key]);
 
   useEffect(() => {
@@ -227,7 +225,7 @@ export function SchedulePage() {
       await loadCore();
       setDialog(null);
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Unable to create this appointment.');
+      setError(cause instanceof ApiError ? cause.message : "Unable to create this appointment.");
     } finally {
       setSaving(false);
     }
@@ -235,7 +233,7 @@ export function SchedulePage() {
 
   async function addQuickClient() {
     if (!quickClientName.trim()) {
-      setError('Enter the new client’s name.');
+      setError("Enter the new client’s name.");
       return;
     }
     setAddingClient(true);
@@ -251,7 +249,7 @@ export function SchedulePage() {
       setQuickClientPhone('');
       setShowQuickClient(false);
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Unable to add this client.');
+      setError(cause instanceof ApiError ? cause.message : "Unable to add this client.");
     } finally {
       setAddingClient(false);
     }
@@ -279,7 +277,7 @@ export function SchedulePage() {
       setFullDay(false);
       setBlockEndDate(selectedDate);
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Unable to block this time.');
+      setError(cause instanceof ApiError ? cause.message : "Unable to block this time.");
     } finally {
       setSaving(false);
     }
@@ -295,46 +293,46 @@ export function SchedulePage() {
       setBlocks((current) => current.filter((block) => block.id !== blockId));
       setDeleteTarget(null);
     } catch {
-      setError('Unable to remove this blocked time.');
+      setError("Unable to remove this blocked time.");
     }
   }
 
   return (
     <div className="page schedule-page">
       <PageHeading
-        eyebrow="STUDIO CALENDAR · VANCOUVER TIME"
-        title="Studio schedule"
-        action={<div className="heading-actions"><button className="secondary-button" onClick={() => { setBlockEndDate(selectedDate); setDialog('block'); }}>Block time</button><button className="primary-button compact" onClick={() => setDialog('appointment')}>+ Book for client</button></div>}
+        eyebrow={t("STUDIO CALENDAR · VANCOUVER TIME")}
+        title={t("Studio schedule")}
+        action={<div className="heading-actions"><button className="secondary-button" onClick={() => { setBlockEndDate(selectedDate); setDialog('block'); }}>{t("Block time")}</button><button className="primary-button compact" onClick={() => setDialog('appointment')}>{t("+ Book for client")}</button></div>}
       />
-      {error && <div className="form-notice schedule-notice"><span>{error}</span><button onClick={() => setError(null)}>×</button></div>}
+      {error && <div className="form-notice schedule-notice"><span>{t(error)}</span><button onClick={() => setError(null)}>×</button></div>}
 
       <div className="schedule-layout">
         <aside className="calendar-panel">
           <PaperCard className="month-card">
-            <div className="month-head"><button onClick={() => moveMonth(-1)} aria-label="Previous month">‹</button><h2>{monthLabel(selectedDate)}</h2><button onClick={() => moveMonth(1)} aria-label="Next month">›</button></div>
-            <div className="weekday-row">{['S','M','T','W','T','F','S'].map((day, index) => <span key={`${day}-${index}`}>{day}</span>)}</div>
+            <div className="month-head"><button onClick={() => moveMonth(-1)} aria-label={t("Previous month")}>‹</button><h2>{monthLabel(selectedDate)}</h2><button onClick={() => moveMonth(1)} aria-label={t("Next month")}>›</button></div>
+            <div className="weekday-row">{weekDayLabels().map((day, index) => <span key={`${day}-${index}`}>{day}</span>)}</div>
             <div className="month-grid">
               {monthDays.map((day) => {
                 const appointmentCount = appointmentCountByDate.get(day.key) ?? 0;
-                return <button key={day.key} className={`${day.key === selectedDate ? 'selected' : ''} ${day.inMonth ? '' : 'outside'}`} onClick={() => setSelectedDate(day.key)}><span>{day.day}</span><small>{appointmentCount ? `${appointmentCount} appt${appointmentCount === 1 ? '' : 's'}` : '\u00a0'}</small><i>{blockDates.has(day.key) && <b className="block-dot" />}</i></button>;
+                return <button key={day.key} className={`${day.key === selectedDate ? 'selected' : ''} ${day.inMonth ? '' : 'outside'}`} onClick={() => setSelectedDate(day.key)}><span>{day.day}</span><small>{appointmentCount ? t("{count} appts", { count: appointmentCount }) : '\u00a0'}</small><i>{blockDates.has(day.key) && <b className="block-dot" />}</i></button>;
               })}
             </div>
-            <button className="today-button" onClick={() => setSelectedDate(todayInSalon())}>Back to today</button>
+            <button className="today-button" onClick={() => setSelectedDate(todayInSalon())}>{t("Back to today")}</button>
           </PaperCard>
-          <PaperCard className="calendar-legend"><h3>Calendar key</h3><p><i className="appt-dot" />Appointment count appears below each date</p><p><i className="block-dot" />Blocked time</p><p><i className="business-swatch" />Business hours · 9–6</p></PaperCard>
+          <PaperCard className="calendar-legend"><h3>{t("Calendar key")}</h3><p><i className="appt-dot" />{t("Appointment count appears below each date")}</p><p><i className="block-dot" />{t("Blocked time")}</p><p><i className="business-swatch" />{t("Business hours · 9–6")}</p></PaperCard>
         </aside>
 
         <section className="day-panel">
-          <div className="day-panel-head"><div><p className="eyebrow">DAILY VIEW · 8:00 AM–8:00 PM</p><h2>{longDateLabel(selectedDate)}</h2><p className="slot-grid-note">Click any open 30-minute slot to start a booking.</p></div><div className="day-head-right"><div className="day-summary"><span><strong>{selectedAppointments.length}</strong> appointments</span><span><strong>{selectedBlocks.length}</strong> blocks</span></div></div></div>
-          {fullDayBlocks.map((block) => <div className="full-day-banner" key={block.id}><div><span>ALL DAY</span><strong>Studio unavailable</strong><small>{salonDateKey(block.startAt) !== addDays(salonDateKey(block.endAt), -1) ? `${salonDateKey(block.startAt)} through ${addDays(salonDateKey(block.endAt), -1)} · ` : ''}{block.reason || 'Full-day block'}</small></div><button className={deleteTarget === block.id ? 'delete-ready' : ''} onClick={() => void removeBlock(block.id)}>{deleteTarget === block.id ? 'Confirm remove' : 'Remove block'}</button></div>)}
+          <div className="day-panel-head"><div><p className="eyebrow">{t("DAILY VIEW · 8:00 AM–8:00 PM")}</p><h2>{longDateLabel(selectedDate)}</h2><p className="slot-grid-note">{t("Click any open 30-minute slot to start a booking.")}</p></div><div className="day-head-right"><div className="day-summary"><span><strong>{selectedAppointments.length}</strong> {t("appointments")}</span><span><strong>{selectedBlocks.length}</strong> blocks</span></div></div></div>
+          {fullDayBlocks.map((block) => <div className="full-day-banner" key={block.id}><div><span>{t("ALL DAY")}</span><strong>{t("Studio unavailable")}</strong><small>{salonDateKey(block.startAt) !== addDays(salonDateKey(block.endAt), -1) ? `${t("{start} through {end}", { start: salonDateKey(block.startAt), end: addDays(salonDateKey(block.endAt), -1) })} · ` : ''}{block.reason || t("Full-day block")}</small></div><button className={deleteTarget === block.id ? 'delete-ready' : ''} onClick={() => void removeBlock(block.id)}>{deleteTarget === block.id ? t("Confirm remove") : t("Remove block")}</button></div>)}
           <PaperCard className="timeline-shell">
             <div className="timeline-scroll workday">
               <div className="timeline" style={{ height: dayHeight }}>
-                <div className="business-hours" style={{ top: (Math.max(540, viewStart) - viewStart) * pixelsPerMinute, height: Math.max(0, Math.min(1080, viewEnd) - Math.max(540, viewStart)) * pixelsPerMinute }}><span>business hours · 9–6</span></div>
+                <div className="business-hours" style={{ top: (Math.max(540, viewStart) - viewStart) * pixelsPerMinute, height: Math.max(0, Math.min(1080, viewEnd) - Math.max(540, viewStart)) * pixelsPerMinute }}><span>{t("business hours · 9–6")}</span></div>
                 <div className="time-slot-layer">
                   {timeSlots.map((minute) => {
                     const occupied = slotIsOccupied(minute);
-                    return <button type="button" key={minute} className="time-slot" style={{ top: (minute - viewStart) * pixelsPerMinute, height: SLOT_HEIGHT }} disabled={occupied} onClick={() => openAppointmentAt(minute)} aria-label={`${formatSlotTime(minute)} ${occupied ? 'occupied' : 'open — book appointment'}`}><span>{formatSlotTime(minute)}</span><small>{occupied ? 'occupied' : '+ book'}</small></button>;
+                    return <button type="button" key={minute} className="time-slot" style={{ top: (minute - viewStart) * pixelsPerMinute, height: SLOT_HEIGHT }} disabled={occupied} onClick={() => openAppointmentAt(minute)} aria-label={`${formatSlotTime(minute)} ${occupied ? t("occupied") : t("open — book appointment")}`}><span>{formatSlotTime(minute)}</span><small>{occupied ? t("occupied") : t("+ book")}</small></button>;
                   })}
                 </div>
                 {hourMarks.map((minute) => <div className={`hour-line ${minute === viewEnd ? 'end-hour-line' : ''}`} key={minute} style={{ top: (minute - viewStart) * pixelsPerMinute - (minute === viewEnd ? 1 : 0) }}>{minute === viewEnd && <span>{formatSlotTime(minute)}</span>}</div>)}
@@ -342,12 +340,12 @@ export function SchedulePage() {
                   {visibleBlocks.map((block) => {
                     const start = Math.max(salonMinutes(block.startAt), viewStart);
                     const end = Math.min(endMinutes(block.startAt, block.endAt, selectedDate), viewEnd);
-                    return <article className="timeline-event block-event" key={block.id} style={{ top: (start - viewStart) * pixelsPerMinute, height: Math.max(34, (end - start) * pixelsPerMinute) }}><div><strong>Blocked time</strong><span>{block.reason || 'Unavailable'} · {formatSalonTime(block.startAt)}–{formatSalonTime(block.endAt)}</span></div><button className={deleteTarget === block.id ? 'delete-ready' : ''} onClick={() => void removeBlock(block.id)}>{deleteTarget === block.id ? 'Confirm remove' : 'Remove'}</button></article>;
+                    return <article className="timeline-event block-event" key={block.id} style={{ top: (start - viewStart) * pixelsPerMinute, height: Math.max(34, (end - start) * pixelsPerMinute) }}><div><strong>{t("Blocked time")}</strong><span>{block.reason || t("Unavailable")} · {formatSalonTime(block.startAt)}–{formatSalonTime(block.endAt)}</span></div><button className={deleteTarget === block.id ? 'delete-ready' : ''} onClick={() => void removeBlock(block.id)}>{deleteTarget === block.id ? t("Confirm remove") : t("Remove")}</button></article>;
                   })}
                   {visibleAppointments.map((appointment) => {
                     const start = Math.max(salonMinutes(appointment.startAt), viewStart);
                     const end = Math.min(endMinutes(appointment.startAt, appointment.endAt, selectedDate), viewEnd);
-                    return <article className={`timeline-event appointment-event event-${appointment.status.toLowerCase()}`} key={appointment.id} style={{ top: (start - viewStart) * pixelsPerMinute, height: Math.max(42, (end - start) * pixelsPerMinute) }}><div className="event-copy"><div><strong>{clientNames.get(appointment.customerId) ?? 'Client'}</strong><StatusBadge status={appointment.status} /></div><span>{appointment.serviceName} · {formatSalonTime(appointment.startAt)}–{formatSalonTime(appointment.endAt)}</span>{appointment.note && <small>{appointment.note}</small>}</div></article>;
+                    return <article className={`timeline-event appointment-event event-${appointment.status.toLowerCase()}`} key={appointment.id} style={{ top: (start - viewStart) * pixelsPerMinute, height: Math.max(42, (end - start) * pixelsPerMinute) }}><div className="event-copy"><div><strong>{appointment.customerName ?? clientNames.get(appointment.customerId) ?? t("Client")}</strong><StatusBadge status={appointment.status} /></div><span>{appointment.serviceName} · {formatSalonTime(appointment.startAt)}–{formatSalonTime(appointment.endAt)}</span>{appointment.note && <small>{appointment.note}</small>}</div></article>;
                   })}
                 </div>
               </div>
@@ -356,7 +354,7 @@ export function SchedulePage() {
         </section>
       </div>
 
-      {dialog && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDialog(null); }}><PaperCard className="schedule-modal" ><button className="modal-close" onClick={() => setDialog(null)} aria-label="Close">×</button>{dialog === 'appointment' ? <><p className="eyebrow">NEW APPOINTMENT</p><h2>Book for a client</h2><p className="modal-subtitle">{longDateLabel(selectedDate)} · confirmed immediately</p><form onSubmit={createAppointment}><div className="booking-client-field"><div className="inline-field-head"><span>Client</span><button type="button" onClick={() => setShowQuickClient((value) => !value)}>{showQuickClient ? 'Cancel' : '+ Add client'}</button></div>{showQuickClient && <div className="quick-client-panel"><div className="form-pair"><label>Name<input value={quickClientName} onChange={(event) => setQuickClientName(event.target.value)} maxLength={120} placeholder="Unique client name" /></label><label>Phone <span className="optional">optional</span><input value={quickClientPhone} onChange={(event) => setQuickClientPhone(event.target.value)} type="tel" maxLength={40} placeholder="778-555-1234" /></label></div><button className="quick-client-save" type="button" disabled={addingClient} onClick={() => void addQuickClient()}>{addingClient ? 'Adding…' : 'Add and select client'}</button></div>}<select value={selectedCustomerId} onChange={(event) => setSelectedCustomerId(event.target.value)} required><option value="" disabled>Select a client</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name} · {client.phone || client.email || 'Guest client'}</option>)}</select></div><label>Service<select value={serviceId} onChange={(event) => updateService(event.target.value)} required>{services.map((service) => <option key={service.id} value={service.id}>{service.name} · {service.durationMinutes} min</option>)}</select></label><div className="form-pair"><label>Start time<input type="time" step="300" value={startTime} onChange={(event) => updateStart(event.target.value)} required /></label><label>End time<input type="time" step="300" value={endTime} onChange={(event) => setEndTime(event.target.value)} required /></label></div><label>Appointment note<textarea name="note" placeholder="Shape, color or special request…" /></label>{clients.length === 0 && !showQuickClient && <div className="form-notice">Add a registered or guest client before booking.</div>}<button className="primary-button" disabled={saving || !selectedCustomerId}>{saving ? 'Saving…' : 'Confirm appointment'}</button></form></> : <><p className="eyebrow">AVAILABILITY</p><h2>Block studio time</h2><p className="modal-subtitle">{longDateLabel(selectedDate)}</p><form onSubmit={createBlock}><label className="check-label"><input type="checkbox" checked={fullDay} onChange={(event) => { setFullDay(event.target.checked); setBlockEndDate(selectedDate); }} /><span><strong>Block full day(s)</strong><small>Choose one day or an inclusive date range.</small></span></label>{fullDay ? <div className="form-pair"><label>From<input type="date" value={selectedDate} disabled /></label><label>Through (included)<input type="date" min={selectedDate} value={blockEndDate} onChange={(event) => setBlockEndDate(event.target.value)} required /></label></div> : <div className="form-pair"><label>Start time<input name="blockStart" type="time" step="1800" defaultValue="12:00" required /></label><label>End time<input name="blockEnd" type="time" step="1800" defaultValue="13:00" required /></label></div>}<label>Reason<textarea name="reason" placeholder="Lunch, holiday, personal time…" /></label><button className="primary-button" disabled={saving}>{saving ? 'Saving…' : fullDay && blockEndDate !== selectedDate ? 'Block date range' : 'Block this time'}</button></form></>}</PaperCard></div>}
+      {dialog && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDialog(null); }}><PaperCard className="schedule-modal" ><button className="modal-close" onClick={() => setDialog(null)} aria-label={t("Close")}>×</button>{dialog === 'appointment' ? <><p className="eyebrow">{t("NEW APPOINTMENT")}</p><h2>{t("Book for a client")}</h2><p className="modal-subtitle">{longDateLabel(selectedDate)} {t("· confirmed immediately")}</p><form onSubmit={createAppointment}><div className="booking-client-field"><div className="inline-field-head"><span>{t("Client")}</span><button type="button" onClick={() => setShowQuickClient((value) => !value)}>{showQuickClient ? t("Cancel") : t("+ Add client")}</button></div>{showQuickClient && <div className="quick-client-panel"><div className="form-pair"><label>{t("Name")}<input value={quickClientName} onChange={(event) => setQuickClientName(event.target.value)} maxLength={120} placeholder={t("Unique client name")} /></label><label>{t("Phone")}<span className="optional">{t("optional")}</span><input value={quickClientPhone} onChange={(event) => setQuickClientPhone(event.target.value)} type="tel" maxLength={40} placeholder="778-555-1234" /></label></div><button className="quick-client-save" type="button" disabled={addingClient} onClick={() => void addQuickClient()}>{addingClient ? t("Adding…") : t("Add and select client")}</button></div>}<select value={selectedCustomerId} onChange={(event) => setSelectedCustomerId(event.target.value)} required><option value="" disabled>{t("Select a client")}</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name} · {client.phone || client.email || t("Guest client")}</option>)}</select></div><label>{t("Service")}<select value={serviceId} onChange={(event) => updateService(event.target.value)} required>{services.map((service) => <option key={service.id} value={service.id}>{service.name} · {service.durationMinutes} {t("min")}</option>)}</select></label><div className="form-pair"><label>{t("Start time")}<input type="time" step="300" value={startTime} onChange={(event) => updateStart(event.target.value)} required /></label><label>{t("End time")}<input type="time" step="300" value={endTime} onChange={(event) => setEndTime(event.target.value)} required /></label></div><label>{t("Appointment note")}<textarea name="note" placeholder={t("Shape, color or special request…")} /></label>{clients.length === 0 && !showQuickClient && <div className="form-notice">{t("Add a registered or guest client before booking.")}</div>}<button className="primary-button" disabled={saving || !selectedCustomerId}>{saving ? t("Saving…") : t("Confirm appointment")}</button></form></> : <><p className="eyebrow">{t("AVAILABILITY")}</p><h2>{t("Block studio time")}</h2><p className="modal-subtitle">{longDateLabel(selectedDate)}</p><form onSubmit={createBlock}><label className="check-label"><input type="checkbox" checked={fullDay} onChange={(event) => { setFullDay(event.target.checked); setBlockEndDate(selectedDate); }} /><span><strong>{t("Block full day(s)")}</strong><small>{t("Choose one day or an inclusive date range.")}</small></span></label>{fullDay ? <div className="form-pair"><label>{t("From")}<input type="date" value={selectedDate} disabled /></label><label>{t("Through (included)")}<input type="date" min={selectedDate} value={blockEndDate} onChange={(event) => setBlockEndDate(event.target.value)} required /></label></div> : <div className="form-pair"><label>{t("Start time")}<input name="blockStart" type="time" step="1800" defaultValue="12:00" required /></label><label>{t("End time")}<input name="blockEnd" type="time" step="1800" defaultValue="13:00" required /></label></div>}<label>{t("Reason")}<textarea name="reason" placeholder={t("Lunch, holiday, personal time…")} /></label><button className="primary-button" disabled={saving}>{saving ? t("Saving…") : fullDay && blockEndDate !== selectedDate ? t("Block date range") : t("Block this time")}</button></form></>}</PaperCard></div>}
     </div>
   );
 }

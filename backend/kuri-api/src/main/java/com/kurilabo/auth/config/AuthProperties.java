@@ -8,7 +8,13 @@ public record AuthProperties(
         long accessTokenMinutes,
         long refreshTokenDays,
         String tokenSecret,
-        boolean secureCookie
+        boolean secureCookie,
+        ClientClaimMode clientClaimMode
 ) {
+    public AuthProperties {
+        if (secureCookie && clientClaimMode == ClientClaimMode.TEST_AUTO) {
+            throw new IllegalStateException("TEST_AUTO client claiming cannot run with secure production cookies.");
+        }
+    }
 }
 

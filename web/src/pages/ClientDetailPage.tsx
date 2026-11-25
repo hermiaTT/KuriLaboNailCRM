@@ -1,19 +1,24 @@
+import { getLocale, t, useLanguage } from '../lib/i18n';
 import { useEffect, useMemo, useState } from 'react';
-import { Link, Navigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 
 import { ClientAppointmentCard } from '../components/admin/ClientAppointmentCard';
+import { ClientManagementModal } from '../components/admin/ClientManagementModal';
 import { ClientProfileSummary } from '../components/admin/ClientProfileSummary';
 import { EmptyState, PageHeading, PaperCard } from '../components/UI';
 import { api, ApiError } from '../lib/api';
 import type { AdminAppointment, AdminUserDetail, NailSet } from '../types';
 
 export function ClientDetailPage() {
+  useLanguage();
+  const navigate = useNavigate();
   const { clientId } = useParams<{ clientId: string }>();
   const [client, setClient] = useState<AdminUserDetail | null>(null);
   const [appointments, setAppointments] = useState<AdminAppointment[]>([]);
   const [nailSets, setNailSets] = useState<NailSet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showManagement, setShowManagement] = useState(false);
 
   useEffect(() => {
     if (!clientId) return;
@@ -27,7 +32,7 @@ export function ClientDetailPage() {
       setClient(profile);
       setAppointments(visits);
       setNailSets(sets);
-    }).catch((cause) => setError(cause instanceof ApiError ? cause.message : 'Unable to load this client profile.'))
+    }).catch((cause) => setError(cause instanceof ApiError ? cause.message : "Unable to load this client profile."))
       .finally(() => setLoading(false));
   }, [clientId]);
 
@@ -38,18 +43,25 @@ export function ClientDetailPage() {
 
   return (
     <div className="page client-detail-page">
-      <PageHeading eyebrow="CLIENT PROFILE" title={client?.name ?? 'Client details'} action={<div className="heading-actions"><Link className="secondary-button" to="/clients">← Client book</Link>{client && <Link className="primary-button compact" to="/clients" state={{ editClientId: client.id }}>Manage profile</Link>}</div>} />
-      {error && <div className="form-notice">{error}</div>}
+      <PageHeading eyebrow={t("CLIENT PROFILE")} title={client?.name ?? t("Client details")} action={<div className="heading-actions"><Link className="secondary-button" to="/clients">{t("← Client book")}</Link>{client && <button className="primary-button compact" onClick={() => setShowManagement(true)}>{t("Manage profile")}</button>}</div>} />
+      {error && <div className="form-notice">{t(error)}</div>}
       {loading ? <div className="client-detail-loading"><span /><span /><span /></div> : client && <>
         <ClientProfileSummary client={client} />
 
         <section className="client-history-section">
-          <div className="client-history-heading"><div><p className="eyebrow">COMPLETE TIMELINE</p><h2>Appointments</h2></div><span>{appointments.length} total</span></div>
-          <div className="client-timeline-list">{appointments.length === 0 ? <PaperCard><EmptyState>No appointments for this client yet.</EmptyState></PaperCard> : appointments.map((appointment) => <ClientAppointmentCard key={appointment.id} appointment={appointment} nailSet={setsByAppointment.get(appointment.id)} />)}</div>
+          <div className="client-history-heading"><div><p className="eyebrow">{t("COMPLETE TIMELINE")}</p><h2>{t("Appointments")}</h2></div><span>{appointments.length} {t("total")}</span></div>
+          <div className="client-timeline-list">{appointments.length === 0 ? <PaperCard><EmptyState>{t("No appointments for this client yet.")}</EmptyState></PaperCard> : appointments.map((appointment) => <ClientAppointmentCard key={appointment.id} appointment={appointment} nailSet={setsByAppointment.get(appointment.id)} />)}</div>
         </section>
 
-        {unlinkedSets.length > 0 && <section className="client-unlinked-section"><div className="client-history-heading"><div><p className="eyebrow">ARCHIVE</p><h2>Unlinked history</h2></div><span>{unlinkedSets.length} set{unlinkedSets.length === 1 ? '' : 's'}</span></div><div className="client-unlinked-grid">{unlinkedSets.map((set) => <PaperCard className="client-unlinked-card" key={set.id}><div className="client-unlinked-images">{set.images.slice(0, 4).map((image) => <a href={image.url} target="_blank" rel="noreferrer" key={image.id}><img src={image.url} alt={set.title} /></a>)}</div><h3>{set.title}</h3>{set.description && <p>{set.description}</p>}</PaperCard>)}</div></section>}
+        {unlinkedSets.length > 0 && <section className="client-unlinked-section"><div className="client-history-heading"><div><p className="eyebrow">{t("ARCHIVE")}</p><h2>{t("Unlinked history")}</h2></div><span>{unlinkedSets.length} {t("set")}{getLocale() === 'en-US' && unlinkedSets.length !== 1 ? 's' : ''}</span></div><div className="client-unlinked-grid">{unlinkedSets.map((set) => <PaperCard className="client-unlinked-card" key={set.id}><div className="client-unlinked-images">{set.images.slice(0, 4).map((image) => <a href={image.url} target="_blank" rel="noreferrer" key={image.id}><img src={image.url} alt={set.title} /></a>)}</div><h3>{set.title}</h3>{set.description && <p>{set.description}</p>}</PaperCard>)}</div></section>}
       </>}
+      {client && showManagement && <ClientManagementModal
+        client={client}
+        onClose={() => setShowManagement(false)}
+        onSaved={setClient}
+        onMerged={(target) => navigate(`/clients/${target.id}`, { replace: true })}
+        onDeleted={() => navigate('/clients', { replace: true })}
+      />}
     </div>
   );
 }

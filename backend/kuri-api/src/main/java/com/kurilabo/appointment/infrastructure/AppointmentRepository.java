@@ -32,8 +32,27 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
     @EntityGraph(attributePaths = {"customer", "serviceDefinition", "referenceMedia", "referenceMedia.mediaAsset"})
     List<Appointment> findAllByOrderByStartAtDesc();
 
+    @Query("""
+            select a.customer.id as clientId, min(a.startAt) as startAt
+            from Appointment a
+            where a.customer.id in :clientIds
+              and a.startAt >= :now
+              and a.status in :statuses
+            group by a.customer.id
+            """)
+    List<NextAppointment> findNextAppointments(
+            @Param("clientIds") Collection<UUID> clientIds,
+            @Param("now") Instant now,
+            @Param("statuses") Collection<AppointmentStatus> statuses
+    );
+
     @Override
     @EntityGraph(attributePaths = {"customer", "serviceDefinition", "referenceMedia", "referenceMedia.mediaAsset"})
     java.util.Optional<Appointment> findById(UUID id);
+
+    interface NextAppointment {
+        UUID getClientId();
+        Instant getStartAt();
+    }
 }
 

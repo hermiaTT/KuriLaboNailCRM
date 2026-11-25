@@ -1,3 +1,4 @@
+import { t, getLocale, useLanguage } from '../lib/i18n';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -9,9 +10,9 @@ import { Icon } from '../components/Icons';
 
 function dayGreeting() {
   const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 18) return 'Good afternoon';
-  return 'Good evening';
+  if (hour < 12) return t("Good morning");
+  if (hour < 18) return t("Good afternoon");
+  return t("Good evening");
 }
 
 function dayKey(date: Date) {
@@ -19,10 +20,11 @@ function dayKey(date: Date) {
 }
 
 function formatTime(value: string) {
-  return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(value));
+  return new Intl.DateTimeFormat(getLocale(), { hour: 'numeric', minute: '2-digit' }).format(new Date(value));
 }
 
 export function DashboardPage() {
+  useLanguage();
   const { user } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [clients, setClients] = useState<AdminUser[]>([]);
@@ -30,17 +32,24 @@ export function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([
+    Promise.allSettled([
       api<Appointment[]>('/api/v1/admin/appointments'),
       api<AdminUser[]>('/api/v1/admin/users'),
       api<NailSet[]>('/api/v1/inspiration'),
     ])
-      .then(([nextAppointments, nextClients, nextNailSets]) => {
-        setAppointments(nextAppointments);
-        setClients(nextClients.filter((client) => client.role === 'USER'));
-        setNailSets(nextNailSets);
-      })
-      .catch(() => setError('The dashboard could not load. Make sure the Spring Boot API is running.'));
+      .then(([appointmentsResult, clientsResult, nailSetsResult]) => {
+        if (appointmentsResult.status === 'fulfilled') setAppointments(appointmentsResult.value);
+        if (clientsResult.status === 'fulfilled') {
+          setClients(clientsResult.value.filter((client) => client.role === 'USER'));
+        }
+        if (nailSetsResult.status === 'fulfilled') setNailSets(nailSetsResult.value);
+
+        const failedSections = [appointmentsResult, clientsResult, nailSetsResult]
+          .filter((result) => result.status === 'rejected').length;
+        setError(failedSections > 0
+          ? "Some dashboard sections could not load. Please refresh the page."
+          : null);
+      });
   }, []);
 
   const today = dayKey(new Date());
@@ -54,26 +63,26 @@ export function DashboardPage() {
   return (
     <div className="page dashboard-page">
       <PageHeading
-        eyebrow={new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric' }).format(new Date())}
+        eyebrow={new Intl.DateTimeFormat(getLocale(), { weekday: 'long', month: 'long', day: 'numeric' }).format(new Date())}
         title={`${dayGreeting()}, ${user?.name?.split(' ')[0] ?? 'Kuri'} ✨`}
-        action={<Link className="primary-button compact" to="/appointments">View appointments</Link>}
+        action={<Link className="primary-button compact" to="/appointments">{t("View appointments")}</Link>}
       />
-      {error && <div className="form-notice">{error}</div>}
+      {error && <div className="form-notice">{t(error)}</div>}
       <section className="stat-grid">
-        <PaperCard className="stat-card pink"><span className="stat-doodle">✿</span><strong>{todayAppointments.length}</strong><h3>today</h3><p>{pending} waiting to confirm</p></PaperCard>
-        <PaperCard className="stat-card blue"><span className="stat-doodle">✦</span><strong>{confirmed}</strong><h3>confirmed</h3><p>upcoming visits</p></PaperCard>
-        <PaperCard className="stat-card green"><span className="stat-doodle">☆</span><strong>{clients.length}</strong><h3>clients</h3><p>in your studio</p></PaperCard>
-        <PaperCard className="stat-card yellow"><span className="stat-doodle">♡</span><strong>{nailSets.length}</strong><h3>nail sets</h3><p>{nailSets.reduce((total, item) => total + item.images.length, 0)} uploaded photos</p></PaperCard>
+        <PaperCard className="stat-card pink"><span className="stat-doodle">✿</span><strong>{todayAppointments.length}</strong><h3>{t("today")}</h3><p>{pending} {t("waiting to confirm")}</p></PaperCard>
+        <PaperCard className="stat-card blue"><span className="stat-doodle">✦</span><strong>{confirmed}</strong><h3>{t("confirmed")}</h3><p>{t("upcoming visits")}</p></PaperCard>
+        <PaperCard className="stat-card green"><span className="stat-doodle">☆</span><strong>{clients.length}</strong><h3>{t("clients")}</h3><p>{t("in your studio")}</p></PaperCard>
+        <PaperCard className="stat-card yellow"><span className="stat-doodle">♡</span><strong>{nailSets.length}</strong><h3>{t("nail sets")}</h3><p>{nailSets.reduce((total, item) => total + item.images.length, 0)} {t("uploaded photos")}</p></PaperCard>
       </section>
 
       <div className="dashboard-grid">
         <section>
-          <div className="section-title"><h2>Today's schedule</h2><Link to="/appointments">see all</Link></div>
+          <div className="section-title"><h2>{t("Today's schedule")}</h2><Link to="/appointments">{t("see all")}</Link></div>
           <PaperCard className="list-card">
-            {todayAppointments.length === 0 ? <EmptyState>No appointments today—enjoy the breathing room.</EmptyState> : todayAppointments.slice(0, 5).map((appointment) => (
+            {todayAppointments.length === 0 ? <EmptyState>{t("No appointments today—enjoy the breathing room.")}</EmptyState> : todayAppointments.slice(0, 5).map((appointment) => (
               <div className="list-row" key={appointment.id}>
-                <div className="time-tile"><strong>{formatTime(appointment.startAt)}</strong><small>{appointment.durationMinutes} min</small></div>
-                <div className="row-copy"><strong>{clientNames.get(appointment.customerId) ?? 'Client'}</strong><span>{appointment.serviceName}</span></div>
+                <div className="time-tile"><strong>{formatTime(appointment.startAt)}</strong><small>{appointment.durationMinutes} {t("min")}</small></div>
+                <div className="row-copy"><strong>{appointment.customerName ?? clientNames.get(appointment.customerId) ?? t("Client")}</strong><span>{appointment.serviceName}</span></div>
                 <StatusBadge status={appointment.status} />
               </div>
             ))}
@@ -81,10 +90,10 @@ export function DashboardPage() {
         </section>
 
         <section>
-          <div className="section-title"><h2>Recent clients</h2><Link to="/clients">view all</Link></div>
+          <div className="section-title"><h2>{t("Recent clients")}</h2><Link to="/clients">{t("view all")}</Link></div>
           <PaperCard className="list-card">
-            {clients.length === 0 ? <EmptyState>No clients yet.</EmptyState> : clients.slice(0, 5).map((client) => (
-              <Link className="list-row client-row" to="/clients" key={client.id}>
+            {clients.length === 0 ? <EmptyState>{t("No clients yet.")}</EmptyState> : clients.slice(0, 5).map((client) => (
+              <Link className="list-row client-row" to={`/clients/${client.id}`} key={client.id}>
                 <div className="mini-avatar">{client.name[0]?.toUpperCase()}</div>
                 <div className="row-copy"><strong>{client.name}</strong><span>{client.phone || client.email}</span></div>
                 <Icon name="arrow" />

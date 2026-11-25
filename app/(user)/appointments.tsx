@@ -1,3 +1,4 @@
+import { t, getLocale, useLanguage } from '../../shared/i18n';
 import React, { useCallback, useState } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -29,13 +30,13 @@ import type { Appointment, NailSet, NailSetImage, SalonContact } from '../../typ
 type Visit = Appointment & { images: NailSetImage[] };
 
 function fmtTime(iso: string) {
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(getLocale(), {
     hour: 'numeric', minute: '2-digit', timeZone: 'America/Vancouver',
   }).format(new Date(iso));
 }
 
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', {
+  return new Date(iso).toLocaleDateString(getLocale(), {
     month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/Vancouver',
   });
 }
@@ -59,6 +60,7 @@ function uiStatus(status: Appointment['status']): StatusKey {
  * Profile (the "Visits" stat tile links here).
  */
 export default function AppointmentsScreen() {
+  useLanguage();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [visits, setVisits] = useState<Visit[]>([]);
@@ -96,7 +98,7 @@ export default function AppointmentsScreen() {
           .sort((a, b) => b.startAt.localeCompare(a.startAt)),
       );
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Unable to load your appointments.');
+      setError(cause instanceof ApiError ? cause.message : "Unable to load your appointments.");
     } finally {
       setLoading(false);
     }
@@ -109,7 +111,7 @@ export default function AppointmentsScreen() {
       const updated = await api<Appointment>(`/api/v1/appointments/${cancelTarget.id}/cancellation-requests`, { method: 'POST', body: JSON.stringify({ reason: cancelReason.trim() || null }) });
       setVisits((current) => current.map((item) => item.id === updated.id ? { ...item, ...updated } : item));
       setCancelTarget(null); setCancelReason('');
-    } catch (cause) { setError(cause instanceof ApiError ? cause.message : 'Unable to send cancellation request.'); }
+    } catch (cause) { setError(cause instanceof ApiError ? cause.message : "Unable to send cancellation request."); }
     finally { setBusy(false); }
   }
 
@@ -119,17 +121,17 @@ export default function AppointmentsScreen() {
         trailing={
           <Pressable onPress={() => router.back()} style={styles.back}>
             <Icons.ChevL color={colors.ink}/>
-            <Text style={styles.backText}>back</Text>
+            <Text style={styles.backText}>{t("back")}</Text>
           </Pressable>
         }
       />
       <EyebrowTitle
-        eyebrow="your visits"
-        title="Appointments"
+        eyebrow={t("your visits")}
+        title={t("Appointments")}
         trailing={<Doodle kind="swirl" size={20} color={colors.coral} style={{ transform: [{ rotate: '-10deg' }] }}/>}
       />
 
-      {error && <Text style={styles.error}>{error}</Text>}
+      {error && <Text style={styles.error}>{t(error)}</Text>}
 
       {loading ? (
         <View style={styles.loadingWrap}>
@@ -155,15 +157,15 @@ export default function AppointmentsScreen() {
                 <View style={styles.divider}/>
                 <View style={styles.foot}>
                   <Text style={styles.tag}>{timeTag(v.startAt)}</Text>
-                  {canCancel ? <Pressable style={styles.detailBtn} onPress={() => setCancelTarget(v)}><Text style={styles.cancelText}>request cancellation</Text></Pressable> : hasImages && (
+                  {canCancel ? <Pressable style={styles.detailBtn} onPress={() => setCancelTarget(v)}><Text style={styles.cancelText}>{t("request cancellation")}</Text></Pressable> : hasImages && (
                     <Pressable style={styles.detailBtn} onPress={() => setActiveVisit(v)}>
-                      <Text style={styles.detailText}>details</Text>
+                      <Text style={styles.detailText}>{t("details")}</Text>
                       <Icons.Chev color={colors.pinkInk} size={14}/>
                     </Pressable>
                   )}
                 </View>
-                {v.status === 'CANCELLATION_REQUESTED' && <Text style={styles.hint}>Cancellation requested — this time remains reserved until Kuri reviews it.</Text>}
-                {contactOnly && <Text style={styles.hint}>Within 24 hours — contact Kuri directly if you need help.</Text>}
+                {v.status === 'CANCELLATION_REQUESTED' && <Text style={styles.hint}>{t("Cancellation requested — this time remains reserved until Kuri reviews it.")}</Text>}
+                {contactOnly && <Text style={styles.hint}>{t("Within 24 hours — contact Kuri directly if you need help.")}</Text>}
                 {v.status === 'COMPLETED' && hasImages && (
                   <View style={styles.doneInfo}>
                     <Pressable style={styles.thumbRow} onPress={() => setActiveVisit(v)}>
@@ -183,12 +185,12 @@ export default function AppointmentsScreen() {
                 <View style={styles.head}>
                   <View>
                     <Text style={styles.date}>{set.title}</Text>
-                    <Text style={styles.time}>nail history · no appointment date</Text>
+                    <Text style={styles.time}>{t("nail history · no appointment date")}</Text>
                   </View>
                   <Icons.Photos color={colors.pinkInk} />
                 </View>
                 {set.description && <Text style={styles.hint}>{set.description}</Text>}
-                <Text style={styles.setLink}>View {set.images.length} photo{set.images.length === 1 ? '' : 's'} →</Text>
+                <Text style={styles.setLink}>{t("View")}{set.images.length} {t("photo")}{getLocale() === 'en-US' && set.images.length !== 1 ? 's' : ''} →</Text>
               </HandRect>
             </Pressable>
           ))}
@@ -196,14 +198,14 @@ export default function AppointmentsScreen() {
           {visits.length === 0 && unlinkedSets.length === 0 && (
             <HandRect padding={28} radius={radius.lg} dashed style={{ alignItems: 'center', gap: 10 }}>
               <Doodle kind="sparkle" size={32} color={colors.blue}/>
-              <Text style={styles.emptyTitle}>No visits yet</Text>
-              <Text style={styles.emptyBody}>Book your first appointment in the Book tab.</Text>
+              <Text style={styles.emptyTitle}>{t("No visits yet")}</Text>
+              <Text style={styles.emptyBody}>{t("Book your first appointment in the Book tab.")}</Text>
             </HandRect>
           )}
         </View>
       )}
 
-      <View style={styles.contactWrap}><HandRect padding={18} radius={radius.lg} fill={colors.blueSoft} stroke={colors.blueInk}><Text style={styles.contactEyebrow}>need help?</Text><Text style={styles.contactTitle}>Contact the nail artist</Text><Text style={styles.contactBody}>{contact?.contactMessage || 'For special requests or help within 24 hours, contact Kuri directly.'}</Text>{contact?.wechatId && <Text selectable style={styles.wechat}>WeChat · {contact.wechatId}</Text>}</HandRect></View>
+      <View style={styles.contactWrap}><HandRect padding={18} radius={radius.lg} fill={colors.blueSoft} stroke={colors.blueInk}><Text style={styles.contactEyebrow}>{t("need help?")}</Text><Text style={styles.contactTitle}>{t("Contact the nail artist")}</Text><Text style={styles.contactBody}>{contact?.contactMessage || t("For special requests or help within 24 hours, contact Kuri directly.")}</Text>{contact?.wechatId && <Text selectable style={styles.wechat}>{t("WeChat ·")}{contact.wechatId}</Text>}</HandRect></View>
 
       <NailCardModal
         visible={!!activeVisit || !!activeSet}
@@ -211,7 +213,7 @@ export default function AppointmentsScreen() {
         images={(activeVisit?.images ?? activeSet?.images ?? []).map((image) => ({ id: image.id, image_url: mediaUrl(image.url) }))}
       />
 
-      <Modal transparent visible={Boolean(cancelTarget)} animationType="fade" onRequestClose={() => setCancelTarget(null)}><Pressable style={styles.backdrop} onPress={() => setCancelTarget(null)}><Pressable style={styles.modal} onPress={() => undefined}><HandRect padding={20} radius={radius.xl}><Text style={styles.modalTitle}>Request cancellation</Text><Text style={styles.modalBody}>Kuri will review the request. Your appointment remains reserved until it is approved.</Text><Field containerStyle={{ marginVertical: 14 }} placeholder="Reason (optional)" multiline value={cancelReason} onChangeText={setCancelReason} /><HandButton full color={colors.pinkInk} disabled={busy} onPress={requestCancellation}>{busy ? 'Sending…' : 'Send request'}</HandButton></HandRect></Pressable></Pressable></Modal>
+      <Modal transparent visible={Boolean(cancelTarget)} animationType="fade" onRequestClose={() => setCancelTarget(null)}><Pressable style={styles.backdrop} onPress={() => setCancelTarget(null)}><Pressable style={styles.modal} onPress={() => undefined}><HandRect padding={20} radius={radius.xl}><Text style={styles.modalTitle}>{t("Request cancellation")}</Text><Text style={styles.modalBody}>{t("Kuri will review the request. Your appointment remains reserved until it is approved.")}</Text><Field containerStyle={{ marginVertical: 14 }} placeholder={t("Reason (optional)")} multiline value={cancelReason} onChangeText={setCancelReason} /><HandButton full color={colors.pinkInk} disabled={busy} onPress={requestCancellation}>{busy ? t("Sending…") : t("Send request")}</HandButton></HandRect></Pressable></Pressable></Modal>
     </Screen>
   );
 }

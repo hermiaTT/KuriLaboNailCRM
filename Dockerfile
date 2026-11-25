@@ -3,6 +3,7 @@ WORKDIR /build/web
 COPY web/package*.json ./
 RUN npm ci
 COPY web/ ./
+COPY shared/ /build/shared/
 RUN npm run build
 
 FROM maven:3.9-eclipse-temurin-21 AS api-build
