@@ -1,3 +1,4 @@
+import { t, useLanguage } from '../../shared/i18n';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
@@ -60,6 +61,7 @@ export function NailCardModal({
   tilt = -0.6,
   wobble = 1,
 }: NailCardModalProps) {
+  useLanguage();
   const [idx, setIdx] = useState(0);
   const [pageW, setPageW] = useState(CARD_W);
   const scroller = useRef<ScrollView>(null);
@@ -133,7 +135,7 @@ export function NailCardModal({
 
               {images[idx]?.image_url && (
                 <Pressable style={styles.downloadBtn} hitSlop={8} onPress={() => {
-                  saveImageToLibrary(images[idx].image_url!).then(() => Alert.alert('Saved', 'The photo was saved to your library.')).catch((error) => Alert.alert('Unable to save', error instanceof Error ? error.message : 'Please try again.'));
+                  saveImageToLibrary(images[idx].image_url!).then(() => Alert.alert(t("Saved"), t("The photo was saved to your library."))).catch((error) => Alert.alert(t("Unable to save"), error instanceof Error ? error.message : t("Please try again.")));
                 }}>
                   <Text style={styles.downloadGlyph}>🐾</Text>
                 </Pressable>

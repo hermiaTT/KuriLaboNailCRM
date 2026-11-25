@@ -1,3 +1,4 @@
+import { t, useLanguage } from '../../shared/i18n';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -8,6 +9,7 @@ import { api, ApiError } from '../../lib/api';
 import type { AdminUser } from '../../types/api';
 
 export default function AdminUsersScreen() {
+  useLanguage();
   const router = useRouter();
   const [clients, setClients] = useState<AdminUser[]>([]);
   const [query, setQuery] = useState('');
@@ -23,7 +25,7 @@ export default function AdminUsersScreen() {
     setLoading(true);
     api<AdminUser[]>('/api/v1/admin/users')
       .then((users) => setClients(users.filter((user) => user.role === 'USER')))
-      .catch(() => setError('Unable to load clients.'))
+      .catch(() => setError("Unable to load clients."))
       .finally(() => setLoading(false));
   }, []);
 
@@ -39,7 +41,7 @@ export default function AdminUsersScreen() {
 
   async function addGuest() {
     if (!name.trim()) {
-      setError('Client name is required.');
+      setError("Client name is required.");
       return;
     }
     setSaving(true);
@@ -54,7 +56,7 @@ export default function AdminUsersScreen() {
       setPhone('');
       setShowCreate(false);
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Unable to add this client.');
+      setError(cause instanceof ApiError ? cause.message : "Unable to add this client.");
     } finally {
       setSaving(false);
     }
@@ -62,14 +64,14 @@ export default function AdminUsersScreen() {
 
   return (
     <Screen>
-      <ScreenHeader trailing={<Text style={styles.headerMeta}>{clients.length} clients</Text>} />
-      <EyebrowTitle eyebrow="client book" title="Your clients" trailing={<Doodle kind="heart" size={20} color={colors.pink} />} />
+      <ScreenHeader trailing={<Text style={styles.headerMeta}>{clients.length} {t("clients")}</Text>} />
+      <EyebrowTitle eyebrow={t("client book")} title={t("Your clients")} trailing={<Doodle kind="heart" size={20} color={colors.pink} />} />
 
       <View style={styles.row}>
         <HandRect padding={0} radius={radius.md}>
           <View style={styles.searchRow}>
             <Icons.Search color={colors.inkSoft} />
-            <Field placeholder="Search name, phone or email" value={query} onChangeText={setQuery} style={styles.searchField} />
+            <Field placeholder={t("Search name, phone or email")} value={query} onChangeText={setQuery} style={styles.searchField} />
           </View>
         </HandRect>
       </View>
@@ -79,10 +81,10 @@ export default function AdminUsersScreen() {
           <HandChip key={value} active={filter === value} onPress={() => setFilter(value)}>{value.toLowerCase()}</HandChip>
         ))}
         <View style={{ flex: 1 }} />
-        <HandButton color={colors.pinkInk} size="sm" onPress={() => setShowCreate(true)}>+ Add</HandButton>
+        <HandButton color={colors.pinkInk} size="sm" onPress={() => setShowCreate(true)}>{t("+ Add")}</HandButton>
       </View>
 
-      {error && <Text style={styles.error}>{error}</Text>}
+      {error && <Text style={styles.error}>{t(error)}</Text>}
       {loading ? (
         <ActivityIndicator color={colors.pinkInk} style={{ marginTop: 40 }} />
       ) : (
@@ -91,20 +93,20 @@ export default function AdminUsersScreen() {
             <Pressable key={client.id} onPress={() => router.push(`/(admin)/client/${client.id}`)}>
               <HandRect padding={14} radius={radius.lg}>
                 <View style={styles.clientRow}>
-                  <View style={styles.avatar}><Text style={styles.avatarText}>{client.name[0]?.toUpperCase()}</Text></View>
+                  <View style={styles.avatar}><Text style={styles.avatarText}>{client.adminDisplayName[0]?.toUpperCase()}</Text></View>
                   <View style={{ flex: 1 }}>
                     <View style={styles.nameRow}>
-                      <Text style={styles.name}>{client.name}</Text>
-                      {client.accountType === 'GUEST' && <Text style={styles.guest}>guest</Text>}
+                      <Text style={styles.name}>{client.adminDisplayName}</Text>
+                      {client.accountType === 'GUEST' && <Text style={styles.guest}>{t("guest")}</Text>}
                     </View>
-                    <Text style={styles.meta}>{client.phone || client.email || 'No contact information'}</Text>
+                    <Text style={styles.meta}>{client.clientName || client.phone || client.loginPhone || t("No contact information")}</Text>
                   </View>
                   <Icons.Chev color={colors.inkSoft} />
                 </View>
               </HandRect>
             </Pressable>
           ))}
-          {filtered.length === 0 && <Text style={styles.empty}>No matching clients.</Text>}
+          {filtered.length === 0 && <Text style={styles.empty}>{t("No matching clients.")}</Text>}
         </View>
       )}
 
@@ -112,13 +114,13 @@ export default function AdminUsersScreen() {
         <Pressable style={styles.backdrop} onPress={() => setShowCreate(false)}>
           <Pressable style={styles.modal} onPress={() => undefined}>
             <HandRect padding={22} radius={radius.xl}>
-              <Text style={styles.modalTitle}>Add guest client</Text>
-              <Text style={styles.modalText}>For clients who have not registered. Phone is optional.</Text>
+              <Text style={styles.modalTitle}>{t("Add guest client")}</Text>
+              <Text style={styles.modalText}>{t("For clients who have not registered. Phone is optional.")}</Text>
               <View style={{ gap: 10, marginVertical: 16 }}>
-                <Field placeholder="Unique client name" value={name} onChangeText={setName} />
-                <Field placeholder="Phone (optional)" keyboardType="phone-pad" value={phone} onChangeText={setPhone} />
+                <Field placeholder={t("Unique internal name")} value={name} onChangeText={setName} />
+                <Field placeholder={t("Phone (optional)")} keyboardType="phone-pad" value={phone} onChangeText={setPhone} />
               </View>
-              <HandButton color={colors.pinkInk} full disabled={saving} onPress={addGuest}>{saving ? 'Adding…' : 'Add client'}</HandButton>
+              <HandButton color={colors.pinkInk} full disabled={saving} onPress={addGuest}>{saving ? t("Adding…") : t("Add client")}</HandButton>
             </HandRect>
           </Pressable>
         </Pressable>

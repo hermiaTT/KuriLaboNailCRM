@@ -1,3 +1,4 @@
+import { t, useLanguage } from '../lib/i18n';
 import { NavLink, Outlet } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
@@ -14,16 +15,17 @@ const clientNavigation = [
 ];
 
 export function ClientShell() {
+  useLanguage();
   const { user, logout } = useAuth();
   return (
     <div className="client-shell">
       <header className="client-header">
         <Brand />
-        <nav>{clientNavigation.map((item) => <NavLink key={item.to} to={item.to} end={item.end}><Icon name={item.icon} /><span>{item.label}</span></NavLink>)}</nav>
-        <div className="client-account"><NotificationLink to="/client/notifications" label={false} /><span className="mini-avatar">{user?.avatarUrl ? <img src={user.avatarUrl} alt="" /> : user?.name?.[0]?.toUpperCase() ?? 'K'}</span><span>{user?.name?.split(' ')[0]}</span><button onClick={() => void logout()} aria-label="Sign out"><Icon name="logout" /></button></div>
+        <nav>{clientNavigation.map((item) => <NavLink key={item.to} to={item.to} end={item.end}><Icon name={item.icon} /><span>{t(item.label)}</span></NavLink>)}</nav>
+        <div className="client-account"><NotificationLink to="/client/notifications" label={false} /><span className="mini-avatar">{user?.avatarUrl ? <img src={user.avatarUrl} alt="" /> : user?.name?.[0]?.toUpperCase() ?? 'K'}</span><span>{user?.name?.split(' ')[0]}</span><button onClick={() => void logout()} aria-label={t("Sign out")}><Icon name="logout" /></button></div>
       </header>
       <main className="client-content"><Outlet /></main>
-      <nav className="mobile-nav client-mobile-nav">{clientNavigation.map((item) => <NavLink key={item.to} to={item.to} end={item.end}><Icon name={item.icon} /><span>{item.label}</span></NavLink>)}</nav>
+      <nav className="mobile-nav client-mobile-nav">{clientNavigation.map((item) => <NavLink key={item.to} to={item.to} end={item.end}><Icon name={item.icon} /><span>{t(item.label)}</span></NavLink>)}</nav>
     </div>
   );
 }

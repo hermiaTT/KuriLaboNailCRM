@@ -8,7 +8,9 @@
     "typecheck": "tsc --noEmit",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "backend:local": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-backend-local.ps1",
+    "test:i18n": "node scripts/test-i18n.cjs"
   },
   "dependencies": {
     "@expo-google-fonts/dm-mono": "^0.4.2",

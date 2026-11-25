@@ -1,3 +1,4 @@
+import { t, useLanguage } from '../../shared/i18n';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -12,6 +13,7 @@ import { colors } from '../../constants/theme';
  * dashboard/upload screen and the client list, respectively.
  */
 export default function AdminTabsLayout() {
+  useLanguage();
   const insets = useSafeAreaInsets();
 
   return (
@@ -38,55 +40,55 @@ export default function AdminTabsLayout() {
       <Tabs.Screen
         name="dashboard"
         options={{
-          title: 'Home',
+          title: t('Home'),
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon focused={focused} icon={(c, s) => <Icons.Sparkle color={c} size={s}/>} label="Home"/>
+            <TabBarIcon focused={focused} icon={(c, s) => <Icons.Sparkle color={c} size={s}/>} label={t('Home')}/>
           ),
         }}
       />
       <Tabs.Screen
         name="users"
         options={{
-          title: 'Clients',
+          title: t('Clients'),
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon focused={focused} icon={(c, s) => <Icons.User color={c} size={s}/>} label="Clients"/>
+            <TabBarIcon focused={focused} icon={(c, s) => <Icons.User color={c} size={s}/>} label={t('Clients')}/>
           ),
         }}
       />
       <Tabs.Screen
         name="appointments"
         options={{
-          title: 'Visits',
+          title: t('Visits'),
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon focused={focused} icon={(c, s) => <Icons.Calendar color={c} size={s}/>} label="Visits"/>
+            <TabBarIcon focused={focused} icon={(c, s) => <Icons.Calendar color={c} size={s}/>} label={t('Visits')}/>
           ),
         }}
       />
       <Tabs.Screen
         name="slots"
         options={{
-          title: 'Slots',
+          title: t('Slots'),
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon focused={focused} icon={(c, s) => <Icons.Edit color={c} size={s}/>} label="Slots"/>
+            <TabBarIcon focused={focused} icon={(c, s) => <Icons.Edit color={c} size={s}/>} label={t('Slots')}/>
           ),
         }}
       />
       <Tabs.Screen
         name="upload"
         options={{
-          title: 'Upload',
+          title: t('Upload'),
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon focused={focused} icon={(c, s) => <Icons.Plus color={c} size={s}/>} label="Upload"/>
+            <TabBarIcon focused={focused} icon={(c, s) => <Icons.Plus color={c} size={s}/>} label={t('Upload')}/>
           ),
         }}
       />
       <Tabs.Screen
         name="inspiration"
         options={{
-          title: 'Gallery',
+          title: t('Gallery'),
           href: null,
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon focused={focused} icon={(c, s) => <Icons.Photos color={c} size={s}/>} label="Gallery"/>
+            <TabBarIcon focused={focused} icon={(c, s) => <Icons.Photos color={c} size={s}/>} label={t('Gallery')}/>
           ),
         }}
       />

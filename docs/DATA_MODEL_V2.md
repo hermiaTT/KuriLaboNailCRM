@@ -16,24 +16,55 @@
 - `id`
 - `email` (case-insensitive unique)
 - `password_hash`
+- `login_phone` (unique; authentication credential)
+- `phone_verified_at`
+- `client_id` (nullable unique FK; required for `USER`, absent for `ADMIN`)
 - `role`: `USER | ADMIN`
-- `status`: `ACTIVE | DISABLED`
 - `created_at`
 - `updated_at`
 
-### `user_profile`
+`app_user` represents a login identity, not the salon's customer record. Admin-created clients do not receive placeholder accounts.
 
-- `user_id` (PK/FK)
-- `name`
-- `phone`
+### `client`
+
+- `id`
+- `client_name` (customer-controlled; duplicates allowed)
+- `admin_display_name` (admin-only; unique among active clients)
+- `contact_phone` (optional CRM contact data; separate from login phone)
 - `birthday`
 - `instagram`
 - `wechat`
+- `preferred_language`: `en | zh-CN`
 - `preferred_nail_style`
 - `allergy_notes`
 - `admin_notes`
+- `avatar_media_id`
+- `status`: `ACTIVE | MERGED | ARCHIVED`
+- `merged_into_client_id`, `merged_by`, `merged_at`
 - `created_at`
 - `updated_at`
+
+Appointments, nail sets, collections, favorites, and client notifications reference `client.id`. Authentication, audit actors, uploads, confirmations, and password resets reference `app_user.id`.
+
+Admin notifications about a newly registered customer store `related_client_id`, so the web and mobile admin apps can navigate directly to the CRM profile regardless of whether registration auto-linked an existing record or created a new record for manual review.
+
+### `admin_profile`
+
+- `user_id` (PK/FK to `app_user`)
+- `name`
+- `avatar_media_id`
+- `preferred_language`
+- `created_at`, `updated_at`
+
+### `client_merge_history`
+
+- `id`
+- `source_client_id`
+- `target_client_id`
+- `merged_by`
+- `merged_at`
+
+A merge moves customer-owned records to the target, marks the source `MERGED`, and retains this audit record. The source is not physically deleted.
 
 ### `refresh_token`
 

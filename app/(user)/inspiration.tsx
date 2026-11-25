@@ -1,3 +1,4 @@
+import { t, useLanguage } from '../../shared/i18n';
 import React, { useCallback, useState } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
@@ -32,6 +33,7 @@ import type { NailSet } from '../../types/api';
 const CARD_HEIGHTS = [220, 180, 240, 200, 240, 180, 220, 240];
 
 export default function InspirationScreen() {
+  useLanguage();
   const router = useRouter();
   const [collections, setCollections] = useState<NailSet[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,8 +66,8 @@ export default function InspirationScreen() {
       <ScreenHeader trailing={<Pressable style={styles.headerBtn} onPress={() => router.push('/(user)/notifications')}><Icons.Bell /></Pressable>} />
 
       <EyebrowTitle
-        eyebrow="for your next visit"
-        title="Inspiration"
+        eyebrow={t("for your next visit")}
+        title={t("Inspiration")}
         trailing={
           <Doodle
             kind="sparkle"
@@ -76,7 +78,7 @@ export default function InspirationScreen() {
         }
       />
       <View style={styles.sub}>
-        <Text style={styles.subText}>Save designs to show Kuri at your appointment</Text>
+        <Text style={styles.subText}>{t("Save designs to show Kuri at your appointment")}</Text>
       </View>
 
       {/* Search bar */}
@@ -84,7 +86,7 @@ export default function InspirationScreen() {
         <HandRect padding={0} radius={radius.md}>
           <View style={styles.searchRow}>
             <Icons.Search color={colors.inkSoft} />
-            <Text style={styles.searchPh}>Search designs…</Text>
+            <Text style={styles.searchPh}>{t("Search designs…")}</Text>
           </View>
         </HandRect>
       </View>
@@ -107,8 +109,8 @@ export default function InspirationScreen() {
         </View>
       ) : filtered.length === 0 ? (
         <View style={styles.center}>
-          <Text style={styles.emptyTitle}>No inspiration yet 🌸</Text>
-          <Text style={styles.emptyMeta}>Admin can upload photos from the Upload tab</Text>
+          <Text style={styles.emptyTitle}>{t("No inspiration yet 🌸")}</Text>
+          <Text style={styles.emptyMeta}>{t("Admin can upload photos from the Upload tab")}</Text>
         </View>
       ) : (
         <View style={styles.masonry}>
@@ -160,7 +162,7 @@ export default function InspirationScreen() {
 
                       <View style={styles.cardMeta}>
                         <Text style={styles.cardTitle} numberOfLines={1}>
-                          {c.title ?? 'Design'}
+                          {c.title ?? t("Design")}
                         </Text>
                         {c.description ? <Text style={styles.cardTag} numberOfLines={1}>{c.description}</Text> : null}
                       </View>

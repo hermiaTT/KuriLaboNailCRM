@@ -1,3 +1,4 @@
+import { t, useLanguage } from '../lib/i18n';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -6,6 +7,7 @@ import { Brand, PaperCard } from '../components/UI';
 import { ApiError } from '../lib/api';
 
 export function RegisterPage() {
+  useLanguage();
   const { user, register } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +23,7 @@ export function RegisterPage() {
     const data = new FormData(event.currentTarget);
     const password = String(data.get('password'));
     if (password !== String(data.get('confirmPassword'))) {
-      setError('Passwords do not match.');
+      setError("Passwords do not match.");
       return;
     }
     setError(null);
@@ -35,7 +37,7 @@ export function RegisterPage() {
         birthday: String(data.get('birthday') || '') || null,
       });
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Unable to create your account.');
+      setError(cause instanceof ApiError ? cause.message : "Unable to create your account.");
     } finally {
       setSubmitting(false);
     }
@@ -46,24 +48,24 @@ export function RegisterPage() {
       <div className="confetti" aria-hidden="true" />
       <section className="login-intro">
         <Brand />
-        <p className="eyebrow">JOIN KURI LABO</p>
-        <h1>Your nail diary starts here.</h1>
-        <p>Book your next visit, collect your favorite sets and keep every little detail close.</p>
+        <p className="eyebrow">{t("JOIN KURI LABO")}</p>
+        <h1>{t("Your nail diary starts here.")}</h1>
+        <p>{t("Book your next visit, collect your favorite sets and keep every little detail close.")}</p>
         <div className="login-doodle" aria-hidden="true">♡</div>
       </section>
       <PaperCard className="login-card register-card">
-        <p className="eyebrow">CREATE ACCOUNT</p>
-        <h2>Nice to meet you</h2>
-        <p className="muted">Tell us a little about yourself.</p>
+        <p className="eyebrow">{t("CREATE ACCOUNT")}</p>
+        <h2>{t("Nice to meet you")}</h2>
+        <p className="muted">{t("Tell us a little about yourself.")}</p>
         <form onSubmit={handleSubmit}>
-          <label>Full name<input name="name" autoComplete="name" placeholder="Your name" maxLength={120} required /></label>
-          <label>Phone number<input name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="778-555-1234" maxLength={40} required /></label>
-          <div className="form-pair"><label>Email <span className="optional">optional</span><input name="email" type="email" autoComplete="email" placeholder="you@example.com" /></label><label>Birthday <span className="optional">optional</span><input name="birthday" type="date" max={new Date().toISOString().split('T')[0]} /></label></div>
-          <div className="form-pair"><label>Password<input name="password" type="password" autoComplete="new-password" minLength={8} placeholder="At least 8 characters" required /></label><label>Confirm password<input name="confirmPassword" type="password" autoComplete="new-password" minLength={8} placeholder="Type it again" required /></label></div>
-          {error && <p className="form-error" role="alert">{error}</p>}
-          <button className="primary-button" disabled={submitting}>{submitting ? 'Creating your account…' : 'Create account'}</button>
+          <label>{t("Full name")}<input name="name" autoComplete="name" placeholder={t("Your name")} maxLength={120} required /></label>
+          <label>{t("Phone number")}<input name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="778-555-1234" maxLength={40} required /></label>
+          <div className="form-pair"><label>{t("Email")}<span className="optional">{t("optional")}</span><input name="email" type="email" autoComplete="email" placeholder="you@example.com" /></label><label>{t("Birthday")}<span className="optional">{t("optional")}</span><input name="birthday" type="date" max={new Date().toISOString().split('T')[0]} /></label></div>
+          <div className="form-pair"><label>{t("Password")}<input name="password" type="password" autoComplete="new-password" minLength={8} placeholder={t("At least 8 characters")} required /></label><label>{t("Confirm password")}<input name="confirmPassword" type="password" autoComplete="new-password" minLength={8} placeholder={t("Type it again")} required /></label></div>
+          {error && <p className="form-error" role="alert">{t(error)}</p>}
+          <button className="primary-button" disabled={submitting}>{submitting ? t("Creating your account…") : t("Create account")}</button>
         </form>
-        <p className="login-help">Already have an account? <Link to="/login">Sign in</Link></p>
+        <p className="login-help">{t("Already have an account?")}<Link to="/login">{t("Sign in")}</Link></p>
       </PaperCard>
     </div>
   );

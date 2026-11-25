@@ -1,10 +1,13 @@
 export type UserSummary = {
   id: string;
+  clientId: string | null;
   email: string | null;
   role: 'USER' | 'ADMIN';
   name: string;
   phone: string | null;
+  contactPhone: string | null;
   birthday: string | null;
+  preferredLanguage?: 'en' | 'zh-CN';
   avatarUrl?: string | null;
 };
 
@@ -17,12 +20,16 @@ export type AuthResponse = {
 
 export type AdminUser = {
   id: string;
+  accountId: string | null;
   email: string | null;
   accountType: 'REGISTERED' | 'GUEST';
   role: 'USER' | 'ADMIN';
-  status: 'ACTIVE' | 'DISABLED';
   name: string;
+  clientName: string | null;
+  adminDisplayName: string;
   phone: string | null;
+  loginPhone: string | null;
+    nextAppointmentAt?: string | null;
   createdAt: string;
 };
 
@@ -39,6 +46,7 @@ export type AdminUserDetail = AdminUser & {
 export type Appointment = {
   id: string;
   customerId: string;
+    customerName?: string;
   serviceId: string | null;
   serviceName: string;
   durationMinutes: number;
@@ -131,6 +139,7 @@ export type AppNotification = {
   title: string;
   message: string;
   appointmentId: string | null;
+  clientId: string | null;
   read: boolean;
   createdAt: string;
 };

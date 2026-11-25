@@ -1,3 +1,4 @@
+import { t, useLanguage } from '../../shared/i18n';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -10,6 +11,7 @@ import type { ServiceDefinition } from '../../types/api';
 const DURATIONS = Array.from({ length: 10 }, (_, index) => (index + 1) * 30);
 
 export default function AdminServicesScreen() {
+  useLanguage();
   const router = useRouter();
   const [services, setServices] = useState<ServiceDefinition[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,7 +27,7 @@ export default function AdminServicesScreen() {
 
   const load = useCallback(() => {
     setLoading(true);
-    api<ServiceDefinition[]>('/api/v1/admin/services').then(setServices).catch(() => setError('Unable to load services.')).finally(() => setLoading(false));
+    api<ServiceDefinition[]>('/api/v1/admin/services').then(setServices).catch(() => setError("Unable to load services.")).finally(() => setLoading(false));
   }, []);
   useFocusEffect(load);
 
@@ -38,25 +40,25 @@ export default function AdminServicesScreen() {
   }
 
   async function save() {
-    if (!name.trim()) { setError('Service name is required.'); return; }
+    if (!name.trim()) { setError("Service name is required."); return; }
     const numericPrice = Number(price);
-    if (!price.trim() || !Number.isFinite(numericPrice) || numericPrice < 0) { setError('Enter a valid price.'); return; }
+    if (!price.trim() || !Number.isFinite(numericPrice) || numericPrice < 0) { setError("Enter a valid price."); return; }
     setSaving(true); setError(null);
     const body = JSON.stringify({ name: name.trim(), description: description.trim() || null, durationMinutes: duration, price: numericPrice, displayOrder: editing?.displayOrder ?? services.length + 1, active });
     try {
       const item = await api<ServiceDefinition>(editing ? `/api/v1/admin/services/${editing.id}` : '/api/v1/admin/services', { method: editing ? 'PUT' : 'POST', body });
       setServices((current) => editing ? current.map((row) => row.id === item.id ? item : row) : [...current, item]);
       setShowForm(false);
-    } catch (cause) { setError(cause instanceof ApiError ? cause.message : 'Unable to save this service.'); }
+    } catch (cause) { setError(cause instanceof ApiError ? cause.message : "Unable to save this service."); }
     finally { setSaving(false); }
   }
 
   return <Screen>
-    <View style={styles.top}><Pressable onPress={() => router.back()} style={styles.back}><Icons.ChevL /><Text style={styles.backText}>back</Text></Pressable><HandButton size="sm" color={colors.pinkInk} onPress={openCreate}>+ Add</HandButton></View>
-    <EyebrowTitle eyebrow="service menu" title="Treatments" trailing={<Doodle kind="sparkle" size={20} color={colors.blue} />} />
-    {error && !showForm && <Text style={styles.error}>{error}</Text>}
-    {loading ? <ActivityIndicator color={colors.pinkInk} style={{ marginTop: 40 }} /> : <View style={styles.list}>{services.map((item, index) => <Pressable key={item.id} onPress={() => openEdit(item)}><HandRect padding={16} radius={radius.lg}><View style={styles.head}><Text style={styles.number}>{String(index + 1).padStart(2, '0')}</Text><StatusBadge status={item.active ? 'available' : 'cancelled'} /></View><Text style={styles.name}>{item.name}</Text><Text style={styles.description}>{item.description || 'A Kuri Labo studio service.'}</Text><View style={styles.metaRow}><Text style={styles.duration}>{item.durationMinutes} min</Text><Text style={styles.price}>${Number(item.price).toFixed(2)}</Text></View></HandRect></Pressable>)}{services.length === 0 && <Text style={styles.empty}>No services yet.</Text>}</View>}
-    <Modal transparent visible={showForm} animationType="fade" onRequestClose={() => setShowForm(false)}><Pressable style={styles.backdrop} onPress={() => setShowForm(false)}><Pressable style={styles.modal} onPress={() => undefined}><HandRect padding={20} radius={radius.xl}><Text style={styles.modalTitle}>{editing ? 'Edit service' : 'Add service'}</Text><View style={styles.form}><Field placeholder="Service name" value={name} onChangeText={setName} /><Field placeholder="Price (CAD)" keyboardType="decimal-pad" value={price} onChangeText={setPrice} /><Field placeholder="Description (optional)" multiline value={description} onChangeText={setDescription} /><Text style={styles.label}>Duration · 30 min to 5 hr</Text><View style={styles.chips}>{DURATIONS.map((value) => <HandChip key={value} active={duration === value} onPress={() => setDuration(value)}>{value < 60 ? `${value} min` : `${value / 60} hr`}</HandChip>)}</View>{editing && <><Text style={styles.label}>Availability</Text><View style={styles.chips}><HandChip active={active} onPress={() => setActive(true)}>active</HandChip><HandChip active={!active} onPress={() => setActive(false)}>disabled</HandChip></View></>}{error && <Text style={styles.modalError}>{error}</Text>}<HandButton full color={colors.pinkInk} disabled={saving} onPress={save}>{saving ? 'Saving…' : 'Save service'}</HandButton></View></HandRect></Pressable></Pressable></Modal>
+    <View style={styles.top}><Pressable onPress={() => router.back()} style={styles.back}><Icons.ChevL /><Text style={styles.backText}>{t("back")}</Text></Pressable><HandButton size="sm" color={colors.pinkInk} onPress={openCreate}>{t("+ Add")}</HandButton></View>
+    <EyebrowTitle eyebrow={t("service menu")} title={t("Treatments")} trailing={<Doodle kind="sparkle" size={20} color={colors.blue} />} />
+    {error && !showForm && <Text style={styles.error}>{t(error)}</Text>}
+    {loading ? <ActivityIndicator color={colors.pinkInk} style={{ marginTop: 40 }} /> : <View style={styles.list}>{services.map((item, index) => <Pressable key={item.id} onPress={() => openEdit(item)}><HandRect padding={16} radius={radius.lg}><View style={styles.head}><Text style={styles.number}>{String(index + 1).padStart(2, '0')}</Text><StatusBadge status={item.active ? 'available' : 'cancelled'} /></View><Text style={styles.name}>{item.name}</Text><Text style={styles.description}>{item.description || t("A Kuri Labo studio service.")}</Text><View style={styles.metaRow}><Text style={styles.duration}>{item.durationMinutes} {t("min")}</Text><Text style={styles.price}>${Number(item.price).toFixed(2)}</Text></View></HandRect></Pressable>)}{services.length === 0 && <Text style={styles.empty}>{t("No services yet.")}</Text>}</View>}
+    <Modal transparent visible={showForm} animationType="fade" onRequestClose={() => setShowForm(false)}><Pressable style={styles.backdrop} onPress={() => setShowForm(false)}><Pressable style={styles.modal} onPress={() => undefined}><HandRect padding={20} radius={radius.xl}><Text style={styles.modalTitle}>{editing ? t("Edit service") : t("Add service")}</Text><View style={styles.form}><Field placeholder={t("Service name")} value={name} onChangeText={setName} /><Field placeholder={t("Price (CAD)")} keyboardType="decimal-pad" value={price} onChangeText={setPrice} /><Field placeholder={t("Description (optional)")} multiline value={description} onChangeText={setDescription} /><Text style={styles.label}>{t("Duration · 30 min to 5 hr")}</Text><View style={styles.chips}>{DURATIONS.map((value) => <HandChip key={value} active={duration === value} onPress={() => setDuration(value)}>{value < 60 ? t("{count} min", { count: value }) : t("{count} hr", { count: value / 60 })}</HandChip>)}</View>{editing && <><Text style={styles.label}>{t("Availability")}</Text><View style={styles.chips}><HandChip active={active} onPress={() => setActive(true)}>{t("active")}</HandChip><HandChip active={!active} onPress={() => setActive(false)}>{t("disabled")}</HandChip></View></>}{error && <Text style={styles.modalError}>{t(error)}</Text>}<HandButton full color={colors.pinkInk} disabled={saving} onPress={save}>{saving ? t("Saving…") : t("Save service")}</HandButton></View></HandRect></Pressable></Pressable></Modal>
   </Screen>;
 }
 

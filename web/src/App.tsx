@@ -1,3 +1,6 @@
+import { useLanguage } from './lib/i18n';
+import { useEffect } from 'react';
+
 import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { useAuth } from './auth/AuthContext';
@@ -37,6 +40,8 @@ function ProtectedClient() {
 }
 
 export function App() {
+  const language = useLanguage();
+  useEffect(() => { document.documentElement.lang = language; }, [language]);
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />

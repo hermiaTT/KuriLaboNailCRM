@@ -1,3 +1,4 @@
+import { notificationMessage, t, getLocale, useLanguage } from '../shared/i18n';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -8,13 +9,14 @@ import type { NotificationItem } from '../types/api';
 import { Doodle, EyebrowTitle, HandButton, HandRect, Icons, Screen } from './ui';
 
 function when(value: string) {
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(getLocale(), {
     month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
     timeZone: 'America/Vancouver',
   }).format(new Date(value));
 }
 
 export function NotificationScreen() {
+  useLanguage();
   const router = useRouter();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +28,7 @@ export function NotificationScreen() {
     setError(null);
     api<NotificationItem[]>('/api/v1/notifications')
       .then(setItems)
-      .catch((cause) => setError(cause instanceof ApiError ? cause.message : 'Unable to load notifications.'))
+      .catch((cause) => setError(cause instanceof ApiError ? cause.message : "Unable to load notifications."))
       .finally(() => setLoading(false));
   }, []);
 
@@ -38,7 +40,14 @@ export function NotificationScreen() {
       const updated = await api<NotificationItem>(`/api/v1/notifications/${item.id}/read`, { method: 'PUT' });
       setItems((current) => current.map((row) => row.id === updated.id ? updated : row));
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Unable to update notification.');
+      setError(cause instanceof ApiError ? cause.message : "Unable to update notification.");
+    }
+  }
+
+  async function openNotification(item: NotificationItem) {
+    await markRead(item);
+    if (item.clientId) {
+      router.push({ pathname: '/(admin)/client/[id]', params: { id: item.clientId } });
     }
   }
 
@@ -49,7 +58,7 @@ export function NotificationScreen() {
       await api('/api/v1/notifications/read-all', { method: 'PUT' });
       setItems((current) => current.map((item) => ({ ...item, read: true })));
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Unable to update notifications.');
+      setError(cause instanceof ApiError ? cause.message : "Unable to update notifications.");
     } finally {
       setBusy(false);
     }
@@ -62,33 +71,33 @@ export function NotificationScreen() {
       <View style={styles.topRow}>
         <Pressable onPress={() => router.back()} style={styles.back}>
           <Icons.ChevL color={colors.ink} />
-          <Text style={styles.backText}>back</Text>
+          <Text style={styles.backText}>{t("back")}</Text>
         </Pressable>
-        {unread > 0 && <HandButton size="sm" color={colors.inkSoft} disabled={busy} onPress={markAllRead}>Mark all read</HandButton>}
+        {unread > 0 && <HandButton size="sm" color={colors.inkSoft} disabled={busy} onPress={markAllRead}>{t("Mark all read")}</HandButton>}
       </View>
-      <EyebrowTitle eyebrow={`${unread} unread`} title="Notifications" trailing={<Doodle kind="sparkle" size={20} color={colors.blue} />} />
-      {error && <Text style={styles.error}>{error}</Text>}
+      <EyebrowTitle eyebrow={t("{count} unread", { count: unread })} title={t("Notifications")} trailing={<Doodle kind="sparkle" size={20} color={colors.blue} />} />
+      {error && <Text style={styles.error}>{t(error)}</Text>}
       {loading ? <ActivityIndicator color={colors.pinkInk} style={{ marginTop: 40 }} /> : (
         <View style={styles.list}>
           {items.map((item) => (
-            <Pressable key={item.id} onPress={() => markRead(item)}>
+            <Pressable key={item.id} onPress={() => void openNotification(item)}>
               <HandRect padding={15} radius={radius.lg} style={!item.read ? styles.unreadCard : undefined}>
                 <View style={styles.itemHead}>
                   <View style={[styles.dot, item.read && styles.readDot]} />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.title}>{item.title}</Text>
+                    <Text style={styles.title}>{t(item.title)}</Text>
                     <Text style={styles.date}>{when(item.createdAt)}</Text>
                   </View>
                 </View>
-                <Text style={styles.message}>{item.message}</Text>
+                <Text style={styles.message}>{notificationMessage(item.message)}</Text>
               </HandRect>
             </Pressable>
           ))}
           {items.length === 0 && (
             <HandRect padding={24} radius={radius.lg} dashed style={styles.empty}>
               <Icons.Bell color={colors.inkSoft} size={28} />
-              <Text style={styles.emptyTitle}>All quiet for now</Text>
-              <Text style={styles.emptyText}>Booking updates will appear here.</Text>
+              <Text style={styles.emptyTitle}>{t("All quiet for now")}</Text>
+              <Text style={styles.emptyText}>{t("Booking updates will appear here.")}</Text>
             </HandRect>
           )}
         </View>

@@ -1,6 +1,7 @@
 package com.kurilabo.appointment.domain;
 
 import com.kurilabo.auth.domain.AppUser;
+import com.kurilabo.user.domain.Client;
 import com.kurilabo.servicecatalog.domain.ServiceDefinition;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -34,7 +35,7 @@ public class Appointment {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "customer_id", nullable = false)
-    private AppUser customer;
+    private Client customer;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "service_definition_id")
@@ -101,7 +102,7 @@ public class Appointment {
 
     public Appointment(
             UUID id,
-            AppUser customer,
+            Client customer,
             ServiceDefinition serviceDefinition,
             Instant startAt,
             Instant endAt,
@@ -125,7 +126,7 @@ public class Appointment {
 
     public Appointment(
             UUID id,
-            AppUser customer,
+            Client customer,
             ServiceDefinition serviceDefinition,
             String serviceName,
             int durationMinutes,
@@ -238,7 +239,7 @@ public class Appointment {
         return id;
     }
 
-    public AppUser getCustomer() {
+    public Client getCustomer() {
         return customer;
     }
 

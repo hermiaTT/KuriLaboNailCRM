@@ -1,3 +1,4 @@
+import { t, getLocale, useLanguage } from '../../shared/i18n';
 import React, { useCallback, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -30,14 +31,14 @@ import type { StatusKey } from '../../constants/theme';
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function fmtBirthday(iso: string) {
-  return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', {
+  return new Date(iso + 'T00:00:00').toLocaleDateString(getLocale(), {
     month: 'long',
     day: 'numeric',
   });
 }
 
 function fmtTime(iso: string) {
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(getLocale(), {
     hour: 'numeric',
     minute: '2-digit',
     timeZone: 'America/Vancouver',
@@ -47,8 +48,8 @@ function fmtTime(iso: string) {
 function fmtSlotDate(iso: string) {
   const d = new Date(iso);
   return {
-    month: new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: 'America/Vancouver' }).format(d).toLowerCase(),
-    day: new Intl.DateTimeFormat('en-US', { day: 'numeric', timeZone: 'America/Vancouver' }).format(d),
+    month: new Intl.DateTimeFormat(getLocale(), { month: 'short', timeZone: 'America/Vancouver' }).format(d).toLowerCase(),
+    day: new Intl.DateTimeFormat(getLocale(), { day: 'numeric', timeZone: 'America/Vancouver' }).format(d),
   };
 }
 
@@ -63,6 +64,7 @@ function uiStatus(status: Appointment['status']): StatusKey {
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function ProfileScreen() {
+  useLanguage();
   const router = useRouter();
   const { session, profile: authProfile, signOut } = useAuth();
 
@@ -133,14 +135,14 @@ export default function ProfileScreen() {
   const email = session?.user.email ?? '—';
   const name = data?.name ?? authProfile?.name ?? '—';
   const initial = name[0]?.toUpperCase() ?? '?';
-  const since = 'online member';
+  const since = t("online member");
 
   const prefBody = [
     data?.preferredNailStyle,
     data?.allergyNotes,
   ]
     .filter(Boolean)
-    .join(' · ') || 'No preferences set yet';
+    .join(' · ') || t("No preferences set yet");
 
   const slotDate = nextAppt ? fmtSlotDate(nextAppt.startAt) : null;
 
@@ -172,12 +174,12 @@ export default function ProfileScreen() {
             style={{ position: 'absolute', bottom: 4, left: -6, transform: [{ rotate: '-12deg' }] }} />
           {uploadingAvatar && <ActivityIndicator style={StyleSheet.absoluteFill} color={colors.pinkInk} />}
         </Pressable>
-        <Text style={styles.avatarHint}>tap photo to change</Text>
+        <Text style={styles.avatarHint}>{t("tap photo to change")}</Text>
         <Text style={styles.name}>{name}</Text>
-        <Text style={styles.metaWide}>member since {since}</Text>
+        <Text style={styles.metaWide}>{t("member since")}{since}</Text>
         <Pressable onPress={signOut} style={styles.signOutBtn}>
           <Icons.LogOut color={colors.inkSoft} size={13} />
-          <Text style={styles.signOutText}>sign out</Text>
+          <Text style={styles.signOutText}>{t("sign out")}</Text>
         </Pressable>
       </View>
 
@@ -187,10 +189,10 @@ export default function ProfileScreen() {
           {[
             { v: visitCount, l: 'visits',  d: 'heart',   c: colors.pink,   nav: () => router.push('/(user)/appointments') },
             { v: savedCount, l: 'saved',   d: 'star',    c: colors.blue,   nav: () => router.push('/(user)/collection') },
-            { v: designCount, l: 'designs', d: 'sparkle', c: colors.yellow, nav: () => router.push('/(user)/inspiration') },
+            { v: designCount, l: t("designs"), d: 'sparkle', c: colors.yellow, nav: () => router.push('/(user)/inspiration') },
           ].map((s, i) => (
             <Pressable
-              key={s.l}
+              key={t(s.l)}
               onPress={s.nav}
               style={[
                 styles.statWrap,
@@ -200,7 +202,7 @@ export default function ProfileScreen() {
               <HandRect padding={14} radius={radius.md} style={{ alignItems: 'center' }}>
                 <Doodle kind={s.d as any} color={s.c} size={22} style={{ marginBottom: 4 }} />
                 <Text style={styles.statValue}>{s.v}</Text>
-                <Text style={styles.statLabel}>{s.l}</Text>
+                <Text style={styles.statLabel}>{t(s.l)}</Text>
               </HandRect>
             </Pressable>
           ))}
@@ -216,8 +218,8 @@ export default function ProfileScreen() {
             { k: 'birthday',  v: data?.birthday ? fmtBirthday(data.birthday) : '—' },
             { k: 'instagram', v: data?.instagram ?? '—' },
           ].map((r, i, a) => (
-            <View key={r.k} style={[styles.infoRow, i < a.length - 1 && styles.infoRowDivider]}>
-              <Text style={styles.infoKey}>{r.k}</Text>
+            <View key={t(r.k)} style={[styles.infoRow, i < a.length - 1 && styles.infoRowDivider]}>
+              <Text style={styles.infoKey}>{t(r.k)}</Text>
               <Text style={styles.infoVal} numberOfLines={1}>{r.v}</Text>
             </View>
           ))}
@@ -229,12 +231,12 @@ export default function ProfileScreen() {
         <HandRect fill={colors.pinkSoft} stroke={colors.pinkInk} radius={radius.lg} padding={18}>
           <View style={styles.prefHead}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.prefTitle}>Your preferences</Text>
+              <Text style={styles.prefTitle}>{t("Your preferences")}</Text>
               <Text style={styles.prefBody}>{prefBody}</Text>
             </View>
             <Pressable style={styles.editBtn} onPress={() => router.push('/(user)/edit-profile')}>
               <Icons.Edit color={colors.pinkInk} />
-              <Text style={styles.editLabel}>edit</Text>
+              <Text style={styles.editLabel}>{t("edit")}</Text>
             </Pressable>
           </View>
         </HandRect>
@@ -244,8 +246,8 @@ export default function ProfileScreen() {
       {nextAppt && slotDate ? (
         <View style={styles.row}>
           <View style={styles.sectionHead}>
-            <Text style={styles.sectionTitle}>Next visit</Text>
-            <Text style={styles.sectionMeta}>1 upcoming</Text>
+            <Text style={styles.sectionTitle}>{t("Next visit")}</Text>
+            <Text style={styles.sectionMeta}>{t("1 upcoming")}</Text>
           </View>
           <Pressable onPress={() => router.push('/(user)/appointments')}>
             <HandRect padding={16} radius={radius.lg}>
@@ -258,7 +260,7 @@ export default function ProfileScreen() {
                   <Text style={styles.visitTime}>
                     {fmtTime(nextAppt.startAt)} — {fmtTime(nextAppt.endAt)}
                   </Text>
-                  <Text style={styles.visitDesc}>with Kuri</Text>
+                  <Text style={styles.visitDesc}>{t("with Kuri")}</Text>
                 </View>
                 <StatusBadge status={uiStatus(nextAppt.status)} />
               </View>
@@ -268,7 +270,7 @@ export default function ProfileScreen() {
       ) : (
         <View style={styles.row}>
           <HandRect padding={16} radius={radius.lg}>
-            <Text style={styles.emptyText}>No upcoming visits yet · Book one? 🌸</Text>
+            <Text style={styles.emptyText}>{t("No upcoming visits yet · Book one? 🌸")}</Text>
           </HandRect>
         </View>
       )}

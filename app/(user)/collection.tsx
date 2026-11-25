@@ -1,3 +1,4 @@
+import { t, getLocale, useLanguage } from '../../shared/i18n';
 import React, { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import {
@@ -31,6 +32,7 @@ import type { NailSet } from '../../types/api';
 const CARD_HEIGHTS = [220, 180, 240, 200, 240, 180, 220, 240];
 
 export default function CollectionScreen() {
+  useLanguage();
   const [collections, setCollections] = useState<NailSet[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCol, setActiveCol] = useState<NailSet | null>(null);
@@ -48,17 +50,17 @@ export default function CollectionScreen() {
   const rightCol = collections.filter((_, i) => i % 2 === 1);
 
   function formatDate(iso: string) {
-    return new Date(iso).toLocaleDateString('en-US', {
+    return new Date(iso).toLocaleDateString(getLocale(), {
       month: 'short', day: 'numeric', year: 'numeric',
     }).toUpperCase();
   }
 
   return (
     <Screen>
-      <ScreenHeader trailing={<Text style={styles.headerMeta}>{collections.length} designs</Text>} />
+      <ScreenHeader trailing={<Text style={styles.headerMeta}>{collections.length} {t("designs")}</Text>} />
       <EyebrowTitle
-        eyebrow="your archive"
-        title="Collection"
+        eyebrow={t("your archive")}
+        title={t("Collection")}
         underline
         trailing={
           <Doodle kind="heart" size={20} color={colors.pink} style={{ transform: [{ rotate: '-12deg' }] }} />
@@ -69,8 +71,8 @@ export default function CollectionScreen() {
         <View style={styles.center}><ActivityIndicator color={colors.pinkInk} /></View>
       ) : collections.length === 0 ? (
         <View style={styles.center}>
-          <Text style={styles.emptyTitle}>No photos yet 🌸</Text>
-          <Text style={styles.emptyMeta}>Your nail looks will appear here after your visit</Text>
+          <Text style={styles.emptyTitle}>{t("No photos yet 🌸")}</Text>
+          <Text style={styles.emptyMeta}>{t("Your nail looks will appear here after your visit")}</Text>
         </View>
       ) : (
         <View style={styles.masonry}>

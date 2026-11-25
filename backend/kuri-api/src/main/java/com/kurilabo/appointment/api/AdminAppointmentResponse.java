@@ -10,6 +10,7 @@ import java.util.List;
 public record AdminAppointmentResponse(
         UUID id,
         UUID customerId,
+        String customerName,
         UUID serviceId,
         String serviceName,
         int durationMinutes,
@@ -25,6 +26,7 @@ public record AdminAppointmentResponse(
         return new AdminAppointmentResponse(
                 appointment.getId(),
                 appointment.getCustomer().getId(),
+                appointment.getCustomer().getAdminDisplayName(),
                 appointment.getServiceDefinition() == null ? null : appointment.getServiceDefinition().getId(),
                 appointment.getServiceNameSnapshot(),
                 appointment.getDurationMinutesSnapshot(),

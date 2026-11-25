@@ -1,9 +1,13 @@
+import { notificationMessage, t, getLocale, useLanguage } from '../lib/i18n';
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { EmptyState, PageHeading, PaperCard } from '../components/UI';
 import { api } from '../lib/api';
 import type { AppNotification } from '../types';
 
 export function NotificationsPage() {
+  useLanguage();
+  const navigate = useNavigate();
   const [items, setItems] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const unread = items.filter((item) => !item.read).length;
@@ -19,6 +23,14 @@ export function NotificationsPage() {
     window.dispatchEvent(new Event('notifications-updated'));
   }
 
+  async function openNotification(item: AppNotification) {
+    try {
+      await markRead(item);
+    } finally {
+      if (item.clientId) navigate(`/clients/${item.clientId}`);
+    }
+  }
+
   async function markAllRead() {
     await api<void>('/api/v1/notifications/read-all', { method: 'PUT' });
     setItems((current) => current.map((item) => ({ ...item, read: true })));
@@ -26,12 +38,12 @@ export function NotificationsPage() {
   }
 
   return <div className="page notification-page">
-    <PageHeading eyebrow="STAY UPDATED" title="Notifications" action={unread > 0 ? <button className="secondary-button compact" onClick={() => void markAllRead()}>Mark all read</button> : undefined} />
+    <PageHeading eyebrow={t("STAY UPDATED")} title={t("Notifications")} action={unread > 0 ? <button className="secondary-button compact" onClick={() => void markAllRead()}>{t("Mark all read")}</button> : undefined} />
     <PaperCard className="notification-card">
-      {loading ? <EmptyState>Loading notifications…</EmptyState> : items.length === 0 ? <EmptyState>No notifications yet.</EmptyState> : (
-        <div className="notification-list">{items.map((item) => <button key={item.id} className={`notification-row ${item.read ? '' : 'unread'}`} onClick={() => void markRead(item)}>
+      {loading ? <EmptyState>{t("Loading notifications…")}</EmptyState> : items.length === 0 ? <EmptyState>{t("No notifications yet.")}</EmptyState> : (
+        <div className="notification-list">{items.map((item) => <button key={item.id} className={`notification-row ${item.read ? '' : 'unread'}`} onClick={() => void openNotification(item)}>
           <span className="notification-dot" />
-          <span><strong>{item.title}</strong><p>{item.message}</p><small>{new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(item.createdAt))}</small></span>
+          <span><strong>{t(item.title)}</strong><p>{notificationMessage(item.message)}</p><small>{new Intl.DateTimeFormat(getLocale(), { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(item.createdAt))}</small></span>
         </button>)}</div>
       )}
     </PaperCard>

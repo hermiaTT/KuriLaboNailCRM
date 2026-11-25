@@ -1,3 +1,5 @@
+import { t, useLanguage } from '../../lib/i18n';
+import { LANGUAGES, isLanguageSaved, LANGUAGE_SAVE_ERROR } from '../../../../shared/i18n/core';
 import { useEffect, useState, type FormEvent } from 'react';
 
 import { useAuth } from '../../auth/AuthContext';
@@ -13,6 +15,7 @@ type ProfileForm = {
   wechat: string;
   preferredNailStyle: string;
   allergyNotes: string;
+  preferredLanguage: string;
 };
 
 const EMPTY_FORM: ProfileForm = {
@@ -23,6 +26,7 @@ const EMPTY_FORM: ProfileForm = {
   wechat: '',
   preferredNailStyle: '',
   allergyNotes: '',
+  preferredLanguage: 'en',
 };
 
 function formFromProfile(profile: CurrentProfile): ProfileForm {
@@ -34,12 +38,14 @@ function formFromProfile(profile: CurrentProfile): ProfileForm {
     wechat: profile.wechat ?? '',
     preferredNailStyle: profile.preferredNailStyle ?? '',
     allergyNotes: profile.allergyNotes ?? '',
+    preferredLanguage: profile.preferredLanguage ?? 'en',
   };
 }
 
 const MAX_BIRTHDAY = new Date(Date.now() - 86_400_000).toISOString().split('T')[0];
 
 export function ClientProfilePage() {
+  useLanguage();
   const { logout, refreshUser } = useAuth();
   const [profile, setProfile] = useState<CurrentProfile | null>(null);
   const [form, setForm] = useState<ProfileForm>(EMPTY_FORM);
@@ -58,7 +64,7 @@ export function ClientProfilePage() {
         setProfile(nextProfile);
         setForm(formFromProfile(nextProfile));
       })
-      .catch(() => setError('Unable to load your profile.'))
+      .catch(() => setError("Unable to load your profile."))
       .finally(() => setLoading(false));
   }, []);
 
@@ -76,6 +82,7 @@ export function ClientProfilePage() {
       const updated = await api<CurrentProfile>('/api/v1/users/me', {
         method: 'PUT',
         body: JSON.stringify({
+          preferredLanguage: form.preferredLanguage,
           name: form.name.trim(),
           phone: form.phone.trim() || null,
           birthday: form.birthday || null,
@@ -85,12 +92,16 @@ export function ClientProfilePage() {
           allergyNotes: form.allergyNotes.trim() || null,
         }),
       });
+      if (!isLanguageSaved(updated, form.preferredLanguage)) {
+        setError(LANGUAGE_SAVE_ERROR);
+        return;
+      }
       setProfile(updated);
       setForm(formFromProfile(updated));
-      await refreshUser();
+      await refreshUser(updated);
       setSaved(true);
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Unable to save your profile.');
+      setError(cause instanceof ApiError ? cause.message : "Unable to save your profile.");
     } finally {
       setSaving(false);
     }
@@ -98,14 +109,14 @@ export function ClientProfilePage() {
 
   async function changePassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (passwords.next !== passwords.confirm) { setPasswordMessage('New passwords do not match.'); return; }
+    if (passwords.next !== passwords.confirm) { setPasswordMessage("New passwords do not match."); return; }
     setChangingPassword(true); setPasswordMessage(null);
     try {
       await api<void>('/api/v1/users/me/password', { method: 'PUT', body: JSON.stringify({ currentPassword: passwords.current, newPassword: passwords.next }) });
       setPasswords({ current: '', next: '', confirm: '' });
-      setPasswordMessage('Password updated. Use the new password next time you sign in.');
+      setPasswordMessage("Password updated. Use the new password next time you sign in.");
     } catch (cause) {
-      setPasswordMessage(cause instanceof ApiError ? cause.message : 'Unable to update your password.');
+      setPasswordMessage(cause instanceof ApiError ? cause.message : "Unable to update your password.");
     } finally { setChangingPassword(false); }
   }
 
@@ -118,54 +129,55 @@ export function ClientProfilePage() {
       setProfile(updated);
       await refreshUser();
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Unable to upload your profile photo.');
+      setError(cause instanceof ApiError ? cause.message : "Unable to upload your profile photo.");
     } finally { setUploadingAvatar(false); }
   }
 
   return (
     <div className="client-page">
-      <PageHeading eyebrow="ABOUT YOU" title="My profile" />
-      {error && <div className="form-notice profile-notice" role="alert">{error}</div>}
+      <PageHeading eyebrow={t("ABOUT YOU")} title={t("My profile")} />
+      {error && <div className="form-notice profile-notice" role="alert">{t(error)}</div>}
       <div className="profile-grid">
         <PaperCard className="profile-identity">
           <label className="profile-avatar-picker">
-            <span className="profile-avatar">{profile?.avatarUrl ? <img src={profile.avatarUrl} alt="Profile" /> : profile?.name?.[0]?.toUpperCase() ?? 'K'}</span>
+            <span className="profile-avatar">{profile?.avatarUrl ? <img src={profile.avatarUrl} alt={t("Profile")} /> : profile?.name?.[0]?.toUpperCase() ?? 'K'}</span>
             <input type="file" accept="image/*" disabled={uploadingAvatar} onChange={(event) => void uploadAvatar(event.target.files?.[0])} />
-            <small>{uploadingAvatar ? 'Uploading…' : 'Change photo'}</small>
+            <small>{uploadingAvatar ? t("Uploading…") : t("Change photo")}</small>
           </label>
-          <h2>{profile?.name || (loading ? 'Loading…' : 'Kuri client')}</h2>
+          <h2>{profile?.name || (loading ? t("Loading…") : t("Kuri client"))}</h2>
           <p>{profile?.phone}</p>
-          <span className="profile-privacy-note">Only you and Kuri can see these details.</span>
-          <button className="secondary-button" onClick={() => void logout()}>Sign out</button>
+          <span className="profile-privacy-note">{t("Only you and Kuri can see these details.")}</span>
+          <button className="secondary-button" onClick={() => void logout()}>{t("Sign out")}</button>
         </PaperCard>
 
         <PaperCard className="profile-edit-card">
           <div className="profile-form-heading">
-            <div><p className="eyebrow">PERSONAL DETAILS</p><h2>Keep your notes up to date</h2></div>
-            {saved && <span className="save-success" role="status">Saved ✓</span>}
+            <div><p className="eyebrow">{t("PERSONAL DETAILS")}</p><h2>{t("Keep your notes up to date")}</h2></div>
+            {saved && <span className="save-success" role="status">{t("Saved ✓")}</span>}
           </div>
           <form onSubmit={handleSubmit}>
-            <label>Full name<input value={form.name} onChange={(event) => updateField('name', event.target.value)} autoComplete="name" maxLength={120} required disabled={loading} /></label>
+            <label>{t("Language")}<select value={form.preferredLanguage} onChange={(event) => updateField('preferredLanguage', event.target.value)} disabled={loading || saving}>{LANGUAGES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+            <label>{t("Full name")}<input value={form.name} onChange={(event) => updateField('name', event.target.value)} autoComplete="name" maxLength={120} required disabled={loading} /></label>
             <div className="form-pair">
-              <label>Phone<input value={form.phone} onChange={(event) => updateField('phone', event.target.value)} type="tel" autoComplete="tel" maxLength={40} placeholder="778-555-1234" required disabled={loading} /></label>
-              <label>Birthday <span className="optional">optional</span><input value={form.birthday} onChange={(event) => updateField('birthday', event.target.value)} type="date" max={MAX_BIRTHDAY} disabled={loading} /></label>
+              <label>{t("Phone")}<input value={form.phone} onChange={(event) => updateField('phone', event.target.value)} type="tel" autoComplete="tel" maxLength={40} placeholder="778-555-1234" required disabled={loading} /></label>
+              <label>{t("Birthday")}<span className="optional">{t("optional")}</span><input value={form.birthday} onChange={(event) => updateField('birthday', event.target.value)} type="date" max={MAX_BIRTHDAY} disabled={loading} /></label>
             </div>
             <div className="form-pair">
-              <label>Instagram <span className="optional">optional</span><input value={form.instagram} onChange={(event) => updateField('instagram', event.target.value)} maxLength={120} placeholder="@yourhandle" disabled={loading} /></label>
-              <label>WeChat <span className="optional">optional</span><input value={form.wechat} onChange={(event) => updateField('wechat', event.target.value)} maxLength={120} placeholder="Your WeChat ID" disabled={loading} /></label>
+              <label>{t("Instagram")}<span className="optional">{t("optional")}</span><input value={form.instagram} onChange={(event) => updateField('instagram', event.target.value)} maxLength={120} placeholder="@yourhandle" disabled={loading} /></label>
+              <label>{t("WeChat")}<span className="optional">{t("optional")}</span><input value={form.wechat} onChange={(event) => updateField('wechat', event.target.value)} maxLength={120} placeholder={t("Your WeChat ID")} disabled={loading} /></label>
             </div>
-            <label>Preferred nail style <span className="optional">optional</span><textarea value={form.preferredNailStyle} onChange={(event) => updateField('preferredNailStyle', event.target.value)} maxLength={1000} placeholder="Colors, shapes, finishes or styles you love…" disabled={loading} /></label>
-            <label>Allergy or sensitivity notes <span className="optional">optional</span><textarea value={form.allergyNotes} onChange={(event) => updateField('allergyNotes', event.target.value)} maxLength={1000} placeholder="Share anything Kuri should know before your visit…" disabled={loading} /></label>
-            <div className="profile-form-actions"><small>Your phone number is used for sign-in. If you change it, use the new number next time.</small><button className="primary-button" disabled={loading || saving}>{saving ? 'Saving…' : 'Save changes'}</button></div>
+            <label>{t("Preferred nail style")}<span className="optional">{t("optional")}</span><textarea value={form.preferredNailStyle} onChange={(event) => updateField('preferredNailStyle', event.target.value)} maxLength={1000} placeholder={t("Colors, shapes, finishes or styles you love…")} disabled={loading} /></label>
+            <label>{t("Allergy or sensitivity notes")}<span className="optional">{t("optional")}</span><textarea value={form.allergyNotes} onChange={(event) => updateField('allergyNotes', event.target.value)} maxLength={1000} placeholder={t("Share anything Kuri should know before your visit…")} disabled={loading} /></label>
+            <div className="profile-form-actions"><small>{t("Your phone number is used for sign-in. If you change it, use the new number next time.")}</small><button className="primary-button" disabled={loading || saving}>{saving ? t("Saving…") : t("Save changes")}</button></div>
           </form>
         </PaperCard>
         <PaperCard className="profile-edit-card profile-security-card">
-          <div className="profile-form-heading"><div><p className="eyebrow">SECURITY</p><h2>Change password</h2></div></div>
+          <div className="profile-form-heading"><div><p className="eyebrow">{t("SECURITY")}</p><h2>{t("Change password")}</h2></div></div>
           <form onSubmit={changePassword}>
-            <label>Current password<input type="password" value={passwords.current} onChange={(event) => setPasswords((value) => ({ ...value, current: event.target.value }))} autoComplete="current-password" required /></label>
-            <div className="form-pair"><label>New password<input type="password" value={passwords.next} onChange={(event) => setPasswords((value) => ({ ...value, next: event.target.value }))} autoComplete="new-password" minLength={8} maxLength={100} required /></label><label>Confirm new password<input type="password" value={passwords.confirm} onChange={(event) => setPasswords((value) => ({ ...value, confirm: event.target.value }))} autoComplete="new-password" minLength={8} maxLength={100} required /></label></div>
-            {passwordMessage && <div className="account-message" role="status">{passwordMessage}</div>}
-            <div className="profile-form-actions"><small>At least 8 characters. Other saved sessions will need the new password.</small><button className="primary-button" disabled={changingPassword}>{changingPassword ? 'Updating…' : 'Update password'}</button></div>
+            <label>{t("Current password")}<input type="password" value={passwords.current} onChange={(event) => setPasswords((value) => ({ ...value, current: event.target.value }))} autoComplete="current-password" required /></label>
+            <div className="form-pair"><label>{t("New password")}<input type="password" value={passwords.next} onChange={(event) => setPasswords((value) => ({ ...value, next: event.target.value }))} autoComplete="new-password" minLength={8} maxLength={100} required /></label><label>{t("Confirm new password")}<input type="password" value={passwords.confirm} onChange={(event) => setPasswords((value) => ({ ...value, confirm: event.target.value }))} autoComplete="new-password" minLength={8} maxLength={100} required /></label></div>
+            {passwordMessage && <div className="account-message" role="status">{t(passwordMessage)}</div>}
+            <div className="profile-form-actions"><small>{t("At least 8 characters. Other saved sessions will need the new password.")}</small><button className="primary-button" disabled={changingPassword}>{changingPassword ? t("Updating…") : t("Update password")}</button></div>
           </form>
         </PaperCard>
       </div>

@@ -1,9 +1,6 @@
 package com.kurilabo.user.api;
 
-import com.kurilabo.auth.domain.UserRole;
-import com.kurilabo.auth.domain.UserStatus;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Size;
 
@@ -17,8 +14,6 @@ public record AdminUpdateUserRequest(
         @Size(max = 120) String wechat,
         @Size(max = 1000) String preferredNailStyle,
         @Size(max = 1000) String allergyNotes,
-        @Size(max = 5000) String adminNotes,
-        @NotNull UserRole role,
-        @NotNull UserStatus status
+        @Size(max = 5000) String adminNotes
 ) {
 }

@@ -8,11 +8,14 @@ const REFRESH_TOKEN_KEY = 'kuri_mobile_refresh_token';
 
 export type ApiUser = {
   id: string;
+  clientId: string | null;
   email: string | null;
   role: 'USER' | 'ADMIN';
   name: string;
   phone: string | null;
+  contactPhone: string | null;
   birthday: string | null;
+  preferredLanguage?: 'en' | 'zh-CN';
 };
 
 export type AuthResponse = {

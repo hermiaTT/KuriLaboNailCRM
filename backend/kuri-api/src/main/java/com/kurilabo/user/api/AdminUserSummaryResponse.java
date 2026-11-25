@@ -1,32 +1,22 @@
 package com.kurilabo.user.api;
 
 import com.kurilabo.auth.domain.AppUser;
-import com.kurilabo.user.domain.UserProfile;
+import com.kurilabo.user.domain.Client;
 
 import java.time.Instant;
 import java.util.UUID;
 
 public record AdminUserSummaryResponse(
-        UUID id,
-        String email,
-        String accountType,
-        String role,
-        String status,
-        String name,
-        String phone,
-        Instant createdAt
+        UUID id, UUID accountId, String email, String accountType, String role,
+        String name, String clientName, String adminDisplayName, String phone, String loginPhone,
+        Instant nextAppointmentAt, Instant createdAt
 ) {
-    public static AdminUserSummaryResponse from(AppUser user, UserProfile profile) {
-        return new AdminUserSummaryResponse(
-                user.getId(),
-                user.getEmail(),
-                user.getAccountType().name(),
-                user.getRole().name(),
-                user.getStatus().name(),
-                profile.getName(),
-                profile.getPhone(),
-                user.getCreatedAt()
-        );
+    public static AdminUserSummaryResponse from(Client client, AppUser account, Instant nextAppointmentAt) {
+        boolean registered = account != null;
+        return new AdminUserSummaryResponse(client.getId(), registered ? account.getId() : null,
+                registered ? account.getEmail() : null, registered ? "REGISTERED" : "GUEST", "USER",
+                client.getAdminDisplayName(),
+                client.getClientName(), client.getAdminDisplayName(), client.getContactPhone(),
+                registered ? account.getLoginPhone() : null, nextAppointmentAt, client.getCreatedAt());
     }
 }
-

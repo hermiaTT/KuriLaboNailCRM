@@ -1,3 +1,4 @@
+import { formatClock, weekDayLabels, t, getLocale, useLanguage } from '../../shared/i18n';
 import { useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -25,7 +26,7 @@ import { colors, fonts, letterSpacing, radius, spacing, typeScale } from '../../
 import { api, ApiError } from '../../lib/api';
 import type { Appointment, Availability, ServiceDefinition } from '../../types/api';
 
-const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
 
 function pad(value: number) {
   return String(value).padStart(2, '0');
@@ -60,17 +61,16 @@ function buildMonthWeeks(year: number, month: number) {
 }
 
 function displayTime(value: string) {
-  const [hourText, minute] = value.split(':');
-  const hour = Number(hourText);
-  return `${hour % 12 || 12}:${minute} ${hour >= 12 ? 'PM' : 'AM'}`;
+  return formatClock(value);
 }
 
 function durationLabel(minutes: number) {
   const hours = minutes / 60;
-  return Number.isInteger(hours) ? `${hours} hr` : `${minutes} min`;
+  return Number.isInteger(hours) ? t("{count} hr", { count: hours }) : t("{count} min", { count: minutes });
 }
 
 export default function BookScreen() {
+  useLanguage();
   const now = new Date();
   const [viewYear, setViewYear] = useState(now.getFullYear());
   const [viewMonth, setViewMonth] = useState(now.getMonth());
@@ -89,10 +89,7 @@ export default function BookScreen() {
 
   const selectedDate = dateKey(viewYear, viewMonth, day);
   const weeks = useMemo(() => buildMonthWeeks(viewYear, viewMonth), [viewYear, viewMonth]);
-  const monthLabel = useMemo(
-    () => new Date(viewYear, viewMonth, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-    [viewYear, viewMonth],
-  );
+  const monthLabel = new Date(viewYear, viewMonth, 1).toLocaleDateString(getLocale(), { month: 'long', year: 'numeric' });
 
   const loadServices = useCallback(() => {
     setLoadingServices(true);
@@ -102,7 +99,7 @@ export default function BookScreen() {
         setServices(active);
         setServiceId((current) => current || active[0]?.id || '');
       })
-      .catch(() => setError('Unable to load services.'))
+      .catch(() => setError("Unable to load services."))
       .finally(() => setLoadingServices(false));
   }, []);
 
@@ -117,7 +114,7 @@ export default function BookScreen() {
       .then(setAvailability)
       .catch((cause) => {
         setAvailability(null);
-        setError(cause instanceof ApiError ? cause.message : 'Unable to load available times.');
+        setError(cause instanceof ApiError ? cause.message : "Unable to load available times.");
       })
       .finally(() => setLoadingSlots(false));
   }, [selectedDate, serviceId]);
@@ -134,7 +131,7 @@ export default function BookScreen() {
 
   async function pickReferences() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) { setError('Photo library access is required.'); return; }
+    if (!permission.granted) { setError("Photo library access is required."); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsMultipleSelection: true,
@@ -147,7 +144,7 @@ export default function BookScreen() {
 
   async function submit() {
     if (!serviceId || !selectedTime) {
-      setError('Choose a service and an available time.');
+      setError("Choose a service and an available time.");
       return;
     }
     setSubmitting(true);
@@ -174,14 +171,14 @@ export default function BookScreen() {
       }
       setCreated(completed);
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Unable to request this appointment.');
+      setError(cause instanceof ApiError ? cause.message : "Unable to request this appointment.");
     } finally {
       setSubmitting(false);
     }
   }
 
   const selectedService = services.find((item) => item.id === serviceId);
-  const selectedDateLabel = new Date(`${selectedDate}T12:00:00`).toLocaleDateString('en-US', {
+  const selectedDateLabel = new Date(`${selectedDate}T12:00:00`).toLocaleDateString(getLocale(), {
     weekday: 'long', month: 'short', day: 'numeric',
   });
 
@@ -189,13 +186,13 @@ export default function BookScreen() {
     <Screen>
       <ScreenHeader />
       <EyebrowTitle
-        eyebrow="book a visit"
-        title="Pick your time"
+        eyebrow={t("book a visit")}
+        title={t("Pick your time")}
         trailing={<Doodle kind="flower" size={22} color={colors.coral} />}
       />
 
       <View style={styles.row}>
-        <Text style={styles.sectionLabel}>1 · Choose a service</Text>
+        <Text style={styles.sectionLabel}>{t("1 · Choose a service")}</Text>
         {loadingServices ? (
           <ActivityIndicator color={colors.pinkInk} />
         ) : (
@@ -222,7 +219,7 @@ export default function BookScreen() {
       </View>
 
       <View style={styles.row}>
-        <Text style={styles.sectionLabel}>2 · Pick a date</Text>
+        <Text style={styles.sectionLabel}>{t("2 · Pick a date")}</Text>
         <HandRect padding={14} radius={radius.lg}>
           <View style={styles.monthNav}>
             <Pressable onPress={() => changeMonth(-1)} style={styles.navButton}>
@@ -234,7 +231,7 @@ export default function BookScreen() {
             </Pressable>
           </View>
           <View style={styles.weekRow}>
-            {DOW.map((label, index) => <Text key={`${label}-${index}`} style={styles.dow}>{label}</Text>)}
+            {weekDayLabels(true).map((label, index) => <Text key={`${label}-${index}`} style={styles.dow}>{label}</Text>)}
           </View>
           {weeks.map((week, rowIndex) => (
             <View key={rowIndex} style={styles.weekRow}>
@@ -261,7 +258,7 @@ export default function BookScreen() {
 
       <View style={styles.row}>
         <View style={styles.sectionHead}>
-          <Text style={styles.sectionLabel}>3 · Select a start time</Text>
+          <Text style={styles.sectionLabel}>{t("3 · Select a start time")}</Text>
           <Text style={styles.selectedDate}>{selectedDateLabel}</Text>
         </View>
         <HandRect padding={16} radius={radius.lg}>
@@ -285,7 +282,7 @@ export default function BookScreen() {
                 );
               })}
               {!loadingSlots && (availability?.slots.length ?? 0) === 0 && (
-                <Text style={styles.emptyText}>No times available for this date.</Text>
+                <Text style={styles.emptyText}>{t("No times available for this date.")}</Text>
               )}
             </View>
           )}
@@ -293,14 +290,14 @@ export default function BookScreen() {
       </View>
 
       <View style={styles.row}>
-        <Text style={styles.sectionLabel}>4 · Anything Kuri should know?</Text>
+        <Text style={styles.sectionLabel}>{t("4 · Anything Kuri should know?")}</Text>
         <HandRect padding={14} radius={radius.lg}>
           <TextInput
             value={note}
             onChangeText={setNote}
             multiline
             maxLength={1000}
-            placeholder="Colors, shapes, inspiration or special requests…"
+            placeholder={t("Colors, shapes, inspiration or special requests…")}
             placeholderTextColor={colors.inkFaint}
             style={styles.note}
           />
@@ -308,22 +305,22 @@ export default function BookScreen() {
       </View>
 
       <View style={styles.row}>
-        <Text style={styles.sectionLabel}>5 · Reference photos · optional</Text>
+        <Text style={styles.sectionLabel}>{t("5 · Reference photos · optional")}</Text>
         <Pressable onPress={pickReferences}>
           <HandRect padding={15} radius={radius.lg} dashed>
-            <Text style={styles.referencePicker}>{referenceAssets.length ? `${referenceAssets.length} selected · tap to change` : '＋ Choose up to 6 inspiration photos'}</Text>
+            <Text style={styles.referencePicker}>{referenceAssets.length ? t("{count} selected · tap to change", { count: referenceAssets.length }) : t("＋ Choose up to 6 inspiration photos")}</Text>
           </HandRect>
         </Pressable>
         {referenceAssets.length > 0 && <View style={styles.referenceGrid}>{referenceAssets.map((asset) => <View key={asset.uri}><Image source={{ uri: asset.uri }} style={styles.referenceImage} /><Pressable style={styles.removeReference} onPress={() => setReferenceAssets((current) => current.filter((item) => item.uri !== asset.uri))}><Text style={styles.removeReferenceText}>×</Text></Pressable></View>)}</View>}
       </View>
 
-      {error && <Text style={styles.error}>{error}</Text>}
+      {error && <Text style={styles.error}>{t(error)}</Text>}
 
       <View style={styles.row}>
         <HandButton color={selectedTime ? colors.pinkInk : colors.inkFaint} full size="lg" disabled={!selectedTime || submitting} onPress={submit}>
-          {submitting ? 'Sending request…' : 'Request appointment →'}
+          {submitting ? t("Sending request…") : t("Request appointment →")}
         </HandButton>
-        <Text style={styles.finePrint}>Pending requests hold the selected time until Kuri confirms.</Text>
+        <Text style={styles.finePrint}>{t("Pending requests hold the selected time until Kuri confirms.")}</Text>
       </View>
 
       <Modal transparent visible={Boolean(created)} animationType="fade" onRequestClose={() => setCreated(null)}>
@@ -332,13 +329,12 @@ export default function BookScreen() {
             <HandRect padding={24} radius={radius.xl}>
               <View style={styles.modalContent}>
                 <Doodle kind="heart" size={42} color={colors.pink} />
-                <Text style={styles.modalTitle}>Your time is being held</Text>
+                <Text style={styles.modalTitle}>{t("Your time is being held")}</Text>
                 <Text style={styles.modalBody}>
                   {selectedService?.name}{'\n'}{selectedDateLabel} · {displayTime(selectedTime)}
                 </Text>
                 <HandButton color={colors.pinkInk} full onPress={() => { setCreated(null); setSelectedTime(''); setNote(''); setReferenceAssets([]); }}>
-                  Done
-                </HandButton>
+                  {t("Done")}</HandButton>
               </View>
             </HandRect>
           </Pressable>

@@ -1,3 +1,4 @@
+import { t, getLocale, useLanguage } from '../../shared/i18n';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useState } from 'react';
 import { useRouter } from 'expo-router';
@@ -32,7 +33,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 
 function formatDisplay(d: Date): string {
-  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  return d.toLocaleDateString(getLocale(), { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
 function formatDb(d: Date): string {
@@ -40,6 +41,7 @@ function formatDb(d: Date): string {
 }
 
 export default function RegisterScreen() {
+  useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { signUp } = useAuth();
@@ -55,7 +57,7 @@ export default function RegisterScreen() {
 
   async function handleSignUp() {
     if (!name || !phone || !password) {
-      setError('Please fill in name, phone, and password.');
+      setError("Please fill in name, phone, and password.");
       return;
     }
     setError(null);
@@ -90,42 +92,41 @@ export default function RegisterScreen() {
           <View style={styles.row}>
             <Pressable onPress={() => router.back()} style={styles.back}>
               <Icons.ChevL color={colors.ink}/>
-              <Text style={styles.backText}>back</Text>
+              <Text style={styles.backText}>{t("back")}</Text>
             </Pressable>
           </View>
 
           <EyebrowTitle
-            eyebrow="new here?"
-            title="Create profile"
+            eyebrow={t("new here?")}
+            title={t("Create profile")}
             trailing={<Doodle kind="sparkle" size={20} color={colors.coral} style={{ transform: [{ rotate: '-12deg' }] }}/>}
           />
 
           <View style={styles.row}>
             <Text style={styles.tagline}>
-              We'll save your favorite styles and visits so Kuri can pick up right where you left off.
-            </Text>
+              {t("We'll save your favorite styles and visits so Kuri can pick up right where you left off.")}</Text>
           </View>
 
           {/* Form */}
           <View style={styles.row}>
             <HandRect padding={20} radius={radius.lg}>
               <View style={{ gap: 12 }}>
-                <Field placeholder="Name" value={name} onChangeText={setName}/>
+                <Field placeholder={t("Name")} value={name} onChangeText={setName}/>
                 <Field
-                  placeholder="Email (optional)"
+                  placeholder={t("Email (optional)")}
                   autoCapitalize="none"
                   keyboardType="email-address"
                   value={email}
                   onChangeText={setEmail}
                 />
-                <Field placeholder="Phone number" keyboardType="phone-pad" value={phone} onChangeText={setPhone}/>
+                <Field placeholder={t("Phone number")} keyboardType="phone-pad" value={phone} onChangeText={setPhone}/>
 
                 {/* Birthday picker */}
                 <Pressable onPress={() => setShowPicker(v => !v)}>
                   <HandRect padding={0} radius={radius.md} fill={colors.creamCard}>
                     <View style={styles.birthdayRow}>
                       <Text style={[styles.birthdayText, !birthday && { color: colors.inkFaint }]}>
-                        {birthday ? formatDisplay(birthday) : 'Birthday (optional)'}
+                        {birthday ? formatDisplay(birthday) : t("Birthday (optional)")}
                       </Text>
                       <Doodle kind="heart" size={14} color={colors.pinkInk} style={{ opacity: 0.5 }}/>
                     </View>
@@ -135,6 +136,7 @@ export default function RegisterScreen() {
                 {showPicker && (
                   <View style={styles.pickerWrap}>
                     <DateTimePicker
+                      locale={getLocale()}
                       value={birthday ?? new Date(2000, 0, 1)}
                       mode="date"
                       display="spinner"
@@ -144,22 +146,21 @@ export default function RegisterScreen() {
                       textColor={colors.ink}
                     />
                     <Pressable onPress={() => setShowPicker(false)} style={styles.doneBtn}>
-                      <Text style={styles.doneBtnText}>Done</Text>
+                      <Text style={styles.doneBtnText}>{t("Done")}</Text>
                     </Pressable>
                   </View>
                 )}
 
-                <Field placeholder="Password" secureTextEntry value={password} onChangeText={setPassword}/>
+                <Field placeholder={t("Password")} secureTextEntry value={password} onChangeText={setPassword}/>
               </View>
 
               <View style={styles.terms}>
                 <View style={styles.check}><Text style={styles.checkText}>✓</Text></View>
                 <Text style={styles.termsText}>
-                  By creating a profile, you agree to KuriLabo's cozy little terms.
-                </Text>
+                  {t("By creating a profile, you agree to KuriLabo's cozy little terms.")}</Text>
               </View>
 
-              {error && <Text style={styles.errorText}>{error}</Text>}
+              {error && <Text style={styles.errorText}>{t(error)}</Text>}
 
               <View style={{ marginTop: 18 }}>
                 <HandButton
@@ -169,7 +170,7 @@ export default function RegisterScreen() {
                   onPress={handleSignUp}
                   disabled={loading}
                 >
-                  {loading ? 'Creating profile…' : 'Create profile →'}
+                  {loading ? t("Creating profile…") : t("Create profile →")}
                 </HandButton>
               </View>
             </HandRect>
@@ -178,8 +179,8 @@ export default function RegisterScreen() {
           {/* Sign in link */}
           <View style={styles.row}>
             <Pressable onPress={() => router.replace('/(auth)/login')} style={styles.linkBtn}>
-              <Text style={styles.linkText}>Already have a profile? </Text>
-              <Text style={[styles.linkText, { color: colors.pinkInk }]}>Sign in →</Text>
+              <Text style={styles.linkText}>{t("Already have a profile?")}</Text>
+              <Text style={[styles.linkText, { color: colors.pinkInk }]}>{t("Sign in →")}</Text>
             </Pressable>
           </View>
         </ScrollView>

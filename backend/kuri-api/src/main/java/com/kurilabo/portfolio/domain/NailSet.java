@@ -2,6 +2,7 @@ package com.kurilabo.portfolio.domain;
 
 import com.kurilabo.appointment.domain.Appointment;
 import com.kurilabo.auth.domain.AppUser;
+import com.kurilabo.user.domain.Client;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -27,7 +28,7 @@ public class NailSet {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id")
-    private AppUser client;
+    private Client client;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "appointment_id")
@@ -58,7 +59,7 @@ public class NailSet {
 
     public NailSet(
             UUID id,
-            AppUser client,
+            Client client,
             Appointment appointment,
             String title,
             String description,
@@ -81,7 +82,7 @@ public class NailSet {
     }
 
     public void updateDetailsAndLink(
-            AppUser client,
+            Client client,
             Appointment appointment,
             String title,
             String description,
@@ -95,7 +96,7 @@ public class NailSet {
     }
 
     public UUID getId() { return id; }
-    public AppUser getClient() { return client; }
+    public Client getClient() { return client; }
     public Appointment getAppointment() { return appointment; }
     public String getTitle() { return title; }
     public String getDescription() { return description; }

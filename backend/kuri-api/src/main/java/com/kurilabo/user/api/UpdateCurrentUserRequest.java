@@ -2,6 +2,7 @@ package com.kurilabo.user.api;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Past;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
@@ -13,6 +14,7 @@ public record UpdateCurrentUserRequest(
         @Size(max = 120) String instagram,
         @Size(max = 120) String wechat,
         @Size(max = 1000) String preferredNailStyle,
-        @Size(max = 1000) String allergyNotes
+        @Size(max = 1000) String allergyNotes,
+        @Pattern(regexp = "en|zh-CN", message = "Unsupported language.") String preferredLanguage
 ) {
 }

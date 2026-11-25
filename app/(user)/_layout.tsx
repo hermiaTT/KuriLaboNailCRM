@@ -1,3 +1,4 @@
+import { t, useLanguage } from '../../shared/i18n';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -14,6 +15,7 @@ import { colors } from '../../constants/theme';
  *   `<TabBarIcon focused/>`.
  */
 export default function UserTabsLayout() {
+  useLanguage();
   const insets = useSafeAreaInsets();
 
   return (
@@ -43,36 +45,36 @@ export default function UserTabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Home',
+          title: t('Home'),
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon focused={focused} icon={(c, s) => <Icons.Home color={c} size={s}/>} label="Home"/>
+            <TabBarIcon focused={focused} icon={(c, s) => <Icons.Home color={c} size={s}/>} label={t('Home')}/>
           ),
         }}
       />
       <Tabs.Screen
         name="collection"
         options={{
-          title: 'Collection',
+          title: t('Collection'),
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon focused={focused} icon={(c, s) => <Icons.Heart color={c} size={s}/>} label="Past"/>
+            <TabBarIcon focused={focused} icon={(c, s) => <Icons.Heart color={c} size={s}/>} label={t('Past')}/>
           ),
         }}
       />
       <Tabs.Screen
         name="inspiration"
         options={{
-          title: 'Inspo',
+          title: t('Inspo'),
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon focused={focused} icon={(c, s) => <Icons.Sparkle color={c} size={s}/>} label="Inspo"/>
+            <TabBarIcon focused={focused} icon={(c, s) => <Icons.Sparkle color={c} size={s}/>} label={t('Inspo')}/>
           ),
         }}
       />
       <Tabs.Screen
         name="book"
         options={{
-          title: 'Book',
+          title: t('Book'),
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon focused={focused} icon={(c, s) => <Icons.Calendar color={c} size={s}/>} label="Book"/>
+            <TabBarIcon focused={focused} icon={(c, s) => <Icons.Calendar color={c} size={s}/>} label={t('Book')}/>
           ),
         }}
       />

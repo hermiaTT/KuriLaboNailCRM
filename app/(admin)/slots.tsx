@@ -1,3 +1,4 @@
+import { statusLabel, t, getLocale, useLanguage } from '../../shared/i18n';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
@@ -11,10 +12,11 @@ import type { AdminUser, Appointment, AvailabilityBlock } from '../../types/api'
 function pad(value: number) { return String(value).padStart(2, '0'); }
 function keyOf(date: Date) { return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`; }
 function addDays(date: string, amount: number) { const next = new Date(`${date}T12:00:00`); next.setDate(next.getDate() + amount); return keyOf(next); }
-function dateLabel(date: string) { return new Date(`${date}T12:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }); }
-function timeLabel(iso: string) { return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Vancouver' }).format(new Date(iso)); }
+function dateLabel(date: string) { return new Date(`${date}T12:00:00`).toLocaleDateString(getLocale(), { weekday: 'long', month: 'long', day: 'numeric' }); }
+function timeLabel(iso: string) { return new Intl.DateTimeFormat(getLocale(), { hour: 'numeric', minute: '2-digit', timeZone: 'America/Vancouver' }).format(new Date(iso)); }
 
 export default function AdminSlotsScreen() {
+  useLanguage();
   const router = useRouter();
   const [date, setDate] = useState(keyOf(new Date()));
   const [blocks, setBlocks] = useState<AvailabilityBlock[]>([]);
@@ -36,13 +38,13 @@ export default function AdminSlotsScreen() {
     const to = addDays(date, 62);
     Promise.all([api<AvailabilityBlock[]>(`/api/v1/admin/availability-blocks?from=${from}&to=${to}`), api<Appointment[]>('/api/v1/admin/appointments'), api<AdminUser[]>('/api/v1/admin/users')])
       .then(([nextBlocks, nextAppointments, users]) => { setBlocks(nextBlocks); setAppointments(nextAppointments); setNames(new Map(users.map((item) => [item.id, item.name]))); })
-      .catch(() => setError('Unable to load blocked times.'))
+      .catch(() => setError("Unable to load blocked times."))
       .finally(() => setLoading(false));
   }, [date]);
   useFocusEffect(load);
 
   const salonDate = (value: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Vancouver' }).format(new Date(value));
-  const salonMinutes = (value: string) => { const parts = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'America/Vancouver' }).formatToParts(new Date(value)); return Number(parts.find((item) => item.type === 'hour')?.value ?? 0) * 60 + Number(parts.find((item) => item.type === 'minute')?.value ?? 0); };
+  const salonMinutes = (value: string) => { const parts = new Intl.DateTimeFormat(getLocale(), { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'America/Vancouver' }).formatToParts(new Date(value)); return Number(parts.find((item) => item.type === 'hour')?.value ?? 0) * 60 + Number(parts.find((item) => item.type === 'minute')?.value ?? 0); };
   const selected = blocks.filter((item) => salonDate(item.startAt) <= date && (salonDate(item.endAt) > date || (salonDate(item.endAt) === date && salonMinutes(item.endAt) > 0)));
   const selectedAppointments = appointments.filter((item) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Vancouver' }).format(new Date(item.startAt)) === date && !['CANCELLED', 'REJECTED'].includes(item.status)).sort((a, b) => a.startAt.localeCompare(b.startAt));
 
@@ -55,36 +57,36 @@ export default function AdminSlotsScreen() {
       });
       setBlocks((current) => [...current, created]);
       setShowCreate(false); setReason(''); setFullDay(false); setEndDate(date);
-    } catch (cause) { setError(cause instanceof ApiError ? cause.message : 'Unable to block this time.'); }
+    } catch (cause) { setError(cause instanceof ApiError ? cause.message : "Unable to block this time."); }
     finally { setSaving(false); }
   }
 
   async function removeBlock(id: string) {
     try { await api(`/api/v1/admin/availability-blocks/${id}`, { method: 'DELETE' }); setBlocks((current) => current.filter((item) => item.id !== id)); }
-    catch { setError('Unable to remove this block.'); }
+    catch { setError("Unable to remove this block."); }
   }
 
   return <Screen>
     <ScreenHeader />
-    <EyebrowTitle eyebrow="studio availability" title="Block time" trailing={<Doodle kind="swirl" size={22} color={colors.coral} />} />
+    <EyebrowTitle eyebrow={t("studio availability")} title={t("Block time")} trailing={<Doodle kind="swirl" size={22} color={colors.coral} />} />
     <View style={styles.row}><HandRect padding={14} radius={radius.lg}><View style={styles.dateNav}>
       <Pressable onPress={() => setDate(addDays(date, -1))}><Icons.ChevL color={colors.ink} /></Pressable>
       <View><Text style={styles.date}>{dateLabel(date)}</Text><Text style={styles.dateKey}>{date}</Text></View>
       <Pressable onPress={() => setDate(addDays(date, 1))}><Icons.Chev color={colors.ink} /></Pressable>
-    </View><View style={styles.picker}><DateTimePicker value={new Date(`${date}T12:00:00`)} mode="date" display="compact" onChange={(_, value) => value && setDate(keyOf(value))} /></View></HandRect></View>
-    <View style={styles.row}><View style={styles.actionRow}><HandButton color={colors.inkSoft} onPress={() => { setEndDate(date); setShowCreate(true); }}>Block time</HandButton><HandButton color={colors.pinkInk} onPress={() => router.push({ pathname: '/(admin)/create-appointment', params: { date } })}>+ Book client</HandButton></View></View>
-    {error && <Text style={styles.error}>{error}</Text>}
+    </View><View style={styles.picker}><DateTimePicker locale={getLocale()} value={new Date(`${date}T12:00:00`)} mode="date" display="compact" onChange={(_, value) => value && setDate(keyOf(value))} /></View></HandRect></View>
+    <View style={styles.row}><View style={styles.actionRow}><HandButton color={colors.inkSoft} onPress={() => { setEndDate(date); setShowCreate(true); }}>{t("Block time")}</HandButton><HandButton color={colors.pinkInk} onPress={() => router.push({ pathname: '/(admin)/create-appointment', params: { date } })}>{t("+ Book client")}</HandButton></View></View>
+    {error && <Text style={styles.error}>{t(error)}</Text>}
     {loading ? <ActivityIndicator color={colors.pinkInk} style={{ marginTop: 30 }} /> : <View style={styles.list}>
-      {selected.map((block) => { const range = salonMinutes(block.startAt) === 0 && salonMinutes(block.endAt) === 0; return <HandRect key={block.id} padding={14} radius={radius.lg} fill={colors.pinkSoft}><View style={styles.blockRow}><View style={{ flex: 1 }}><Text style={styles.blockTime}>{range ? `${salonDate(block.startAt)} through ${addDays(salonDate(block.endAt), -1)}` : `${timeLabel(block.startAt)} – ${timeLabel(block.endAt)}`}</Text><Text style={styles.blockReason}>{block.reason || 'Studio unavailable'}</Text></View><Pressable onPress={() => removeBlock(block.id)}><Icons.Trash color={colors.pinkInk} /></Pressable></View></HandRect>; })}
-      {selected.length === 0 && <Text style={styles.empty}>No blocked time on this date.</Text>}
-      <Text style={styles.sectionLabel}>{selectedAppointments.length} appointment{selectedAppointments.length === 1 ? '' : 's'}</Text>
-      {selectedAppointments.map((item) => <HandRect key={item.id} padding={14} radius={radius.lg} fill={colors.blueSoft}><View style={styles.blockRow}><View style={{ flex: 1 }}><Text style={styles.blockTime}>{timeLabel(item.startAt)} – {timeLabel(item.endAt)}</Text><Text style={styles.blockReason}>{names.get(item.customerId) ?? 'Client'} · {item.serviceName}</Text></View><Text style={styles.status}>{item.status.toLowerCase().replaceAll('_', ' ')}</Text></View></HandRect>)}
-      {selectedAppointments.length === 0 && <Text style={styles.empty}>No appointments on this date.</Text>}
+      {selected.map((block) => { const range = salonMinutes(block.startAt) === 0 && salonMinutes(block.endAt) === 0; return <HandRect key={block.id} padding={14} radius={radius.lg} fill={colors.pinkSoft}><View style={styles.blockRow}><View style={{ flex: 1 }}><Text style={styles.blockTime}>{range ? t("{start} through {end}", { start: salonDate(block.startAt), end: addDays(salonDate(block.endAt), -1) }) : `${timeLabel(block.startAt)} – ${timeLabel(block.endAt)}`}</Text><Text style={styles.blockReason}>{block.reason || t("Studio unavailable")}</Text></View><Pressable onPress={() => removeBlock(block.id)}><Icons.Trash color={colors.pinkInk} /></Pressable></View></HandRect>; })}
+      {selected.length === 0 && <Text style={styles.empty}>{t("No blocked time on this date.")}</Text>}
+      <Text style={styles.sectionLabel}>{selectedAppointments.length} {t("appointment")}{getLocale() === 'en-US' && selectedAppointments.length !== 1 ? 's' : ''}</Text>
+      {selectedAppointments.map((item) => <HandRect key={item.id} padding={14} radius={radius.lg} fill={colors.blueSoft}><View style={styles.blockRow}><View style={{ flex: 1 }}><Text style={styles.blockTime}>{timeLabel(item.startAt)} – {timeLabel(item.endAt)}</Text><Text style={styles.blockReason}>{item.customerName ?? names.get(item.customerId) ?? t("Client")} · {item.serviceName}</Text></View><Text style={styles.status}>{statusLabel(item.status)}</Text></View></HandRect>)}
+      {selectedAppointments.length === 0 && <Text style={styles.empty}>{t("No appointments on this date.")}</Text>}
     </View>}
     <Modal transparent visible={showCreate} animationType="fade" onRequestClose={() => setShowCreate(false)}><Pressable style={styles.backdrop} onPress={() => setShowCreate(false)}><Pressable style={styles.modal} onPress={() => undefined}><HandRect padding={22} radius={radius.xl}>
-      <Text style={styles.modalTitle}>Block studio time</Text><View style={styles.switchRow}><Text style={styles.switchText}>Block full day(s)</Text><Switch value={fullDay} onValueChange={(value) => { setFullDay(value); setEndDate(date); }} trackColor={{ true: colors.pinkInk }} /></View>
-      {fullDay ? <View style={styles.rangeBox}><Text style={styles.rangeLabel}>From {date}</Text><Text style={styles.rangeLabel}>Through (included)</Text><DateTimePicker value={new Date(`${endDate}T12:00:00`)} mode="date" display={Platform.OS === 'ios' ? 'compact' : 'default'} minimumDate={new Date(`${date}T12:00:00`)} onChange={(_, value) => value && setEndDate(keyOf(value))} /></View> : <View style={styles.timeRow}><Field containerStyle={{ flex: 1 }} placeholder="Start" value={startTime} onChangeText={setStartTime} /><Field containerStyle={{ flex: 1 }} placeholder="End" value={endTime} onChangeText={setEndTime} /></View>}
-      <Field placeholder="Reason (optional)" value={reason} onChangeText={setReason} multiline /><View style={{ marginTop: 14 }}><HandButton full color={colors.pinkInk} disabled={saving} onPress={createBlock}>{saving ? 'Saving…' : 'Block time'}</HandButton></View>
+      <Text style={styles.modalTitle}>{t("Block studio time")}</Text><View style={styles.switchRow}><Text style={styles.switchText}>{t("Block full day(s)")}</Text><Switch value={fullDay} onValueChange={(value) => { setFullDay(value); setEndDate(date); }} trackColor={{ true: colors.pinkInk }} /></View>
+      {fullDay ? <View style={styles.rangeBox}><Text style={styles.rangeLabel}>{t("From")}{date}</Text><Text style={styles.rangeLabel}>{t("Through (included)")}</Text><DateTimePicker locale={getLocale()} value={new Date(`${endDate}T12:00:00`)} mode="date" display={Platform.OS === 'ios' ? 'compact' : 'default'} minimumDate={new Date(`${date}T12:00:00`)} onChange={(_, value) => value && setEndDate(keyOf(value))} /></View> : <View style={styles.timeRow}><Field containerStyle={{ flex: 1 }} placeholder={t("Start")} value={startTime} onChangeText={setStartTime} /><Field containerStyle={{ flex: 1 }} placeholder={t("End")} value={endTime} onChangeText={setEndTime} /></View>}
+      <Field placeholder={t("Reason (optional)")} value={reason} onChangeText={setReason} multiline /><View style={{ marginTop: 14 }}><HandButton full color={colors.pinkInk} disabled={saving} onPress={createBlock}>{saving ? t("Saving…") : t("Block time")}</HandButton></View>
     </HandRect></Pressable></Pressable></Modal>
   </Screen>;
 }

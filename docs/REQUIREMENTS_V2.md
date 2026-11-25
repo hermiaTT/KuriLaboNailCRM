@@ -51,6 +51,14 @@ An admin can manage all product data, including:
 
 Admin accounts may create appointments at any time of day and are not restricted to normal user booking hours.
 
+### 2.3 Interface language
+
+- Users and admins can choose English (`en`) or Simplified Chinese (`zh-CN`) in Personal Details on web and mobile.
+- The preference belongs to the account and defaults to English for existing accounts.
+- A draft selection takes effect only after Save changes succeeds. Failed saves preserve the active interface language.
+- Authentication and profile responses include the preference so another device can restore it when signing in or refreshing the profile.
+- Navigation, forms, statuses, system notifications and display dates follow the selected language. Names, custom service definitions, notes and uploaded content retain their original text.
+
 ## 3. Services
 
 The initial service catalog contains:
@@ -178,11 +186,21 @@ The WeChat ID and contact text must be configurable by an admin. A copy action s
 ## 9. Inspiration favorites
 
 - Favorites are persisted in the database.
-- A favorite belongs to one user and one inspiration item.
+- A favorite belongs to one client record and one inspiration item.
 - A user cannot save the same inspiration item more than once.
 - Users can view and remove their saved inspiration.
 - Admins can view a customer's saved inspiration as part of the customer's preference profile.
 - Favorite events may later be used for recommendations and analytics.
+
+## 9.1 Client records and login accounts
+
+- CRM client records and login accounts are separate entities linked by `clientId`.
+- Admins can create a client with only a unique admin-only internal name; phone is optional.
+- Customer-facing names may repeat. Admin internal names must be unique among active clients.
+- A customer registration creates an account and a client record unless an eligible existing client is claimed.
+- In test mode, an unlinked client with the same normalized phone can be claimed automatically while preserving its `clientId`, appointments, photos, favorites, and history.
+- Production must not use automatic phone claiming without verification. Until OTP is implemented, same-phone matches create a separate registered client for an admin-reviewed merge.
+- Manual merge moves all customer-owned records, keeps the registered account attached to the target, and archives the source through merge history rather than deleting it.
 
 ## 10. Visit completion
 

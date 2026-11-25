@@ -1,3 +1,4 @@
+import { setLanguage } from '../shared/i18n/core';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import {
@@ -37,7 +38,7 @@ interface AuthContextType {
   signIn: (phone: string, password: string) => Promise<{ error: string | null }>;
   signUp: (input: RegisterInput) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
-  refreshUser: () => Promise<void>;
+  refreshUser: (updated?: ApiUser) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -63,6 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const applySession = useCallback((nextSession: MobileSession | null) => {
+    if (nextSession) setLanguage(nextSession.user.preferredLanguage);
     setSession(nextSession);
     setProfile(nextSession ? toProfile(nextSession.user) : null);
   }, []);
@@ -103,8 +105,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [applySession]);
 
-  const refreshUser = useCallback(async () => {
-    const user = await api<ApiUser>('/api/v1/users/me');
+  const refreshUser = useCallback(async (updated?: ApiUser) => {
+    const user = updated ?? await api<ApiUser>('/api/v1/users/me');
+    setLanguage(user.preferredLanguage);
     setSession((current) => {
       if (!current) return current;
       const next = { ...current, user };

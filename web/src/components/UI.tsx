@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { statusLabel, useLanguage } from '../lib/i18n';
+import type { HTMLAttributes, ReactNode } from 'react';
 
 export function Brand() {
   return (
@@ -9,11 +10,14 @@ export function Brand() {
   );
 }
 
-export function PaperCard({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <div className={`paper-card ${className}`}>{children}</div>;
+type PaperCardProps = HTMLAttributes<HTMLDivElement> & { children: ReactNode };
+
+export function PaperCard({ children, className = '', ...props }: PaperCardProps) {
+  return <div className={`paper-card ${className}`} {...props}>{children}</div>;
 }
 
 export function StatusBadge({ status }: { status: string }) {
+  useLanguage();
   const key = status.toLowerCase();
   const label: Record<string, string> = {
     pending_confirmation: 'pending',
@@ -21,7 +25,7 @@ export function StatusBadge({ status }: { status: string }) {
     completed: 'completed',
     no_show: 'no show',
   };
-  return <span className={`status status-${key}`}><i />{label[key] ?? key}</span>;
+  return <span className={`status status-${key}`}><i />{statusLabel(label[key] ?? key)}</span>;
 }
 
 export function PageHeading({ eyebrow, title, action }: { eyebrow: string; title: string; action?: ReactNode }) {

@@ -16,6 +16,8 @@ import com.kurilabo.appointment.infrastructure.AppointmentStatusHistoryRepositor
 import com.kurilabo.appointment.infrastructure.CancellationRequestRepository;
 import com.kurilabo.auth.domain.AppUser;
 import com.kurilabo.auth.infrastructure.AppUserRepository;
+import com.kurilabo.user.domain.Client;
+import com.kurilabo.user.infrastructure.ClientRepository;
 import com.kurilabo.availability.application.AvailabilityService;
 import com.kurilabo.availability.domain.SalonSetting;
 import com.kurilabo.availability.application.ScheduleLockService;
@@ -49,6 +51,7 @@ public class AppointmentService {
     private final AppointmentStatusHistoryRepository historyRepository;
     private final CancellationRequestRepository cancellationRequestRepository;
     private final AppUserRepository userRepository;
+    private final ClientRepository clientRepository;
     private final AvailabilityService availabilityService;
     private final OutboxEventRepository outboxEventRepository;
     private final ScheduleLockService scheduleLockService;
@@ -60,6 +63,7 @@ public class AppointmentService {
             AppointmentStatusHistoryRepository historyRepository,
             CancellationRequestRepository cancellationRequestRepository,
             AppUserRepository userRepository,
+            ClientRepository clientRepository,
             AvailabilityService availabilityService,
             OutboxEventRepository outboxEventRepository,
             ScheduleLockService scheduleLockService,
@@ -70,6 +74,7 @@ public class AppointmentService {
         this.historyRepository = historyRepository;
         this.cancellationRequestRepository = cancellationRequestRepository;
         this.userRepository = userRepository;
+        this.clientRepository = clientRepository;
         this.availabilityService = availabilityService;
         this.outboxEventRepository = outboxEventRepository;
         this.scheduleLockService = scheduleLockService;
@@ -80,6 +85,7 @@ public class AppointmentService {
     @Transactional
     public AppointmentResponse createUserAppointment(UUID userId, CreateAppointmentRequest request) {
         AppUser user = getUser(userId);
+        Client customer = getClientForUser(user);
         ServiceDefinition service = availabilityService.getActiveService(request.serviceId());
         SalonSetting settings = availabilityService.getSettings();
         validateUserStartTime(request.startTime(), service, settings);
@@ -97,7 +103,7 @@ public class AppointmentService {
 
         Appointment appointment = new Appointment(
                 UUID.randomUUID(),
-                user,
+                customer,
                 service,
                 startAt,
                 endAt,
@@ -133,7 +139,7 @@ public class AppointmentService {
     @Transactional
     public AdminAppointmentResponse createAdminAppointment(UUID adminId, AdminCreateAppointmentRequest request) {
         AppUser admin = getUser(adminId);
-        AppUser customer = userRepository.findById(request.customerId())
+        Client customer = clientRepository.findById(request.customerId())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Customer was not found."));
         SalonSetting settings = availabilityService.getSettings();
         validateAdminTimes(request.startTime(), request.endTime());
@@ -186,14 +192,15 @@ public class AppointmentService {
                 eventPayload(appointment),
                 now
         ));
-        notificationService.notifyUser(customer, "APPOINTMENT_CREATED", "Appointment added",
+        notificationService.notifyClient(customer, "APPOINTMENT_CREATED", "Appointment added",
                 "Kuri added a " + appointment.getServiceNameSnapshot() + " appointment to your schedule.", appointment.getId());
         return AdminAppointmentResponse.from(appointment);
     }
 
     @Transactional(readOnly = true)
     public List<AppointmentResponse> getUserAppointments(UUID userId) {
-        return appointmentRepository.findByCustomer_IdOrderByStartAtDesc(userId).stream()
+        AppUser user = getUser(userId);
+        return appointmentRepository.findByCustomer_IdOrderByStartAtDesc(getClientForUser(user).getId()).stream()
                 .map(AppointmentResponse::from)
                 .toList();
     }
@@ -221,7 +228,7 @@ public class AppointmentService {
             RecordHistoricalAppointmentRequest request
     ) {
         AppUser admin = getUser(adminId);
-        AppUser customer = userRepository.findById(request.customerId())
+        Client customer = clientRepository.findById(request.customerId())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Customer was not found."));
         SalonSetting settings = availabilityService.getSettings();
         validateAdminTimes(request.startTime(), request.endTime());
@@ -311,7 +318,7 @@ public class AppointmentService {
     public AppointmentResponse requestCancellation(UUID userId, UUID appointmentId, String reason) {
         AppUser user = getUser(userId);
         Appointment appointment = getAppointment(appointmentId);
-        if (!appointment.getCustomer().getId().equals(userId)) {
+        if (!appointment.getCustomer().getId().equals(getClientForUser(user).getId())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "This appointment does not belong to you.");
         }
         Instant now = clock.instant();
@@ -367,7 +374,7 @@ public class AppointmentService {
                 now,
                 "AppointmentCancelledV1"
         );
-        notificationService.notifyUser(appointment.getCustomer(), "APPOINTMENT_CANCELLED", "Cancellation approved",
+        notificationService.notifyClient(appointment.getCustomer(), "APPOINTMENT_CANCELLED", "Cancellation approved",
                 "Your appointment has been cancelled.", appointment.getId());
         return AppointmentResponse.from(appointment);
     }
@@ -393,7 +400,7 @@ public class AppointmentService {
                 now,
                 "AppointmentCancellationRejectedV1"
         );
-        notificationService.notifyUser(appointment.getCustomer(), "CANCELLATION_REJECTED", "Cancellation request updated",
+        notificationService.notifyClient(appointment.getCustomer(), "CANCELLATION_REJECTED", "Cancellation request updated",
                 "Your cancellation request was not approved. Please contact Kuri if you need help.", appointment.getId());
         return AppointmentResponse.from(appointment);
     }
@@ -410,7 +417,7 @@ public class AppointmentService {
             throw new ApiException(HttpStatus.CONFLICT, exception.getMessage());
         }
         recordReview(appointment, previous, reason, admin, now, "AppointmentConfirmedV1");
-        notificationService.notifyUser(appointment.getCustomer(), "APPOINTMENT_CONFIRMED", "Appointment confirmed",
+        notificationService.notifyClient(appointment.getCustomer(), "APPOINTMENT_CONFIRMED", "Appointment confirmed",
                 "Your " + appointment.getServiceNameSnapshot() + " appointment is confirmed.", appointment.getId());
         return AppointmentResponse.from(appointment);
     }
@@ -427,7 +434,7 @@ public class AppointmentService {
             throw new ApiException(HttpStatus.CONFLICT, exception.getMessage());
         }
         recordReview(appointment, previous, reason, admin, now, "AppointmentRejectedV1");
-        notificationService.notifyUser(appointment.getCustomer(), "APPOINTMENT_REJECTED", "Booking request declined",
+        notificationService.notifyClient(appointment.getCustomer(), "APPOINTMENT_REJECTED", "Booking request declined",
                 "Your booking request could not be confirmed. Please choose another time.", appointment.getId());
         return AppointmentResponse.from(appointment);
     }
@@ -548,6 +555,14 @@ public class AppointmentService {
     private AppUser getUser(UUID userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "User no longer exists."));
+    }
+
+    private Client getClientForUser(AppUser user) {
+        if (user.getClient() == null) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "A client account is required.");
+        }
+        return clientRepository.findById(user.getClient().getId())
+                .orElseThrow(() -> new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Client record is missing."));
     }
 
     private Appointment getAppointment(UUID appointmentId) {

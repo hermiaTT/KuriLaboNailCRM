@@ -1,3 +1,4 @@
+import { setLanguage } from '../../../shared/i18n/core';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { api, AUTH_EXPIRED_EVENT, setAccessToken } from '../lib/api';
@@ -9,7 +10,7 @@ type AuthContextValue = {
   login: (phone: string, password: string) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
   logout: () => Promise<void>;
-  refreshUser: () => Promise<void>;
+  refreshUser: (updated?: UserSummary) => Promise<void>;
 };
 
 type RegisterInput = {
@@ -32,8 +33,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handleExpiredSession);
   }, []);
 
-  const refreshUser = useCallback(async () => {
-    setUser(await api<UserSummary>('/api/v1/users/me'));
+  const refreshUser = useCallback(async (updated?: UserSummary) => {
+    const next = updated ?? await api<UserSummary>('/api/v1/users/me');
+    setLanguage(next.preferredLanguage);
+    setUser(next);
   }, []);
 
   useEffect(() => {
@@ -53,6 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }),
     });
     setAccessToken(session.accessToken);
+    setLanguage(session.user.preferredLanguage);
     setUser(session.user);
   }, []);
 
@@ -66,6 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }),
     });
     setAccessToken(session.accessToken);
+    setLanguage(session.user.preferredLanguage);
     setUser(session.user);
   }, []);
 

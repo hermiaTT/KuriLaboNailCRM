@@ -1,3 +1,4 @@
+import { formatClock, t, getLocale, useLanguage } from '../../shared/i18n';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -23,9 +24,7 @@ function dateKey(date: Date) {
 }
 
 function labelTime(value: string) {
-  const [hourText, minute] = value.split(':');
-  const hour = Number(hourText);
-  return `${hour % 12 || 12}:${minute} ${hour >= 12 ? 'PM' : 'AM'}`;
+  return formatClock(value);
 }
 
 function timeDate(value: string) {
@@ -40,6 +39,7 @@ function timeKey(value: Date) {
 }
 
 export default function AdminCreateAppointmentScreen() {
+  useLanguage();
   const router = useRouter();
   const params = useLocalSearchParams<{ date?: string }>();
   const [mode, setMode] = useState<Mode>('UPCOMING');
@@ -67,12 +67,12 @@ export default function AdminCreateAppointmentScreen() {
       api<AdminUser[]>('/api/v1/admin/users'),
       api<ServiceDefinition[]>('/api/v1/admin/services'),
     ]).then(([users, serviceItems]) => {
-      const customerItems = users.filter((item) => item.role === 'USER' && item.status === 'ACTIVE');
+      const customerItems = users.filter((item) => item.role === 'USER');
       setClients(customerItems);
       setServices(serviceItems);
       setClientId((current) => current || customerItems[0]?.id || '');
       setServiceId((current) => current || serviceItems.find((item) => item.active)?.id || '');
-    }).catch((cause) => setError(cause instanceof ApiError ? cause.message : 'Unable to load booking details.'))
+    }).catch((cause) => setError(cause instanceof ApiError ? cause.message : "Unable to load booking details."))
       .finally(() => setLoading(false));
   }, []);
 
@@ -89,11 +89,11 @@ export default function AdminCreateAppointmentScreen() {
 
   async function submit() {
     if (!clientId || (!serviceId && !customServiceName.trim())) {
-      setError('Choose a client and service.');
+      setError("Choose a client and service.");
       return;
     }
     if (endTime <= startTime) {
-      setError('End time must be after start time.');
+      setError("End time must be after start time.");
       return;
     }
     setSaving(true);
@@ -115,41 +115,41 @@ export default function AdminCreateAppointmentScreen() {
       });
       router.replace({ pathname: '/(admin)/upload', params: { appointmentId: created.id, clientId: created.customerId } });
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Unable to create this appointment.');
+      setError(cause instanceof ApiError ? cause.message : "Unable to create this appointment.");
     } finally {
       setSaving(false);
     }
   }
 
   async function addGuest() {
-    if (!guestName.trim()) { setError('Guest name is required.'); return; }
+    if (!guestName.trim()) { setError("Guest name is required."); return; }
     setSaving(true); setError(null);
     try {
       const created = await api<AdminUser>('/api/v1/admin/users/guests', { method: 'POST', body: JSON.stringify({ name: guestName.trim(), phone: guestPhone.trim() || null }) });
       setClients((current) => [created, ...current]); setClientId(created.id); setGuestName(''); setGuestPhone(''); setShowGuest(false);
-    } catch (cause) { setError(cause instanceof ApiError ? cause.message : 'Unable to add this guest client.'); }
+    } catch (cause) { setError(cause instanceof ApiError ? cause.message : "Unable to add this guest client."); }
     finally { setSaving(false); }
   }
 
   return (
     <Screen>
       <View style={styles.topRow}>
-        <Pressable onPress={() => router.back()} style={styles.back}><Icons.ChevL /><Text style={styles.backText}>back</Text></Pressable>
+        <Pressable onPress={() => router.back()} style={styles.back}><Icons.ChevL /><Text style={styles.backText}>{t("back")}</Text></Pressable>
       </View>
-      <EyebrowTitle eyebrow="admin booking" title={mode === 'UPCOMING' ? 'Book for client' : 'Record past visit'} trailing={<Doodle kind="flower" size={21} color={colors.pink} />} />
-      <View style={styles.row}><View style={styles.modeRow}><HandChip active={mode === 'UPCOMING'} onPress={() => changeMode('UPCOMING')}>upcoming</HandChip><HandChip active={mode === 'HISTORY'} onPress={() => changeMode('HISTORY')}>past visit</HandChip></View></View>
+      <EyebrowTitle eyebrow={t("admin booking")} title={mode === 'UPCOMING' ? t("Book for client") : t("Record past visit")} trailing={<Doodle kind="flower" size={21} color={colors.pink} />} />
+      <View style={styles.row}><View style={styles.modeRow}><HandChip active={mode === 'UPCOMING'} onPress={() => changeMode('UPCOMING')}>{t("upcoming")}</HandChip><HandChip active={mode === 'HISTORY'} onPress={() => changeMode('HISTORY')}>{t("past visit")}</HandChip></View></View>
 
       {loading ? <ActivityIndicator color={colors.pinkInk} style={{ marginTop: 40 }} /> : <>
-        <View style={styles.row}><View style={styles.sectionHead}><Text style={styles.label}>1 · Client</Text><Pressable onPress={() => setShowGuest(true)}><Text style={styles.addLink}>+ Add guest</Text></Pressable></View><HandRect padding={14} radius={radius.lg}><View style={styles.chips}>{clients.map((item) => <HandChip key={item.id} active={clientId === item.id} onPress={() => setClientId(item.id)}>{item.name}</HandChip>)}</View></HandRect></View>
-        <View style={styles.row}><Text style={styles.label}>2 · Service</Text><HandRect padding={14} radius={radius.lg}><View style={styles.chips}>{services.filter((item) => item.active || mode === 'HISTORY').map((item) => <HandChip key={item.id} active={serviceId === item.id} onPress={() => { setServiceId(item.id); setCustomServiceName(''); }}>{item.name}</HandChip>)}<HandChip active={!serviceId} onPress={() => setServiceId('')}>custom</HandChip></View>{!serviceId && <Field containerStyle={{ marginTop: 10 }} placeholder="Custom or legacy service" value={customServiceName} onChangeText={setCustomServiceName} />}</HandRect></View>
-        <View style={styles.row}><Text style={styles.label}>3 · Date</Text><Pressable onPress={() => setShowDatePicker(true)}><HandRect padding={15} radius={radius.lg}><Text style={styles.dateText}>{date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</Text></HandRect></Pressable>{(showDatePicker || Platform.OS === 'ios') && <View style={!showDatePicker && Platform.OS === 'ios' ? styles.inlinePicker : undefined}><DateTimePicker value={date} mode="date" display={Platform.OS === 'ios' ? 'compact' : 'default'} minimumDate={mode === 'UPCOMING' ? new Date() : undefined} maximumDate={mode === 'HISTORY' ? new Date() : undefined} onChange={(_, value) => { if (Platform.OS !== 'ios') setShowDatePicker(false); if (value) setDate(value); }} /></View>}</View>
-        <View style={styles.row}><Text style={styles.label}>4 · Start time · 5 min</Text><HandRect padding={14} radius={radius.lg}><View style={styles.timePickerRow}><Text style={styles.timePickerLabel}>{labelTime(startTime)}</Text><DateTimePicker value={timeDate(startTime)} mode="time" display={Platform.OS === 'ios' ? 'compact' : 'default'} minuteInterval={5} onChange={(_, value) => { if (!value) return; const next = timeKey(value); setStartTime(next); if (endTime <= next) { const end = new Date(value); end.setMinutes(end.getMinutes() + 30); setEndTime(timeKey(end)); } }} /></View></HandRect></View>
-        <View style={styles.row}><Text style={styles.label}>5 · End time · 5 min</Text><HandRect padding={14} radius={radius.lg}><View style={styles.timePickerRow}><Text style={styles.timePickerLabel}>{labelTime(endTime)}</Text><DateTimePicker value={timeDate(endTime)} mode="time" display={Platform.OS === 'ios' ? 'compact' : 'default'} minuteInterval={5} onChange={(_, value) => value && setEndTime(timeKey(value))} /></View></HandRect></View>
-        <View style={styles.row}><Text style={styles.label}>{mode === 'HISTORY' ? '6 · Private visit details' : '6 · Appointment note'}</Text><Field placeholder={mode === 'HISTORY' ? 'Products, technique or internal notes' : 'Appointment note (optional)'} multiline value={note} onChangeText={setNote} />{mode === 'HISTORY' && <Field containerStyle={{ marginTop: 10 }} placeholder="Final price CAD (optional)" keyboardType="decimal-pad" value={price} onChangeText={setPrice} />}</View>
+        <View style={styles.row}><View style={styles.sectionHead}><Text style={styles.label}>{t("1 · Client")}</Text><Pressable onPress={() => setShowGuest(true)}><Text style={styles.addLink}>{t("+ Add guest")}</Text></Pressable></View><HandRect padding={14} radius={radius.lg}><View style={styles.chips}>{clients.map((item) => <HandChip key={item.id} active={clientId === item.id} onPress={() => setClientId(item.id)}>{item.name}</HandChip>)}</View></HandRect></View>
+        <View style={styles.row}><Text style={styles.label}>{t("2 · Service")}</Text><HandRect padding={14} radius={radius.lg}><View style={styles.chips}>{services.filter((item) => item.active || mode === 'HISTORY').map((item) => <HandChip key={item.id} active={serviceId === item.id} onPress={() => { setServiceId(item.id); setCustomServiceName(''); }}>{item.name}</HandChip>)}<HandChip active={!serviceId} onPress={() => setServiceId('')}>{t("custom")}</HandChip></View>{!serviceId && <Field containerStyle={{ marginTop: 10 }} placeholder={t("Custom or legacy service")} value={customServiceName} onChangeText={setCustomServiceName} />}</HandRect></View>
+        <View style={styles.row}><Text style={styles.label}>{t("3 · Date")}</Text><Pressable onPress={() => setShowDatePicker(true)}><HandRect padding={15} radius={radius.lg}><Text style={styles.dateText}>{date.toLocaleDateString(getLocale(), { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</Text></HandRect></Pressable>{(showDatePicker || Platform.OS === 'ios') && <View style={!showDatePicker && Platform.OS === 'ios' ? styles.inlinePicker : undefined}><DateTimePicker locale={getLocale()} value={date} mode="date" display={Platform.OS === 'ios' ? 'compact' : 'default'} minimumDate={mode === 'UPCOMING' ? new Date() : undefined} maximumDate={mode === 'HISTORY' ? new Date() : undefined} onChange={(_, value) => { if (Platform.OS !== 'ios') setShowDatePicker(false); if (value) setDate(value); }} /></View>}</View>
+        <View style={styles.row}><Text style={styles.label}>{t("4 · Start time · 5 min")}</Text><HandRect padding={14} radius={radius.lg}><View style={styles.timePickerRow}><Text style={styles.timePickerLabel}>{labelTime(startTime)}</Text><DateTimePicker locale={getLocale()} value={timeDate(startTime)} mode="time" display={Platform.OS === 'ios' ? 'compact' : 'default'} minuteInterval={5} onChange={(_, value) => { if (!value) return; const next = timeKey(value); setStartTime(next); if (endTime <= next) { const end = new Date(value); end.setMinutes(end.getMinutes() + 30); setEndTime(timeKey(end)); } }} /></View></HandRect></View>
+        <View style={styles.row}><Text style={styles.label}>{t("5 · End time · 5 min")}</Text><HandRect padding={14} radius={radius.lg}><View style={styles.timePickerRow}><Text style={styles.timePickerLabel}>{labelTime(endTime)}</Text><DateTimePicker locale={getLocale()} value={timeDate(endTime)} mode="time" display={Platform.OS === 'ios' ? 'compact' : 'default'} minuteInterval={5} onChange={(_, value) => value && setEndTime(timeKey(value))} /></View></HandRect></View>
+        <View style={styles.row}><Text style={styles.label}>{mode === 'HISTORY' ? t("6 · Private visit details") : t("6 · Appointment note")}</Text><Field placeholder={mode === 'HISTORY' ? t("Products, technique or internal notes") : t("Appointment note (optional)")} multiline value={note} onChangeText={setNote} />{mode === 'HISTORY' && <Field containerStyle={{ marginTop: 10 }} placeholder={t("Final price CAD (optional)")} keyboardType="decimal-pad" value={price} onChangeText={setPrice} />}</View>
       </>}
-      {error && <Text style={styles.error}>{error}</Text>}
-      {!loading && <View style={styles.row}><HandButton full size="lg" color={colors.pinkInk} disabled={saving || !clientId} onPress={submit}>{saving ? 'Saving…' : mode === 'UPCOMING' ? 'Create appointment' : 'Save past visit'}</HandButton><Text style={styles.hint}>After saving, you can attach photos to this appointment.</Text></View>}
-      <Modal transparent visible={showGuest} animationType="fade" onRequestClose={() => setShowGuest(false)}><Pressable style={styles.backdrop} onPress={() => setShowGuest(false)}><Pressable style={styles.modal} onPress={() => undefined}><HandRect padding={20} radius={radius.xl}><Text style={styles.modalTitle}>Add and select guest</Text><Text style={styles.modalText}>For clients who have not registered. Phone is optional.</Text><View style={{ gap: 10, marginVertical: 15 }}><Field placeholder="Unique client name" value={guestName} onChangeText={setGuestName} /><Field placeholder="Phone (optional)" keyboardType="phone-pad" value={guestPhone} onChangeText={setGuestPhone} /></View><HandButton full color={colors.pinkInk} disabled={saving} onPress={addGuest}>{saving ? 'Adding…' : 'Add client'}</HandButton></HandRect></Pressable></Pressable></Modal>
+      {error && <Text style={styles.error}>{t(error)}</Text>}
+      {!loading && <View style={styles.row}><HandButton full size="lg" color={colors.pinkInk} disabled={saving || !clientId} onPress={submit}>{saving ? t("Saving…") : mode === 'UPCOMING' ? t("Create appointment") : t("Save past visit")}</HandButton><Text style={styles.hint}>{t("After saving, you can attach photos to this appointment.")}</Text></View>}
+      <Modal transparent visible={showGuest} animationType="fade" onRequestClose={() => setShowGuest(false)}><Pressable style={styles.backdrop} onPress={() => setShowGuest(false)}><Pressable style={styles.modal} onPress={() => undefined}><HandRect padding={20} radius={radius.xl}><Text style={styles.modalTitle}>{t("Add and select guest")}</Text><Text style={styles.modalText}>{t("For clients who have not registered. Phone is optional.")}</Text><View style={{ gap: 10, marginVertical: 15 }}><Field placeholder={t("Unique client name")} value={guestName} onChangeText={setGuestName} /><Field placeholder={t("Phone (optional)")} keyboardType="phone-pad" value={guestPhone} onChangeText={setGuestPhone} /></View><HandButton full color={colors.pinkInk} disabled={saving} onPress={addGuest}>{saving ? t("Adding…") : t("Add client")}</HandButton></HandRect></Pressable></Pressable></Modal>
     </Screen>
   );
 }

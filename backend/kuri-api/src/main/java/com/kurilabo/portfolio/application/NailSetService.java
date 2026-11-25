@@ -5,6 +5,8 @@ import com.kurilabo.appointment.infrastructure.AppointmentRepository;
 import com.kurilabo.auth.domain.AppUser;
 import com.kurilabo.auth.domain.UserRole;
 import com.kurilabo.auth.infrastructure.AppUserRepository;
+import com.kurilabo.user.domain.Client;
+import com.kurilabo.user.infrastructure.ClientRepository;
 import com.kurilabo.outbox.domain.OutboxEvent;
 import com.kurilabo.outbox.infrastructure.OutboxEventRepository;
 import com.kurilabo.portfolio.api.NailSetResponse;
@@ -39,6 +41,7 @@ public class NailSetService {
     private final MediaAssetRepository mediaAssetRepository;
     private final AppointmentRepository appointmentRepository;
     private final AppUserRepository userRepository;
+    private final ClientRepository clientRepository;
     private final OutboxEventRepository outboxEventRepository;
     private final LocalMediaStorage storage;
     private final JdbcTemplate jdbcTemplate;
@@ -49,6 +52,7 @@ public class NailSetService {
             MediaAssetRepository mediaAssetRepository,
             AppointmentRepository appointmentRepository,
             AppUserRepository userRepository,
+            ClientRepository clientRepository,
             OutboxEventRepository outboxEventRepository,
             LocalMediaStorage storage,
             JdbcTemplate jdbcTemplate,
@@ -58,6 +62,7 @@ public class NailSetService {
         this.mediaAssetRepository = mediaAssetRepository;
         this.appointmentRepository = appointmentRepository;
         this.userRepository = userRepository;
+        this.clientRepository = clientRepository;
         this.outboxEventRepository = outboxEventRepository;
         this.storage = storage;
         this.jdbcTemplate = jdbcTemplate;
@@ -82,7 +87,7 @@ public class NailSetService {
 
         AppUser admin = getUser(adminId);
         Appointment appointment = null;
-        AppUser client = clientId == null ? null : getClient(clientId);
+        Client client = clientId == null ? null : getClient(clientId);
         if (appointmentId != null) {
             appointment = appointmentRepository.findById(appointmentId)
                     .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Appointment was not found."));
@@ -144,7 +149,10 @@ public class NailSetService {
 
     @Transactional(readOnly = true)
     public List<NailSetResponse> getInspiration(UUID userId) {
-        Set<UUID> favorites = favoriteIds(userId);
+        AppUser user = getUser(userId);
+        Set<UUID> favorites = user.getRole() == UserRole.USER && user.getClient() != null
+                ? favoriteIds(user.getClient().getId())
+                : Set.of();
         return nailSetRepository.findByPublishedTrueOrderByCreatedAtDesc().stream()
                 .map(item -> NailSetResponse.from(item, favorites.contains(item.getId())))
                 .toList();
@@ -152,8 +160,9 @@ public class NailSetService {
 
     @Transactional(readOnly = true)
     public List<NailSetResponse> getMine(UUID userId) {
-        Set<UUID> favorites = favoriteIds(userId);
-        return nailSetRepository.findByClient_IdOrderByCreatedAtDesc(userId).stream()
+        UUID clientId = clientIdForUser(userId);
+        Set<UUID> favorites = favoriteIds(clientId);
+        return nailSetRepository.findByClient_IdOrderByCreatedAtDesc(clientId).stream()
                 .map(item -> NailSetResponse.from(item, favorites.contains(item.getId())))
                 .toList();
     }
@@ -171,7 +180,7 @@ public class NailSetService {
         getUser(adminId);
         NailSet nailSet = getNailSet(nailSetId);
         Appointment appointment = null;
-        AppUser client = request.clientId() == null ? null : getClient(request.clientId());
+        Client client = request.clientId() == null ? null : getClient(request.clientId());
         if (request.appointmentId() != null) {
             appointment = appointmentRepository.findById(request.appointmentId())
                     .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Appointment was not found."));
@@ -203,11 +212,11 @@ public class NailSetService {
 
     @Transactional
     public NailSetResponse favorite(UUID userId, UUID nailSetId) {
-        getUser(userId);
+        UUID clientId = clientIdForUser(userId);
         NailSet nailSet = getNailSet(nailSetId);
         jdbcTemplate.update(
-                "insert into nail_set_favorite (user_id, nail_set_id) values (?, ?) on conflict do nothing",
-                userId,
+                "insert into nail_set_favorite (client_id, nail_set_id) values (?, ?) on conflict do nothing",
+                clientId,
                 nailSetId
         );
         return NailSetResponse.from(nailSet, true);
@@ -215,10 +224,11 @@ public class NailSetService {
 
     @Transactional
     public NailSetResponse unfavorite(UUID userId, UUID nailSetId) {
+        UUID clientId = clientIdForUser(userId);
         NailSet nailSet = getNailSet(nailSetId);
         jdbcTemplate.update(
-                "delete from nail_set_favorite where user_id = ? and nail_set_id = ?",
-                userId,
+                "delete from nail_set_favorite where client_id = ? and nail_set_id = ?",
+                clientId,
                 nailSetId
         );
         return NailSetResponse.from(nailSet, false);
@@ -229,11 +239,11 @@ public class NailSetService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Nail set was not found."));
     }
 
-    private Set<UUID> favoriteIds(UUID userId) {
+    private Set<UUID> favoriteIds(UUID clientId) {
         return jdbcTemplate.queryForList(
-                        "select nail_set_id from nail_set_favorite where user_id = ?",
+                        "select nail_set_id from nail_set_favorite where client_id = ?",
                         UUID.class,
-                        userId
+                        clientId
                 ).stream()
                 .collect(Collectors.toSet());
     }
@@ -243,13 +253,17 @@ public class NailSetService {
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "User no longer exists."));
     }
 
-    private AppUser getClient(UUID id) {
-        AppUser user = userRepository.findById(id)
+    private Client getClient(UUID id) {
+        return clientRepository.findById(id)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Client was not found."));
-        if (user.getRole() != UserRole.USER) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Nail sets can only be linked to client accounts.");
+    }
+
+    private UUID clientIdForUser(UUID userId) {
+        AppUser user = getUser(userId);
+        if (user.getRole() != UserRole.USER || user.getClient() == null) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "A client account is required.");
         }
-        return user;
+        return user.getClient().getId();
     }
 
     private Map<String, Object> eventPayload(NailSet nailSet) {

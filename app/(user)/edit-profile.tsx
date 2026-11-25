@@ -1,3 +1,7 @@
+import { t, getLocale, useLanguage } from '../../shared/i18n';
+import { type Language, isLanguageSaved, LANGUAGE_SAVE_ERROR } from '../../shared/i18n/core';
+import { LanguagePicker } from '../../components/LanguagePicker';
+
 import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
@@ -34,7 +38,7 @@ import { api, ApiError } from '../../lib/api';
 import type { CurrentProfile } from '../../types/api';
 
 function formatDisplay(d: Date): string {
-  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  return d.toLocaleDateString(getLocale(), { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
 function formatDb(d: Date): string {
@@ -42,10 +46,12 @@ function formatDb(d: Date): string {
 }
 
 export default function EditProfileScreen() {
+  useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { refreshUser } = useAuth();
 
+  const [language, setDraftLanguage] = useState<Language>('en');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [instagram, setInstagram] = useState('');
@@ -67,6 +73,7 @@ export default function EditProfileScreen() {
   useEffect(() => {
     api<CurrentProfile>('/api/v1/users/me')
       .then((data) => {
+        setDraftLanguage(data.preferredLanguage ?? 'en');
         setName(data.name ?? '');
         setPhone(data.phone ?? '');
         setInstagram(data.instagram ?? '');
@@ -75,22 +82,23 @@ export default function EditProfileScreen() {
         setAllergyNotes(data.allergyNotes ?? '');
         if (data.birthday) setBirthday(new Date(data.birthday + 'T00:00:00'));
       })
-      .catch((cause) => setError(cause instanceof ApiError ? cause.message : 'Unable to load your profile.'))
+      .catch((cause) => setError(cause instanceof ApiError ? cause.message : "Unable to load your profile."))
       .finally(() => setFetching(false));
   }, []);
 
   async function handleSave() {
     if (!name.trim() || !phone.trim()) {
-      setError('Name and phone number are required.');
+      setError("Name and phone number are required.");
       return;
     }
     setError(null);
     setSaving(true);
 
     try {
-      await api<CurrentProfile>('/api/v1/users/me', {
+      const updated = await api<CurrentProfile>('/api/v1/users/me', {
         method: 'PUT',
         body: JSON.stringify({
+        preferredLanguage: language,
         name: name.trim(),
         phone: phone.trim(),
         instagram: instagram.trim() || null,
@@ -100,25 +108,29 @@ export default function EditProfileScreen() {
         birthday: birthday ? formatDb(birthday) : null,
         }),
       });
-      await refreshUser();
+      if (!isLanguageSaved(updated, language)) {
+        setError(LANGUAGE_SAVE_ERROR);
+        return;
+      }
+      await refreshUser(updated);
       router.back();
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Unable to save your profile.');
+      setError(cause instanceof ApiError ? cause.message : "Unable to save your profile.");
     } finally {
       setSaving(false);
     }
   }
 
   async function handlePasswordChange() {
-    if (newPassword.length < 8) { setPasswordMessage('New password must be at least 8 characters.'); return; }
-    if (newPassword !== confirmPassword) { setPasswordMessage('New passwords do not match.'); return; }
+    if (newPassword.length < 8) { setPasswordMessage("New password must be at least 8 characters."); return; }
+    if (newPassword !== confirmPassword) { setPasswordMessage("New passwords do not match."); return; }
     setChangingPassword(true); setPasswordMessage(null);
     try {
       await api('/api/v1/users/me/password', { method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }) });
       setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
-      setPasswordMessage('Password updated. Use it the next time you sign in.');
+      setPasswordMessage("Password updated. Use it the next time you sign in.");
     } catch (cause) {
-      setPasswordMessage(cause instanceof ApiError ? cause.message : 'Unable to update your password.');
+      setPasswordMessage(cause instanceof ApiError ? cause.message : "Unable to update your password.");
     } finally { setChangingPassword(false); }
   }
 
@@ -148,13 +160,13 @@ export default function EditProfileScreen() {
           <View style={styles.row}>
             <Pressable onPress={() => router.back()} style={styles.back}>
               <Icons.ChevL color={colors.ink} />
-              <Text style={styles.backText}>back</Text>
+              <Text style={styles.backText}>{t("back")}</Text>
             </Pressable>
           </View>
 
           <EyebrowTitle
-            eyebrow="your profile"
-            title="Edit details"
+            eyebrow={t("your profile")}
+            title={t("Edit details")}
             trailing={
               <Doodle
                 kind="sparkle"
@@ -169,21 +181,22 @@ export default function EditProfileScreen() {
           <View style={styles.row}>
             <HandRect padding={20} radius={radius.lg}>
               <View style={{ gap: 12 }}>
-                <Field placeholder="Name" value={name} onChangeText={setName} />
+                <LanguagePicker value={language} onChange={setDraftLanguage} disabled={saving} />
+                <Field placeholder={t("Name")} value={name} onChangeText={setName} />
                 <Field
-                  placeholder="Phone number"
+                  placeholder={t("Phone number")}
                   keyboardType="phone-pad"
                   value={phone}
                   onChangeText={setPhone}
                 />
                 <Field
-                  placeholder="Instagram (optional)"
+                  placeholder={t("Instagram (optional)")}
                   autoCapitalize="none"
                   value={instagram}
                   onChangeText={setInstagram}
                 />
                 <Field
-                  placeholder="WeChat (optional)"
+                  placeholder={t("WeChat (optional)")}
                   autoCapitalize="none"
                   value={wechat}
                   onChangeText={setWechat}
@@ -194,7 +207,7 @@ export default function EditProfileScreen() {
                   <HandRect padding={0} radius={radius.md} fill={colors.creamCard}>
                     <View style={styles.birthdayRow}>
                       <Text style={[styles.birthdayText, !birthday && { color: colors.inkFaint }]}>
-                        {birthday ? formatDisplay(birthday) : 'Birthday (optional)'}
+                        {birthday ? formatDisplay(birthday) : t("Birthday (optional)")}
                       </Text>
                       <Doodle kind="heart" size={14} color={colors.pinkInk} style={{ opacity: 0.5 }} />
                     </View>
@@ -204,6 +217,7 @@ export default function EditProfileScreen() {
                 {showPicker && (
                   <View style={styles.pickerWrap}>
                     <DateTimePicker
+                      locale={getLocale()}
                       value={birthday ?? new Date(2000, 0, 1)}
                       mode="date"
                       display="spinner"
@@ -213,7 +227,7 @@ export default function EditProfileScreen() {
                       textColor={colors.ink}
                     />
                     <Pressable onPress={() => setShowPicker(false)} style={styles.doneBtn}>
-                      <Text style={styles.doneBtnText}>Done</Text>
+                      <Text style={styles.doneBtnText}>{t("Done")}</Text>
                     </Pressable>
                   </View>
                 )}
@@ -223,16 +237,16 @@ export default function EditProfileScreen() {
 
           {/* Preferences */}
           <View style={styles.row}>
-            <Text style={styles.sectionLabel}>Preferences</Text>
+            <Text style={styles.sectionLabel}>{t("Preferences")}</Text>
             <HandRect padding={20} radius={radius.lg}>
               <View style={{ gap: 12 }}>
                 <Field
-                  placeholder="Preferred nail style (optional)"
+                  placeholder={t("Preferred nail style (optional)")}
                   value={preferredStyle}
                   onChangeText={setPreferredStyle}
                 />
                 <Field
-                  placeholder="Allergy notes (optional)"
+                  placeholder={t("Allergy notes (optional)")}
                   value={allergyNotes}
                   onChangeText={setAllergyNotes}
                   multiline
@@ -243,7 +257,7 @@ export default function EditProfileScreen() {
 
           {error && (
             <View style={styles.row}>
-              <Text style={styles.errorText}>{error}</Text>
+              <Text style={styles.errorText}>{t(error)}</Text>
             </View>
           )}
 
@@ -255,20 +269,20 @@ export default function EditProfileScreen() {
               onPress={handleSave}
               disabled={saving}
             >
-              {saving ? 'Saving…' : 'Save changes →'}
+              {saving ? t("Saving…") : t("Save changes →")}
             </HandButton>
           </View>
 
           <View style={styles.row}>
-            <Text style={styles.sectionLabel}>Security</Text>
+            <Text style={styles.sectionLabel}>{t("Security")}</Text>
             <HandRect padding={20} radius={radius.lg}>
               <View style={{ gap: 12 }}>
-                <Text style={styles.securityTitle}>Change password</Text>
-                <Field placeholder="Current password" secureTextEntry autoCapitalize="none" value={currentPassword} onChangeText={setCurrentPassword} />
-                <Field placeholder="New password · 8+ characters" secureTextEntry autoCapitalize="none" value={newPassword} onChangeText={setNewPassword} />
-                <Field placeholder="Confirm new password" secureTextEntry autoCapitalize="none" value={confirmPassword} onChangeText={setConfirmPassword} />
-                {passwordMessage && <Text style={styles.passwordMessage}>{passwordMessage}</Text>}
-                <HandButton color={colors.blueInk} full disabled={changingPassword || !currentPassword} onPress={handlePasswordChange}>{changingPassword ? 'Updating…' : 'Update password'}</HandButton>
+                <Text style={styles.securityTitle}>{t("Change password")}</Text>
+                <Field placeholder={t("Current password")} secureTextEntry autoCapitalize="none" value={currentPassword} onChangeText={setCurrentPassword} />
+                <Field placeholder={t("New password · 8+ characters")} secureTextEntry autoCapitalize="none" value={newPassword} onChangeText={setNewPassword} />
+                <Field placeholder={t("Confirm new password")} secureTextEntry autoCapitalize="none" value={confirmPassword} onChangeText={setConfirmPassword} />
+                {passwordMessage && <Text style={styles.passwordMessage}>{t(passwordMessage)}</Text>}
+                <HandButton color={colors.blueInk} full disabled={changingPassword || !currentPassword} onPress={handlePasswordChange}>{changingPassword ? t("Updating…") : t("Update password")}</HandButton>
               </View>
             </HandRect>
           </View>
