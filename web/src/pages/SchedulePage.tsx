@@ -315,12 +315,12 @@ export function SchedulePage() {
             <div className="month-grid">
               {monthDays.map((day) => {
                 const appointmentCount = appointmentCountByDate.get(day.key) ?? 0;
-                return <button key={day.key} className={`${day.key === selectedDate ? 'selected' : ''} ${day.inMonth ? '' : 'outside'}`} onClick={() => setSelectedDate(day.key)}><span>{day.day}</span><small>{appointmentCount ? t("{count} appts", { count: appointmentCount }) : '\u00a0'}</small><i>{blockDates.has(day.key) && <b className="block-dot" />}</i></button>;
+                return <button key={day.key} className={`${day.key === selectedDate ? 'selected' : ''} ${day.inMonth ? '' : 'outside'}`} onClick={() => setSelectedDate(day.key)}><span>{day.day}</span><small>{appointmentCount ? t("{count} appts", { count: appointmentCount }) : '\u00a0'}</small>{blockDates.has(day.key) && <b className="block-crossout" aria-hidden="true" />}</button>;
               })}
             </div>
             <button className="today-button" onClick={() => setSelectedDate(todayInSalon())}>{t("Back to today")}</button>
           </PaperCard>
-          <PaperCard className="calendar-legend"><h3>{t("Calendar key")}</h3><p><i className="appt-dot" />{t("Appointment count appears below each date")}</p><p><i className="block-dot" />{t("Blocked time")}</p><p><i className="business-swatch" />{t("Business hours · 9–6")}</p></PaperCard>
+          <PaperCard className="calendar-legend"><h3>{t("Calendar key")}</h3><p><i className="appt-dot" />{t("Appointment count appears below each date")}</p><p><i className="block-crossout" />{t("Blocked time")}</p><p><i className="business-swatch" />{t("Business hours · 9–6")}</p></PaperCard>
         </aside>
 
         <section className="day-panel">

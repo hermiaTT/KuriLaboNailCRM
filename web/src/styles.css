@@ -620,11 +620,11 @@ textarea { min-height: 82px; resize: vertical; }
 .month-grid button.outside { color: var(--ink-faint); opacity: .48; }
 .month-grid button.selected { background: var(--pink-ink); border-color: var(--ink); color: white; transform: rotate(-1deg); }
 .month-grid button.selected small { color: rgba(255,255,255,.85); }
-.month-grid button i { position: absolute; top: 5px; right: 5px; display: flex; gap: 2px; }
-.month-grid button i b, .calendar-legend i { display: block; width: 5px; height: 5px; border-radius: 50%; }
+.calendar-legend i { display: block; width: 5px; height: 5px; border-radius: 50%; }
 .appt-dot { background: var(--pink-ink); }
-.block-dot { background: var(--blue-ink); }
-.month-grid .selected .appt-dot, .month-grid .selected .block-dot { background: white; }
+.month-grid button .block-crossout { position: absolute; left: 10px; right: 10px; top: 16px; height: 2px; border-radius: 2px; background: var(--blue-ink); transform: rotate(-36deg); pointer-events: none; }
+.month-grid .selected .block-crossout { background: white; }
+.calendar-legend .block-crossout { width: 14px; height: 2px; border-radius: 2px; background: var(--blue-ink); transform: rotate(-36deg); }
 .today-button { width: 100%; min-height: 36px; margin-top: 13px; border: 1px dashed var(--ink-soft); border-radius: 999px; background: transparent; font-size: 10px; }
 .calendar-legend { padding: 17px; border-color: var(--hair); }
 .calendar-legend h3 { margin: 0 0 13px; font-size: 13px; }
