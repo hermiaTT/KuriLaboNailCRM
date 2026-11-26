@@ -24,7 +24,6 @@ export function ClientProfileSummary({ client }: { client: AdminUserDetail }) {
       <PaperCard className="client-profile-details-card">
         <div className="client-profile-facts">
           <div><span>{t("Birthday")}</span><strong>{client.birthday ? new Intl.DateTimeFormat(getLocale(), { month: 'long', day: 'numeric', year: 'numeric' }).format(new Date(`${client.birthday}T12:00:00`)) : t("Not provided")}</strong></div>
-          <div><span>{t("Instagram")}</span><strong>{valueOrEmpty(client.instagram)}</strong></div>
           <div><span>{t("WeChat")}</span><strong>{valueOrEmpty(client.wechat)}</strong></div>
           <div><span>{t("Client since")}</span><strong>{new Intl.DateTimeFormat(getLocale(), { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(client.createdAt))}</strong></div>
         </div>

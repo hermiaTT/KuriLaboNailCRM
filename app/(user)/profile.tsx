@@ -216,7 +216,7 @@ export default function ProfileScreen() {
             { k: 'email',     v: email },
             { k: 'phone',     v: data?.phone ?? '—' },
             { k: 'birthday',  v: data?.birthday ? fmtBirthday(data.birthday) : '—' },
-            { k: 'instagram', v: data?.instagram ?? '—' },
+            { k: 'WeChat',    v: data?.wechat ?? '—' },
           ].map((r, i, a) => (
             <View key={t(r.k)} style={[styles.infoRow, i < a.length - 1 && styles.infoRowDivider]}>
               <Text style={styles.infoKey}>{t(r.k)}</Text>

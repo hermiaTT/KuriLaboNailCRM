@@ -163,10 +163,7 @@ export function ClientProfilePage() {
               <label>{t("Phone")}<input value={form.phone} onChange={(event) => updateField('phone', event.target.value)} type="tel" autoComplete="tel" maxLength={40} placeholder="778-555-1234" required disabled={loading} /></label>
               <label>{t("Birthday")}<span className="optional">{t("optional")}</span><DatePicker value={form.birthday} onChange={(value) => updateField('birthday', value)} maxDate={MAX_BIRTHDAY} disabled={loading} /></label>
             </div>
-            <div className="form-pair">
-              <label>{t("Instagram")}<span className="optional">{t("optional")}</span><input value={form.instagram} onChange={(event) => updateField('instagram', event.target.value)} maxLength={120} placeholder="@yourhandle" disabled={loading} /></label>
-              <label>{t("WeChat")}<span className="optional">{t("optional")}</span><input value={form.wechat} onChange={(event) => updateField('wechat', event.target.value)} maxLength={120} placeholder={t("Your WeChat ID")} disabled={loading} /></label>
-            </div>
+            <label>{t("WeChat")}<span className="optional">{t("optional")}</span><input value={form.wechat} onChange={(event) => updateField('wechat', event.target.value)} maxLength={120} placeholder={t("Your WeChat ID")} disabled={loading} /></label>
             <label>{t("Preferred nail style")}<span className="optional">{t("optional")}</span><textarea value={form.preferredNailStyle} onChange={(event) => updateField('preferredNailStyle', event.target.value)} maxLength={1000} placeholder={t("Colors, shapes, finishes or styles you love…")} disabled={loading} /></label>
             <label>{t("Allergy or sensitivity notes")}<span className="optional">{t("optional")}</span><textarea value={form.allergyNotes} onChange={(event) => updateField('allergyNotes', event.target.value)} maxLength={1000} placeholder={t("Share anything Kuri should know before your visit…")} disabled={loading} /></label>
             <div className="profile-form-actions"><small>{t("Your phone number is used for sign-in. If you change it, use the new number next time.")}</small><button className="primary-button" disabled={loading || saving}>{saving ? t("Saving…") : t("Save changes")}</button></div>

@@ -190,12 +190,6 @@ export default function EditProfileScreen() {
                   onChangeText={setPhone}
                 />
                 <Field
-                  placeholder={t("Instagram (optional)")}
-                  autoCapitalize="none"
-                  value={instagram}
-                  onChangeText={setInstagram}
-                />
-                <Field
                   placeholder={t("WeChat (optional)")}
                   autoCapitalize="none"
                   value={wechat}
