@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -99,10 +100,13 @@ public class AdminUserService {
             throw new ApiException(HttpStatus.CONFLICT, "This internal client name already exists.");
         }
         String phone = normalizeOptionalPhone(request.phone());
+        AppUser account = users.findByClient_Id(clientId).orElse(null);
+        if (account != null && !Objects.equals(phone, client.getContactPhone())) {
+            throw new ApiException(HttpStatus.CONFLICT, "Registered client phone cannot be changed by admin.");
+        }
         if (phone != null && clients.existsByContactPhoneAndStatusAndIdNot(phone, ClientStatus.ACTIVE, clientId)) {
             throw new ApiException(HttpStatus.CONFLICT, "This contact phone already belongs to another client record.");
         }
-        AppUser account = users.findByClient_Id(clientId).orElse(null);
         client.updateByAdmin(internalName, phone, request.birthday(), optional(request.instagram()),
                 optional(request.wechat()), optional(request.preferredNailStyle()), optional(request.allergyNotes()),
                 optional(request.adminNotes()), clock.instant());

@@ -127,9 +127,13 @@ Availability must be enforced by the backend and database under concurrent reque
 
 - Admin can create an appointment for any customer.
 - Admin selects both the start and end time.
-- Admin appointment times use 30-minute increments.
+- Admin appointment and reschedule times use 5-minute increments.
 - Admin may create appointments outside 09:00 to 18:00.
 - Admin may confirm, reject, edit, cancel, complete, or mark an appointment as no-show.
+- Admin may record an appointment-specific estimated price for internal planning. It is independent of the service catalog price and is never shown to the client.
+- The final price is the amount actually paid and is recorded only after an appointment is completed.
+- Rescheduling must revalidate appointment and availability-block conflicts while excluding the appointment being edited.
+- The admin reschedule flow previews occupied periods and open windows while preserving the appointment's current actual duration. The backend remains authoritative when saving.
 - An explicit override may allow an admin to create an overlapping appointment.
 - An overlap override must show a warning and create an audit record.
 
@@ -196,6 +200,7 @@ The WeChat ID and contact text must be configurable by an admin. A copy action s
 
 - CRM client records and login accounts are separate entities linked by `clientId`.
 - Admins can create a client with only a unique admin-only internal name; phone is optional.
+- Admins may edit a guest client's contact phone. Once a login account is linked, the registered client's phone is read-only in admin client management.
 - Customer-facing names may repeat. Admin internal names must be unique among active clients.
 - A customer registration creates an account and a client record unless an eligible existing client is claimed.
 - In test mode, an unlinked client with the same normalized phone can be claimed automatically while preserving its `clientId`, appointments, photos, favorites, and history.

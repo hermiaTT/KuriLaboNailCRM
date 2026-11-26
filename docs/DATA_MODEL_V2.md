@@ -135,7 +135,8 @@ The first release has one salon and one nail artist, so a block applies to the o
 - `status`
 - `customer_note`
 - `service_notes`
-- `final_price`
+- `estimated_price` (admin-only estimate for this appointment, independent of the service catalog price)
+- `final_price` (the actual amount paid after the appointment is completed)
 - `created_by`
 - `confirmed_by`
 - `confirmed_at`
@@ -304,5 +305,5 @@ The implementation will use a PostgreSQL range overlap strategy with a GiST excl
 
 Availability blocks are checked in the same booking transaction.
 
-Admin bookings may be outside normal business hours, but use the same 30-minute alignment and conflict protection as user bookings unless an explicitly designed override feature is added later.
+Admin bookings and reschedules may be outside normal business hours and use five-minute alignment. They retain the same transaction-safe appointment and availability-block conflict protection as user bookings.
 

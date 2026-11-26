@@ -48,6 +48,7 @@ export function notificationMessage(message: string) {
     [/^Kuri added a (.+) appointment to your schedule\.$/, 'Kuri added a {service} appointment to your schedule.'],
     [/^A client asked to cancel (.+)\.$/, 'A client asked to cancel {service}.'],
     [/^Your (.+) appointment is confirmed\.$/, 'Your {service} appointment is confirmed.'],
+    [/^Kuri updated the time for your (.+) appointment\.$/, 'Kuri updated the time for your {service} appointment.'],
     [/^(.+) registered and was automatically linked to (.+)\.$/, '{client} registered and was automatically linked to {profile}.'],
     [/^(.+) registered\. Review the client profile and merge it with an existing record if needed\.$/, '{client} registered. Review the client profile and merge it with an existing record if needed.'],
   ];

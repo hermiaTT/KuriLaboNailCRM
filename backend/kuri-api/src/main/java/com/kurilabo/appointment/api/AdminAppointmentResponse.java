@@ -19,6 +19,7 @@ public record AdminAppointmentResponse(
         String status,
         String note,
         String serviceNotes,
+        BigDecimal estimatedPrice,
         BigDecimal finalPrice,
         List<AppointmentImageResponse> referenceImages
 ) {
@@ -35,6 +36,7 @@ public record AdminAppointmentResponse(
                 appointment.getStatus().name(),
                 appointment.getCustomerNote(),
                 appointment.getServiceNotes(),
+                appointment.getEstimatedPrice(),
                 appointment.getFinalPrice(),
                 appointment.getReferenceMedia().stream().map(AppointmentImageResponse::from).toList()
         );

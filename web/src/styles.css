@@ -50,6 +50,7 @@ h1, h2, h3, .brand, .stat-card strong, .date-block strong, .time-tile strong {
 
 .muted { color: var(--ink-soft); }
 .field-hint { display: block; margin-top: 6px; color: var(--ink-faint); font-size: 10px; font-weight: 500; }
+.locked-client-field input:disabled { cursor: not-allowed; border-style: dashed; background: var(--cream-deep); color: var(--ink-faint); opacity: .72; }
 .brand { position: relative; display: inline-block; isolation: isolate; font-size: 25px; line-height: 1.1; white-space: nowrap; }
 .brand > span:last-child { position: relative; z-index: 1; }
 .brand-brush { position: absolute; z-index: 0; inset: 6px -10px -1px -8px; background: var(--blue); opacity: .72; border-radius: 48% 40% 55% 42%; transform: rotate(-2deg); }
@@ -204,6 +205,62 @@ h1, h2, h3, .brand, .stat-card strong, .date-block strong, .time-tile strong {
 .visit-photo-section p, .visit-photo-section h3 { margin: 0; }
 .visit-photo-section h3 { margin-top: 5px; font-size: 14px; }
 .visit-photo-section img { width: 58px; height: 58px; object-fit: cover; border-radius: 14px; }
+.appointment-management-modal { width: min(720px,100%); }
+.appointment-modal-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding-right: 34px; }
+.appointment-modal-heading .eyebrow { margin-bottom: 7px; }
+.appointment-management-summary > div:last-child { grid-column: 1 / -1; }
+.appointment-contact-panel { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 18px 0; padding: 15px 17px; border-radius: 16px; background: var(--pink-soft); }
+.appointment-contact-panel p, .appointment-contact-panel strong { margin: 0; }
+.appointment-contact-panel strong { display: block; margin-top: 5px; font-size: 13px; }
+.appointment-modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 18px 0; }
+.appointment-modal-actions button { width: 100%; }
+.appointment-management-section { margin-top: 20px; padding: 19px; border: 1px dashed var(--hair); border-radius: 18px; background: rgba(255,253,250,.72); }
+.appointment-section-toggle { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; padding: 0; border: 0; background: transparent; color: var(--ink); text-align: left; }
+.appointment-section-toggle span { display: grid; gap: 5px; }
+.appointment-section-toggle small { color: var(--pink-ink); font-family: 'DM Mono'; font-size: 8px; letter-spacing: 1.4px; text-transform: uppercase; }
+.appointment-section-toggle strong { font-family: 'Special Elite'; font-size: 17px; font-weight: 400; }
+.appointment-section-toggle i { display: grid; place-items: center; flex: 0 0 auto; width: 34px; height: 34px; border: 1px dashed var(--ink); border-radius: 50%; background: var(--cream); font-family: 'Nunito'; font-size: 20px; font-style: normal; line-height: 1; }
+.appointment-section-toggle:hover i { background: var(--pink-soft); }
+.appointment-reschedule-content { display: grid; gap: 15px; margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--hair); }
+.appointment-section-copy { margin-bottom: 15px; }
+.appointment-reschedule-content .appointment-section-copy { margin-bottom: 0; }
+.appointment-section-copy p, .appointment-section-copy h3 { margin: 0; }
+.appointment-section-copy h3 { margin-top: 5px; font-size: 17px; }
+.appointment-section-copy > p:last-child { margin-top: 6px; color: var(--ink-soft); font-size: 12px; line-height: 1.5; }
+.appointment-reschedule-form { grid-template-columns: 1fr; }
+.appointment-date-picker { display: grid; gap: 8px; }
+.appointment-date-picker > span { font-family: 'DM Mono'; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; }
+.availability-loading { margin: 0; padding: 15px; border: 1px dashed var(--hair); border-radius: 14px; color: var(--ink-soft); text-align: center; }
+.reschedule-day-timeline { padding: 13px; border: 1px dashed var(--hair); border-radius: 16px; background: var(--cream); }
+.reschedule-timeline-axis { display: flex; justify-content: space-between; margin-bottom: 6px; color: var(--ink-faint); font-family: 'DM Mono'; font-size: 8px; }
+.reschedule-timeline-track { position: relative; height: 58px; overflow: hidden; border: 1px solid var(--hair); border-radius: 12px; background: #eee7d9; }
+.reschedule-open-band, .reschedule-busy-band { position: absolute; top: 0; height: 100%; min-width: 2px; }
+.reschedule-open-band { background: #dfead5; }
+.reschedule-busy-band { z-index: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 4px; border-left: 1px solid rgba(92,63,34,.16); border-right: 1px solid rgba(92,63,34,.16); color: var(--ink); font-size: 8px; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.reschedule-busy-band.appointment { background: var(--pink-soft); }
+.reschedule-busy-band.block { background: var(--blue-soft); }
+.reschedule-timeline-key { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; color: var(--ink-soft); font-family: 'DM Mono'; font-size: 7px; }
+.reschedule-timeline-key span { display: flex; align-items: center; gap: 5px; }
+.reschedule-timeline-key i { width: 8px; height: 8px; border-radius: 3px; }
+.reschedule-timeline-key i.open { background: #c7dcb7; }
+.reschedule-timeline-key i.appointment { background: var(--pink); }
+.reschedule-timeline-key i.block { background: var(--blue); }
+.available-window-list { display: flex; flex-wrap: wrap; gap: 7px; }
+.available-window-list button { min-height: 36px; padding: 8px 11px; border: 1px dashed #78945f; border-radius: 999px; background: #f3f8ee; color: var(--ink); font-family: 'DM Mono'; font-size: 8px; }
+.available-window-list button:hover, .available-window-list button.selected { border-style: solid; background: var(--green); }
+.available-window-list p { width: 100%; margin: 0; padding: 13px; border-radius: 12px; background: #eee7d9; color: var(--ink-soft); font-size: 11px; text-align: center; }
+.calculated-time { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 10px 13px; border: 1px solid var(--hair); border-radius: 12px; background: var(--blue-soft); letter-spacing: 0; text-transform: none; }
+.calculated-time strong { font-family: 'Nunito'; font-size: 13px; }
+.calculated-time small { color: var(--blue-ink); font-size: 9px; }
+.custom-reschedule-time { display: grid; gap: 10px; padding: 13px; border: 1px dashed var(--blue-ink); border-radius: 14px; background: var(--blue-soft); }
+.custom-reschedule-time > p { margin: 0; color: var(--ink-soft); font-size: 10px; line-height: 1.5; }
+.reschedule-custom-toggle { justify-self: start; padding: 3px 0; border: 0; border-bottom: 1px dashed var(--pink-ink); background: transparent; color: var(--pink-ink); font-family: 'DM Mono'; font-size: 8px; }
+.appointment-linked-photos { grid-template-columns: minmax(130px,1fr) minmax(0,2fr) auto; }
+.appointment-linked-photo-strip { display: flex; min-width: 0; gap: 6px; overflow: hidden; }
+.appointment-linked-photo-strip > span { position: relative; flex: 0 0 48px; height: 48px; }
+.appointment-linked-photo-strip img { width: 48px; height: 48px; }
+.appointment-linked-photo-strip a { position: absolute; right: -3px; bottom: -3px; display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid var(--ink); border-radius: 50%; background: var(--card); font-size: 10px; text-decoration: none; }
+.appointment-completion-actions { padding-top: 20px; border-top: 1px dashed var(--hair); }
 
 .appointment-calendar-view { display: grid; gap: 24px; }
 .appointment-month-calendar { overflow: hidden; padding: 0; }
@@ -255,6 +312,35 @@ h1, h2, h3, .brand, .stat-card strong, .date-block strong, .time-tile strong {
 .service-form { margin-bottom: 24px; padding: 20px; background: var(--pink-soft); border-color: var(--pink-ink); }
 .service-form form { display: grid; grid-template-columns: 1fr 1.2fr 1fr 1.6fr auto; gap: 12px; align-items: end; }
 label { display: grid; gap: 7px; font-family: 'DM Mono'; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; }
+.date-picker { position: relative; min-width: 0; letter-spacing: 0; text-transform: none; }
+.date-picker-trigger { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px; padding: 10px 13px; border: 1px solid var(--hair); border-radius: 12px; background: var(--card); color: var(--ink); font-family: 'Nunito', sans-serif; font-size: 13px; text-align: left; }
+.date-picker-trigger span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.date-picker-trigger i { color: var(--pink-ink); font-size: 15px; font-style: normal; }
+.date-picker.open .date-picker-trigger { border-color: var(--pink-ink); box-shadow: 0 0 0 3px rgba(179,103,115,.1); }
+.date-picker.disabled .date-picker-trigger { cursor: not-allowed; opacity: .64; background: var(--cream-deep); }
+.date-picker-popover { position: absolute; z-index: 90; top: calc(100% + 8px); left: 0; width: min(330px,calc(100vw - 40px)); padding: 14px; border: 1px solid var(--hair); border-radius: 20px; background: var(--card); box-shadow: 0 18px 45px rgba(92,63,34,.18); letter-spacing: 0; text-transform: none; }
+.form-pair > label:last-child .date-picker-popover { right: 0; left: auto; }
+.date-picker-head { display: grid; grid-template-columns: 34px minmax(0,1fr) 34px; align-items: center; gap: 6px; margin-bottom: 10px; }
+.date-picker-head > button { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--ink); font-family: 'Special Elite'; font-size: 24px; }
+.date-picker-head > button:hover:not(:disabled) { background: var(--pink-soft); }
+.date-picker-head > button:disabled { opacity: .25; }
+.date-picker-month-year { display: grid; grid-template-columns: minmax(0,1.45fr) minmax(78px,.8fr); gap: 6px; }
+.date-picker-month-year select { min-width: 0; min-height: 34px; padding: 5px 7px; border-radius: 10px; background: var(--cream); font-family: 'DM Mono'; font-size: 9px; }
+.date-picker-weekdays, .date-picker-grid { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); }
+.date-picker-weekdays span { padding: 5px 0 7px; color: var(--ink-faint); font-family: 'DM Mono'; font-size: 8px; text-align: center; }
+.date-picker-grid > button, .date-picker-grid > span { width: 34px; height: 34px; justify-self: center; }
+.date-picker-grid > button { position: relative; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--ink); font-family: 'Nunito', sans-serif; font-size: 12px; }
+.date-picker-grid > button:hover:not(:disabled) { background: var(--pink-soft); }
+.date-picker-grid > button.today::after { content: ''; position: absolute; bottom: 4px; left: 50%; width: 3px; height: 3px; transform: translateX(-50%); border-radius: 50%; background: var(--blue-ink); }
+.date-picker-grid > button.selected { background: var(--pink-ink); color: white; }
+.date-picker-grid > button.selected::after { background: white; }
+.date-picker-grid > button:disabled { color: var(--ink-faint); opacity: .35; }
+.date-picker-footer { display: flex; align-items: center; gap: 10px; min-height: 28px; margin-top: 9px; padding-top: 9px; border-top: 1px dashed var(--hair); color: var(--ink-faint); font-family: 'DM Mono'; font-size: 7px; }
+.date-picker-footer > span { display: flex; align-items: center; gap: 4px; }
+.date-picker-footer i { width: 7px; height: 7px; border-radius: 50%; }
+.date-picker-footer .selected-key { background: var(--pink-ink); }
+.date-picker-footer .today-key { background: var(--blue-ink); }
+.date-picker-footer > button { margin-left: auto; padding: 5px 0; border: 0; background: transparent; color: var(--pink-ink); font-family: 'DM Mono'; font-size: 8px; }
 input, select, textarea { width: 100%; min-height: 44px; padding: 10px 13px; border: 1px solid var(--hair); border-radius: 12px; background: var(--card); outline: 0; font-family: 'Quicksand'; font-size: 13px; text-transform: none; letter-spacing: 0; }
 textarea { min-height: 82px; resize: vertical; }
 .form-notice, .form-error { padding: 12px 15px; border: 1px dashed var(--pink-ink); border-radius: 12px; background: var(--pink-soft); color: var(--pink-ink); font-size: 12px; }
@@ -753,6 +839,13 @@ textarea { min-height: 82px; resize: vertical; }
   .visit-summary > div:last-child { grid-column: auto; }
   .visit-photo-section { grid-template-columns: 1fr auto; }
   .visit-photo-section img { display: none; }
+  .appointment-contact-panel { align-items: flex-start; flex-direction: column; }
+  .appointment-contact-panel .details-button { width: 100%; }
+  .appointment-modal-actions { grid-template-columns: 1fr; }
+  .appointment-management-section { padding: 15px; }
+  .appointment-linked-photos { grid-template-columns: 1fr; }
+  .appointment-linked-photo-strip { display: flex; }
+  .appointment-linked-photo-strip img { display: block; }
   .appointment-calendar-head { grid-template-columns: 42px 1fr 42px; min-height: 76px; padding: 10px; }
   .appointment-calendar-head p { font-size: 20px; }
   .appointment-calendar-head small { display: none; }

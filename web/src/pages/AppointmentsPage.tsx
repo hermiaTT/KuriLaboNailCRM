@@ -1,7 +1,8 @@
 import { statusLabel, t, getLocale, useLanguage } from '../lib/i18n';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
 
+import { AppointmentManagementModal } from '../components/admin/AppointmentManagementModal';
+import { DatePicker } from '../components/DatePicker';
 import { EmptyState, PageHeading, PaperCard, StatusBadge } from '../components/UI';
 import { addDays, calendarDays, formatSalonTime, longDateLabel, monthLabel, parseDateKey, salonDateKey, todayInSalon } from '../lib/dates';
 import { api, ApiError } from '../lib/api';
@@ -20,12 +21,8 @@ export function AppointmentsPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('LIST');
   const [calendarDate, setCalendarDate] = useState(todayInSalon());
   const [selectedDate, setSelectedDate] = useState(todayInSalon());
-  const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<AdminAppointment | null>(null);
-  const [price, setPrice] = useState('');
-  const [serviceNotes, setServiceNotes] = useState('');
-  const [savingDetails, setSavingDetails] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [historyServiceId, setHistoryServiceId] = useState('');
   const [savingHistory, setSavingHistory] = useState(false);
@@ -101,84 +98,10 @@ export function AppointmentsPage() {
     setSelectedDate(key);
   }
 
-  async function review(appointment: Appointment, action: 'confirm' | 'reject') {
-    setBusy(appointment.id);
-    setError(null);
-    try {
-      const updated = await api<Appointment>(`/api/v1/admin/appointments/${appointment.id}/${action}`, {
-        method: 'POST',
-        body: JSON.stringify({ reason: action === 'reject' ? 'Rejected from web workspace' : null }),
-      });
-      setAppointments((current) => current.map((item) => item.id === updated.id ? { ...item, ...updated } : item));
-    } catch {
-      setError("Unable to update this appointment.");
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function reviewCancellation(appointment: Appointment, action: 'approve' | 'reject') {
-    setBusy(appointment.id);
-    setError(null);
-    try {
-      const updated = await api<Appointment>(`/api/v1/admin/appointments/${appointment.id}/cancellation-requests/${action}`, {
-        method: 'POST',
-        body: JSON.stringify({ reason: action === 'approve' ? 'Approved from web workspace' : t("Cancellation request declined") }),
-      });
-      setAppointments((current) => current.map((item) => item.id === updated.id ? { ...item, ...updated } : item));
-    } catch {
-      setError("Unable to update this cancellation request.");
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function closeVisit(appointment: Appointment, action: 'complete' | 'no-show') {
-    setBusy(appointment.id);
-    setError(null);
-    try {
-      const updated = await api<Appointment>(`/api/v1/admin/appointments/${appointment.id}/${action}`, {
-        method: 'POST',
-        body: JSON.stringify({ reason: action === 'complete' ? 'Completed from web workspace' : 'Marked no-show from web workspace' }),
-      });
-      setAppointments((current) => current.map((item) => item.id === updated.id ? { ...item, ...updated } : item));
-    } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : "Unable to update this appointment.");
-    } finally {
-      setBusy(null);
-    }
-  }
-
   function openDetails(appointment: AdminAppointment) {
     setSelected(appointment);
-    setPrice(appointment.finalPrice == null ? '' : Number(appointment.finalPrice).toFixed(2));
-    setServiceNotes(appointment.serviceNotes ?? '');
     setError(null);
   }
-
-  async function saveDetails(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!selected) return;
-    setSavingDetails(true);
-    setError(null);
-    try {
-      const updated = await api<AdminAppointment>(`/api/v1/admin/appointments/${selected.id}/visit-details`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          finalPrice: price.trim() === '' ? null : Number(price),
-          serviceNotes: serviceNotes.trim() || null,
-        }),
-      });
-      setAppointments((current) => current.map((item) => item.id === updated.id ? updated : item));
-      setSelected(null);
-    } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : "Unable to save visit details.");
-    } finally {
-      setSavingDetails(false);
-    }
-  }
-
-  const selectedSet = selected ? nailSets.find((item) => item.appointmentId === selected.id) : undefined;
 
   function appointmentRow(appointment: AdminAppointment, compact = false) {
     const start = new Date(appointment.startAt);
@@ -194,12 +117,9 @@ export function AppointmentsPage() {
           {appointment.referenceImages.length > 0 && <div className="appointment-reference-strip">{appointment.referenceImages.map((image) => <span key={image.id}><img src={image.url} alt={t("Client reference")} /><a href={`${image.url}?download=true`} download aria-label={t("Download reference photo")}>🐾</a></span>)}</div>}
         </div>
         <div className="appointment-admin-meta">
-          {appointment.finalPrice != null && <span className="price-pill">${Number(appointment.finalPrice).toFixed(2)}</span>}
+          {(appointment.status === 'COMPLETED' ? appointment.finalPrice : appointment.estimatedPrice) != null && <span className="price-pill">${Number(appointment.status === 'COMPLETED' ? appointment.finalPrice : appointment.estimatedPrice).toFixed(2)}</span>}
           <button className="details-button" onClick={() => openDetails(appointment)}>{t("Visit details")}</button>
         </div>
-        {appointment.status === 'PENDING_CONFIRMATION' && <div className="row-actions"><button disabled={busy === appointment.id} onClick={() => void review(appointment, 'reject')}>{t("Reject")}</button><button className="confirm" disabled={busy === appointment.id} onClick={() => void review(appointment, 'confirm')}>{t("Confirm")}</button></div>}
-        {appointment.status === 'CANCELLATION_REQUESTED' && <div className="row-actions cancellation-actions"><button disabled={busy === appointment.id} onClick={() => void reviewCancellation(appointment, 'reject')}>{t("Keep appointment")}</button><button className="confirm cancel-approve" disabled={busy === appointment.id} onClick={() => void reviewCancellation(appointment, 'approve')}>{t("Approve cancellation")}</button></div>}
-        {appointment.status === 'CONFIRMED' && new Date(appointment.startAt).getTime() <= Date.now() && <div className="row-actions"><button disabled={busy === appointment.id} onClick={() => void closeVisit(appointment, 'no-show')}>{t("No show")}</button><button className="confirm" disabled={busy === appointment.id || new Date(appointment.endAt).getTime() > Date.now()} onClick={() => void closeVisit(appointment, 'complete')}>{t("Complete")}</button></div>}
       </article>
     );
   }
@@ -236,7 +156,7 @@ export function AppointmentsPage() {
             <label>{t("Client")}<select name="customerId" required defaultValue=""><option value="" disabled>{t("Select a client")}</option>{clients.filter((client) => client.role === 'USER').map((client) => <option key={client.id} value={client.id}>{client.name} · {client.phone || t("No phone")}</option>)}</select></label>
             <label>{t("Service")}<select value={historyServiceId} onChange={(event) => setHistoryServiceId(event.target.value)} required>{services.map((service) => <option key={service.id} value={service.id}>{service.name}{service.active ? '' : t(" · archived")}</option>)}<option value="CUSTOM">{t("Custom / legacy service")}</option></select></label>
             {historyServiceId === 'CUSTOM' && <label>{t("Service name")}<input name="customServiceName" maxLength={120} placeholder="Legacy gel set" required /></label>}
-            <label>{t("Visit date")}<input name="date" type="date" defaultValue={addDays(todayInSalon(), -1)} max={todayInSalon()} required /></label>
+            <label>{t("Visit date")}<DatePicker name="date" defaultValue={addDays(todayInSalon(), -1)} maxDate={todayInSalon()} required /></label>
             <div className="form-pair"><label>{t("Start time")}<input name="startTime" type="time" step="300" defaultValue="10:00" required /></label><label>{t("End time")}<input name="endTime" type="time" step="300" defaultValue="12:00" required /></label></div>
             <label>{t("Final price (CAD)")}<span className="optional">{t("optional")}</span><div className="money-input"><span>$</span><input name="finalPrice" type="number" min="0" max="99999999.99" step="0.01" inputMode="decimal" placeholder="0.00" /></div></label>
             <label>{t("Internal service notes")}<span className="optional">{t("admin only")}</span><textarea name="serviceNotes" maxLength={5000} placeholder={t("Products, colors, technique or anything to remember…")} /></label>
@@ -245,30 +165,15 @@ export function AppointmentsPage() {
           </form>
         </PaperCard>
       </div>}
-      {selected && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelected(null); }}>
-        <PaperCard className="visit-details-modal">
-          <button className="modal-close" onClick={() => setSelected(null)} aria-label={t("Close")}>×</button>
-          <p className="eyebrow">{t("ADMIN ONLY")}</p>
-          <h2>{t("Visit details")}</h2>
-          <p className="modal-subtitle">{t("Private salon notes and pricing are never shown to the client.")}</p>
-          <div className="visit-summary">
-            <div><span>{t("Client")}</span><strong>{names.get(selected.customerId) ?? t("Client")}</strong></div>
-            <div><span>{t("Service")}</span><strong>{selected.serviceName}</strong></div>
-            <div><span>{t("When")}</span><strong>{new Intl.DateTimeFormat(getLocale(), { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/Vancouver' }).format(new Date(selected.startAt))} · {formatSalonTime(new Date(selected.startAt))}</strong></div>
-          </div>
-          <form onSubmit={saveDetails}>
-            <label>{t("Final price (CAD)")}<div className="money-input"><span>$</span><input type="number" min="0" max="99999999.99" step="0.01" inputMode="decimal" value={price} onChange={(event) => setPrice(event.target.value)} placeholder="0.00" /></div></label>
-            <label>{t("Internal service notes")}<span className="optional">{t("admin only")}</span><textarea value={serviceNotes} onChange={(event) => setServiceNotes(event.target.value)} maxLength={5000} placeholder={t("Products, colors, technique, adjustments…")} /></label>
-            <button className="primary-button" disabled={savingDetails}>{savingDetails ? t("Saving…") : t("Save visit details")}</button>
-          </form>
-          {selected.referenceImages.length > 0 && <div className="visit-reference-section"><p className="eyebrow">{t("CLIENT REFERENCES")}</p><div className="appointment-reference-strip large">{selected.referenceImages.map((image) => <span key={image.id}><img src={image.url} alt={t("Client reference")} /><a href={`${image.url}?download=true`} download aria-label={t("Download reference photo")}>🐾</a></span>)}</div></div>}
-          <div className="visit-photo-section">
-            <div><p className="eyebrow">{t("NAIL SET")}</p><h3>{selectedSet ? t("{count} linked photos", { count: selectedSet.images.length }) : t("No photos linked yet")}</h3></div>
-            {selectedSet?.images[0] && <img src={selectedSet.images[0].url} alt={selectedSet.title} />}
-            <Link className="details-button" to={`/inspiration?appointmentId=${selected.id}`}>{selectedSet ? t("Manage photos") : t("+ Add photos")}</Link>
-          </div>
-        </PaperCard>
-      </div>}
+      {selected && <AppointmentManagementModal
+        appointment={selected}
+        nailSet={nailSets.find((item) => item.appointmentId === selected.id)}
+        onClose={() => setSelected(null)}
+        onUpdated={(updated) => {
+          setAppointments((current) => current.map((item) => item.id === updated.id ? updated : item));
+          setSelected(updated);
+        }}
+      />}
     </div>
   );
 }

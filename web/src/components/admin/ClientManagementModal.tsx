@@ -2,8 +2,10 @@ import { useEffect, useState, type FormEvent } from 'react';
 
 import { t, useLanguage } from '../../lib/i18n';
 import { api, ApiError } from '../../lib/api';
+import { todayInSalon } from '../../lib/dates';
 import type { AdminUser, AdminUserDetail } from '../../types';
 import { ConfirmModal } from '../ConfirmModal';
+import { DatePicker } from '../DatePicker';
 import { PaperCard } from '../UI';
 
 type Confirmation = 'merge' | 'delete' | null;
@@ -109,14 +111,12 @@ export function ClientManagementModal({ client, onClose, onSaved, onMerged, onDe
   return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !confirmation) onClose(); }}>
     <PaperCard className="manage-set-modal client-detail-modal" role="dialog" aria-modal="true" aria-labelledby="client-management-title">
       <button className="modal-close" onClick={onClose} aria-label={t("Close")}>×</button>
-      <p className="eyebrow">{t("CLIENT PROFILE ·")}{draft.accountType}</p>
       <h2 id="client-management-title">{t("Edit client details")}</h2>
-      <p className="modal-subtitle">{t("The internal name is admin-only and unique. The customer's own name may repeat. Contact phone is optional and separate from the login phone.")}</p>
       {error && <div className="form-notice">{t(error)}</div>}
       <form onSubmit={saveClient}>
-        <div className="form-pair"><label>{t("Internal name")}<input value={draft.name} onChange={(event) => editField('name', event.target.value)} maxLength={120} required /></label><label>{t("Contact phone")}<span className="optional">{t("optional")}</span><input value={draft.phone ?? ''} onChange={(event) => editField('phone', event.target.value || null)} type="tel" maxLength={40} /></label></div>
-        {draft.accountType === 'REGISTERED' && <p className="modal-subtitle">{t("Customer name")}: {draft.clientName || '—'} · {t("Login phone")}: {draft.loginPhone || '—'}</p>}
-        <label>{t("Birthday")}<span className="optional">{t("optional")}</span><input value={draft.birthday ?? ''} onChange={(event) => editField('birthday', event.target.value || null)} type="date" /></label>
+        <div className="form-pair"><label>{t("Internal name")}<span className="mandatory">{t("mandatory")}</span><input value={draft.name} onChange={(event) => editField('name', event.target.value)} maxLength={120} required /></label><label className={draft.accountType === 'REGISTERED' ? 'locked-client-field' : ''}>{t("Contact phone")}<span className="optional">{draft.accountType === 'REGISTERED' ? t("managed by client") : t("optional")}</span><input value={draft.phone ?? ''} onChange={(event) => editField('phone', event.target.value || null)} type="tel" maxLength={40} disabled={draft.accountType === 'REGISTERED'} /></label></div>
+        {draft.accountType === 'REGISTERED' && <p className="modal-subtitle">{t("Customer name")}: {draft.clientName || '—'}</p>}
+        <label>{t("Birthday")}<span className="optional">{t("optional")}</span><DatePicker value={draft.birthday ?? ''} onChange={(value) => editField('birthday', value || null)} maxDate={todayInSalon()} /></label>
         <div className="form-pair"><label>{t("Instagram")}<span className="optional">{t("optional")}</span><input value={draft.instagram ?? ''} onChange={(event) => editField('instagram', event.target.value || null)} maxLength={120} /></label><label>{t("WeChat")}<span className="optional">{t("optional")}</span><input value={draft.wechat ?? ''} onChange={(event) => editField('wechat', event.target.value || null)} maxLength={120} /></label></div>
         <label>{t("Preferred nail style")}<span className="optional">{t("optional")}</span><textarea value={draft.preferredNailStyle ?? ''} onChange={(event) => editField('preferredNailStyle', event.target.value || null)} maxLength={1000} /></label>
         <label>{t("Allergy or sensitivity notes")}<span className="optional">{t("optional")}</span><textarea value={draft.allergyNotes ?? ''} onChange={(event) => editField('allergyNotes', event.target.value || null)} maxLength={1000} /></label>

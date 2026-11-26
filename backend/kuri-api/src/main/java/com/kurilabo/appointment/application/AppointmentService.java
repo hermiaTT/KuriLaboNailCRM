@@ -6,6 +6,7 @@ import com.kurilabo.appointment.api.AdminCreateAppointmentRequest;
 import com.kurilabo.appointment.api.CreateAppointmentRequest;
 import com.kurilabo.appointment.api.UpdateVisitDetailsRequest;
 import com.kurilabo.appointment.api.RecordHistoricalAppointmentRequest;
+import com.kurilabo.appointment.api.RescheduleAppointmentRequest;
 import com.kurilabo.appointment.domain.Appointment;
 import com.kurilabo.appointment.domain.AppointmentStatus;
 import com.kurilabo.appointment.domain.AppointmentStatusHistory;
@@ -20,6 +21,7 @@ import com.kurilabo.user.domain.Client;
 import com.kurilabo.user.infrastructure.ClientRepository;
 import com.kurilabo.availability.application.AvailabilityService;
 import com.kurilabo.availability.domain.SalonSetting;
+import com.kurilabo.availability.api.AdminScheduleAvailabilityResponse;
 import com.kurilabo.availability.application.ScheduleLockService;
 import com.kurilabo.outbox.domain.OutboxEvent;
 import com.kurilabo.outbox.infrastructure.OutboxEventRepository;
@@ -33,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.Duration;
@@ -297,13 +300,18 @@ public class AppointmentService {
         AppUser admin = getUser(adminId);
         Appointment appointment = getAppointment(appointmentId);
         String serviceNotes = blankToNull(request.serviceNotes());
-        boolean priceChanged = !Objects.equals(appointment.getFinalPrice(), request.finalPrice());
+        if (request.finalPrice() != null && appointment.getStatus() != AppointmentStatus.COMPLETED) {
+            throw new ApiException(HttpStatus.CONFLICT, "Final price can only be recorded for a completed appointment.");
+        }
+        boolean priceChanged = !Objects.equals(appointment.getEstimatedPrice(), request.estimatedPrice())
+                || !Objects.equals(appointment.getFinalPrice(), request.finalPrice());
         Instant now = clock.instant();
-        appointment.updateVisitDetails(serviceNotes, request.finalPrice(), now);
+        appointment.updateVisitDetails(serviceNotes, request.estimatedPrice(), request.finalPrice(), now);
 
         Map<String, Object> payload = eventPayload(appointment);
         payload.put("updatedBy", admin.getId().toString());
         payload.put("hasServiceNotes", serviceNotes != null);
+        payload.put("estimatedPrice", request.estimatedPrice());
         payload.put("finalPrice", request.finalPrice());
         outboxEventRepository.save(new OutboxEvent(
                 appointment.getId(),
@@ -312,6 +320,71 @@ public class AppointmentService {
                 now
         ));
         return AdminAppointmentResponse.from(appointment);
+    }
+
+    @Transactional
+    public AdminAppointmentResponse reschedule(
+            UUID adminId,
+            UUID appointmentId,
+            RescheduleAppointmentRequest request
+    ) {
+        AppUser admin = getUser(adminId);
+        Appointment appointment = getAppointment(appointmentId);
+        validateAdminTimes(request.startTime(), request.endTime());
+
+        SalonSetting settings = availabilityService.getSettings();
+        ZoneId zone = ZoneId.of(settings.getTimezone());
+        Instant startAt = request.date().atTime(request.startTime()).atZone(zone).toInstant();
+        Instant endAt = request.date().atTime(request.endTime()).atZone(zone).toInstant();
+        if (!startAt.isAfter(clock.instant())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Appointment must start in the future.");
+        }
+
+        scheduleLockService.lockDate(request.date());
+        if (availabilityService.hasConflictExcludingAppointment(appointmentId, startAt, endAt)) {
+            throw slotConflict();
+        }
+
+        Instant now = clock.instant();
+        try {
+            appointment.reschedule(startAt, endAt, now);
+            appointmentRepository.saveAndFlush(appointment);
+        } catch (IllegalStateException exception) {
+            throw new ApiException(HttpStatus.CONFLICT, exception.getMessage());
+        } catch (DataIntegrityViolationException exception) {
+            throw slotConflict();
+        }
+
+        Map<String, Object> payload = eventPayload(appointment);
+        payload.put("updatedBy", admin.getId().toString());
+        outboxEventRepository.save(new OutboxEvent(
+                appointment.getId(),
+                "AppointmentRescheduledV1",
+                payload,
+                now
+        ));
+        notificationService.notifyClient(
+                appointment.getCustomer(),
+                "APPOINTMENT_RESCHEDULED",
+                "Appointment time updated",
+                "Kuri updated the time for your " + appointment.getServiceNameSnapshot() + " appointment.",
+                appointment.getId()
+        );
+        return AdminAppointmentResponse.from(appointment);
+    }
+
+    @Transactional(readOnly = true)
+    public AdminScheduleAvailabilityResponse getRescheduleAvailability(UUID appointmentId, LocalDate date) {
+        Appointment appointment = getAppointment(appointmentId);
+        if (appointment.getStatus() != AppointmentStatus.PENDING_CONFIRMATION &&
+                appointment.getStatus() != AppointmentStatus.CONFIRMED) {
+            throw new ApiException(HttpStatus.CONFLICT, "Only pending or confirmed appointments can be rescheduled.");
+        }
+        return availabilityService.getAdminScheduleAvailability(
+                appointmentId,
+                date,
+                appointment.getDurationMinutesSnapshot()
+        );
     }
 
     @Transactional
@@ -595,6 +668,8 @@ public class AppointmentService {
         payload.put("startAt", appointment.getStartAt().toString());
         payload.put("endAt", appointment.getEndAt().toString());
         payload.put("status", appointment.getStatus().name());
+        payload.put("estimatedPrice", appointment.getEstimatedPrice());
+        payload.put("finalPrice", appointment.getFinalPrice());
         return payload;
     }
 

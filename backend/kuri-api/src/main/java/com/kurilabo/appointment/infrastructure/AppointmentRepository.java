@@ -26,6 +26,36 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
             @Param("statuses") Collection<AppointmentStatus> statuses
     );
 
+    @Query("""
+            select (count(a) > 0) from Appointment a
+            where a.id <> :appointmentId
+              and a.status in :statuses
+              and a.startAt < :endAt
+              and a.endAt > :startAt
+            """)
+    boolean existsOverlappingExcluding(
+            @Param("appointmentId") UUID appointmentId,
+            @Param("startAt") Instant startAt,
+            @Param("endAt") Instant endAt,
+            @Param("statuses") Collection<AppointmentStatus> statuses
+    );
+
+    @EntityGraph(attributePaths = {"customer"})
+    @Query("""
+            select a from Appointment a
+            where a.id <> :appointmentId
+              and a.status in :statuses
+              and a.startAt < :rangeEnd
+              and a.endAt > :rangeStart
+            order by a.startAt asc
+            """)
+    List<Appointment> findOverlappingExcluding(
+            @Param("appointmentId") UUID appointmentId,
+            @Param("rangeStart") Instant rangeStart,
+            @Param("rangeEnd") Instant rangeEnd,
+            @Param("statuses") Collection<AppointmentStatus> statuses
+    );
+
     @EntityGraph(attributePaths = {"customer", "serviceDefinition", "referenceMedia", "referenceMedia.mediaAsset"})
     List<Appointment> findByCustomer_IdOrderByStartAtDesc(UUID customerId);
 

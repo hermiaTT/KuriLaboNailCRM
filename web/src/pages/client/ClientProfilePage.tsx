@@ -3,6 +3,7 @@ import { LANGUAGES, isLanguageSaved, LANGUAGE_SAVE_ERROR } from '../../../../sha
 import { useEffect, useState, type FormEvent } from 'react';
 
 import { useAuth } from '../../auth/AuthContext';
+import { DatePicker } from '../../components/DatePicker';
 import { PageHeading, PaperCard } from '../../components/UI';
 import { api, ApiError } from '../../lib/api';
 import type { CurrentProfile } from '../../types';
@@ -160,7 +161,7 @@ export function ClientProfilePage() {
             <label>{t("Full name")}<input value={form.name} onChange={(event) => updateField('name', event.target.value)} autoComplete="name" maxLength={120} required disabled={loading} /></label>
             <div className="form-pair">
               <label>{t("Phone")}<input value={form.phone} onChange={(event) => updateField('phone', event.target.value)} type="tel" autoComplete="tel" maxLength={40} placeholder="778-555-1234" required disabled={loading} /></label>
-              <label>{t("Birthday")}<span className="optional">{t("optional")}</span><input value={form.birthday} onChange={(event) => updateField('birthday', event.target.value)} type="date" max={MAX_BIRTHDAY} disabled={loading} /></label>
+              <label>{t("Birthday")}<span className="optional">{t("optional")}</span><DatePicker value={form.birthday} onChange={(value) => updateField('birthday', value)} maxDate={MAX_BIRTHDAY} disabled={loading} /></label>
             </div>
             <div className="form-pair">
               <label>{t("Instagram")}<span className="optional">{t("optional")}</span><input value={form.instagram} onChange={(event) => updateField('instagram', event.target.value)} maxLength={120} placeholder="@yourhandle" disabled={loading} /></label>

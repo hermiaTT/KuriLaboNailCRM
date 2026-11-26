@@ -121,6 +121,12 @@ class KuriLaboEndToEndFlowTests {
         String clientToken = registration.get("accessToken").asText();
         String clientId = registration.path("user").path("clientId").asText();
 
+        putJson("/api/v1/admin/users/" + clientId, adminToken, Map.of(
+                "name", clientName,
+                "phone", "+17780000000"
+        )).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value("Registered client phone cannot be changed by admin."));
+
         mvc.perform(get("/api/v1/services").header("Authorization", bearer(clientToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.id == '" + createdServiceId + "')].price", hasItem(110.0)));
@@ -136,6 +142,26 @@ class KuriLaboEndToEndFlowTests {
                 .andExpect(jsonPath("$.status").value("PENDING_CONFIRMATION"))
                 .andReturn().getResponse().getContentAsString());
         String appointmentId = requested.get("id").asText();
+
+        putJson("/api/v1/admin/appointments/" + appointmentId + "/visit-details", adminToken, Map.of(
+                "estimatedPrice", 135.00,
+                "serviceNotes", "Estimate after reviewing references"
+        )).andExpect(status().isOk())
+                .andExpect(jsonPath("$.estimatedPrice").value(135.00))
+                .andExpect(jsonPath("$.finalPrice").isEmpty());
+
+        putJson("/api/v1/admin/appointments/" + appointmentId + "/visit-details", adminToken, Map.of(
+                "estimatedPrice", 135.00,
+                "finalPrice", 150.00
+        )).andExpect(status().isConflict());
+
+        putJson("/api/v1/admin/appointments/" + appointmentId + "/schedule", adminToken, Map.of(
+                "date", bookingDate.toString(),
+                "startTime", "09:30",
+                "endTime", "11:00"
+        )).andExpect(status().isOk())
+                .andExpect(jsonPath("$.durationMinutes").value(90))
+                .andExpect(jsonPath("$.startAt").isNotEmpty());
 
         MockMultipartFile referenceImage = new MockMultipartFile("files", "reference.png", "image/png", new byte[] {4, 3, 2, 1});
         mvc.perform(multipart("/api/v1/appointments/" + appointmentId + "/references")
@@ -158,6 +184,20 @@ class KuriLaboEndToEndFlowTests {
                 "endTime", "14:30",
                 "reason", "E2E blocked time"
         )).andExpect(status().isOk());
+        mvc.perform(get("/api/v1/admin/appointments/" + appointmentId + "/availability")
+                        .param("date", bookingDate.toString())
+                        .header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.durationMinutes").value(90))
+                .andExpect(jsonPath("$.availableWindows[0].startTime").value("08:00:00"))
+                .andExpect(jsonPath("$.availableWindows[0].endTime").value("14:00:00"))
+                .andExpect(jsonPath("$.busyPeriods[0].type").value("BLOCK"))
+                .andExpect(jsonPath("$.busyPeriods[0].label").value("E2E blocked time"));
+        putJson("/api/v1/admin/appointments/" + appointmentId + "/schedule", adminToken, Map.of(
+                "date", bookingDate.toString(),
+                "startTime", "14:00",
+                "endTime", "15:30"
+        )).andExpect(status().isConflict());
 
         mvc.perform(get("/api/v1/availability")
                         .param("date", bookingDate.toString())

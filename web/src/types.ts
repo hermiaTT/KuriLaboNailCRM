@@ -66,6 +66,7 @@ export type Appointment = {
 
 export type AdminAppointment = Appointment & {
   serviceNotes: string | null;
+  estimatedPrice: number | null;
   finalPrice: number | null;
 };
 
@@ -99,6 +100,24 @@ export type Availability = {
     startAt: string;
     endAt: string;
     available: boolean;
+  }>;
+};
+
+export type AdminScheduleAvailability = {
+  date: string;
+  timezone: string;
+  durationMinutes: number;
+  dayStart: string;
+  dayEnd: string;
+  availableWindows: Array<{
+    startTime: string;
+    endTime: string;
+  }>;
+  busyPeriods: Array<{
+    startTime: string;
+    endTime: string;
+    type: 'APPOINTMENT' | 'BLOCK';
+    label: string;
   }>;
 };
 

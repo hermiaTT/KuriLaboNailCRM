@@ -19,13 +19,15 @@ export function BookingCalendar({ value, minDate, onChange }: { value: string; m
   useLanguage();
   const selected = parseDateKey(value);
   const minimum = parseDateKey(minDate);
-  const [viewYear, setViewYear] = useState(selected.getFullYear());
-  const [viewMonth, setViewMonth] = useState(selected.getMonth());
+  const initialView = selected < minimum ? minimum : selected;
+  const [viewYear, setViewYear] = useState(initialView.getFullYear());
+  const [viewMonth, setViewMonth] = useState(initialView.getMonth());
 
   useEffect(() => {
-    setViewYear(selected.getFullYear());
-    setViewMonth(selected.getMonth());
-  }, [value]);
+    const nextView = selected < minimum ? minimum : selected;
+    setViewYear(nextView.getFullYear());
+    setViewMonth(nextView.getMonth());
+  }, [minDate, value]);
 
   const cells = useMemo(() => buildMonth(viewYear, viewMonth), [viewMonth, viewYear]);
   const monthLabel = new Intl.DateTimeFormat(getLocale(), { month: 'long', year: 'numeric' }).format(new Date(viewYear, viewMonth, 1, 12));
@@ -41,7 +43,7 @@ export function BookingCalendar({ value, minDate, onChange }: { value: string; m
     <PaperCard className="booking-calendar">
       <div className="booking-calendar-head">
         <button type="button" disabled={previousDisabled} onClick={() => moveMonth(-1)} aria-label={t("Previous month")}>‹</button>
-        <h3>{monthLabel.toLowerCase()}</h3>
+        <h3>{monthLabel}</h3>
         <button type="button" onClick={() => moveMonth(1)} aria-label={t("Next month")}>›</button>
       </div>
       <div className="booking-weekdays">{weekDayLabels(true).map((day, index) => <span key={`${day}-${index}`}>{day}</span>)}</div>

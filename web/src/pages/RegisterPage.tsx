@@ -3,8 +3,10 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
+import { DatePicker } from '../components/DatePicker';
 import { Brand, PaperCard } from '../components/UI';
 import { ApiError } from '../lib/api';
+import { todayInSalon } from '../lib/dates';
 
 export function RegisterPage() {
   useLanguage();
@@ -60,7 +62,7 @@ export function RegisterPage() {
         <form onSubmit={handleSubmit}>
           <label>{t("Full name")}<input name="name" autoComplete="name" placeholder={t("Your name")} maxLength={120} required /></label>
           <label>{t("Phone number")}<input name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="778-555-1234" maxLength={40} required /></label>
-          <div className="form-pair"><label>{t("Email")}<span className="optional">{t("optional")}</span><input name="email" type="email" autoComplete="email" placeholder="you@example.com" /></label><label>{t("Birthday")}<span className="optional">{t("optional")}</span><input name="birthday" type="date" max={new Date().toISOString().split('T')[0]} /></label></div>
+          <div className="form-pair"><label>{t("Email")}<span className="optional">{t("optional")}</span><input name="email" type="email" autoComplete="email" placeholder="you@example.com" /></label><label>{t("Birthday")}<span className="optional">{t("optional")}</span><DatePicker name="birthday" maxDate={todayInSalon()} /></label></div>
           <div className="form-pair"><label>{t("Password")}<input name="password" type="password" autoComplete="new-password" minLength={8} placeholder={t("At least 8 characters")} required /></label><label>{t("Confirm password")}<input name="confirmPassword" type="password" autoComplete="new-password" minLength={8} placeholder={t("Type it again")} required /></label></div>
           {error && <p className="form-error" role="alert">{t(error)}</p>}
           <button className="primary-button" disabled={submitting}>{submitting ? t("Creating your account…") : t("Create account")}</button>

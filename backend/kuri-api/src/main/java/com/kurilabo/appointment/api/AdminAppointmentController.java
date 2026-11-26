@@ -14,6 +14,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 import java.util.List;
+import java.time.LocalDate;
+import org.springframework.format.annotation.DateTimeFormat;
+import com.kurilabo.availability.api.AdminScheduleAvailabilityResponse;
 
 @RestController
 @RequestMapping("/api/v1/admin/appointments")
@@ -60,6 +63,27 @@ public class AdminAppointmentController {
                 appointmentId,
                 request
         );
+    }
+
+    @PutMapping("/{appointmentId}/schedule")
+    AdminAppointmentResponse reschedule(
+            JwtAuthenticationToken authentication,
+            @PathVariable UUID appointmentId,
+            @Valid @RequestBody RescheduleAppointmentRequest request
+    ) {
+        return appointmentService.reschedule(
+                currentUserId(authentication),
+                appointmentId,
+                request
+        );
+    }
+
+    @GetMapping("/{appointmentId}/availability")
+    AdminScheduleAvailabilityResponse getRescheduleAvailability(
+            @PathVariable UUID appointmentId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
+    ) {
+        return appointmentService.getRescheduleAvailability(appointmentId, date);
     }
 
     @PostMapping("/{appointmentId}/confirm")

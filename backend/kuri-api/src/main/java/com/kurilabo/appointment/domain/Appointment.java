@@ -64,6 +64,9 @@ public class Appointment {
     @Column(name = "service_notes")
     private String serviceNotes;
 
+    @Column(name = "estimated_price", precision = 10, scale = 2)
+    private BigDecimal estimatedPrice;
+
     @Column(name = "final_price", precision = 10, scale = 2)
     private BigDecimal finalPrice;
 
@@ -202,9 +205,25 @@ public class Appointment {
         updatedAt = now;
     }
 
-    public void updateVisitDetails(String serviceNotes, BigDecimal finalPrice, Instant now) {
+    public void updateVisitDetails(
+            String serviceNotes,
+            BigDecimal estimatedPrice,
+            BigDecimal finalPrice,
+            Instant now
+    ) {
         this.serviceNotes = serviceNotes;
+        this.estimatedPrice = estimatedPrice;
         this.finalPrice = finalPrice;
+        this.updatedAt = now;
+    }
+
+    public void reschedule(Instant startAt, Instant endAt, Instant now) {
+        if (status != AppointmentStatus.PENDING_CONFIRMATION && status != AppointmentStatus.CONFIRMED) {
+            throw new IllegalStateException("Only pending or confirmed appointments can be rescheduled.");
+        }
+        this.startAt = startAt;
+        this.endAt = endAt;
+        this.durationMinutesSnapshot = Math.toIntExact(java.time.Duration.between(startAt, endAt).toMinutes());
         this.updatedAt = now;
     }
 
@@ -273,6 +292,10 @@ public class Appointment {
 
     public String getServiceNotes() {
         return serviceNotes;
+    }
+
+    public BigDecimal getEstimatedPrice() {
+        return estimatedPrice;
     }
 
     public BigDecimal getFinalPrice() {
