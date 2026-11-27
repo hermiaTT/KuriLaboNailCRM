@@ -108,8 +108,8 @@ export function ClientAppointmentsPage() {
     try {
       const updated = await api<Appointment>(`/api/v1/appointments/${referenceTarget.id}/references`, { method: 'POST', body });
       setAppointments((current) => current.map((appointment) => appointment.id === updated.id ? updated : appointment));
-      setReferenceTarget(updated);
       setReferenceFiles([]);
+      setReferenceTarget(null);
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : 'Unable to upload reference photos.');
     } finally {
@@ -139,9 +139,9 @@ export function ClientAppointmentsPage() {
                   {appointment.note && <small>{appointment.note}</small>}
                   {appointment.status === 'CANCELLATION_REQUESTED' && <p className="appointment-hint pending-hint">{t("Cancellation requested—your time stays reserved until Kuri reviews it.")}</p>}
                   {confirmed && future && !outsideWindow && <p className="appointment-hint contact-hint">{t("Within 24 hours—please contact Kuri directly if you need help.")}</p>}
-                  {appointment.referenceImages.length > 0 && <div className="client-reference-thumbnails">{appointment.referenceImages.slice(0, 4).map((image) => <img src={image.url} alt={t('Reference photo')} key={image.id} />)}</div>}
                 </div>
-                {(appointment.status === 'PENDING_CONFIRMATION' || appointment.status === 'CONFIRMED') && <button className="reference-manage-button" onClick={() => openReferences(appointment)}>{appointment.referenceImages.length ? t('Reference photos') : t('Upload photos')}</button>}
+                {appointment.referenceImages.length > 0 && <div className="client-appointment-media-column"><ReferencePhotoPicker files={[]} onChange={() => undefined} existingImages={appointment.referenceImages} allowUpload={false} /></div>}
+                {(appointment.status === 'PENDING_CONFIRMATION' || appointment.status === 'CONFIRMED') && <button className="reference-manage-button" onClick={() => openReferences(appointment)}>{appointment.referenceImages.length ? t('+ Add photos') : t('Upload photos')}</button>}
                 {confirmed && future && outsideWindow && <button className="cancel-request-button" onClick={() => setCancelTarget(appointment)}>{t("Request cancellation")}</button>}
               </article>
             );
@@ -158,8 +158,8 @@ export function ClientAppointmentsPage() {
             return (
               <article key={appointment.id} className="client-appointment-row past-appointment-row">
                 <div className="date-block"><strong>{appointmentDay(start)}</strong><small>{appointmentMonth(start)}</small></div>
-                <div className="client-appt-copy"><div><h3>{appointment.serviceName}</h3><StatusBadge status={appointment.status} /></div><p>{new Intl.DateTimeFormat(getLocale(), { year: 'numeric', timeZone: 'America/Vancouver' }).format(start)} · {formatSalonTime(start)}</p>{appointment.referenceImages.length > 0 && <div className="client-reference-thumbnails">{appointment.referenceImages.slice(0, 4).map((image) => <img src={image.url} alt={t('Reference photo')} key={image.id} />)}</div>}</div>
-                {appointment.referenceImages.length > 0 && <button className="reference-manage-button" onClick={() => openReferences(appointment)}>{t('Reference photos')}</button>}
+                <div className="client-appt-copy"><div><h3>{appointment.serviceName}</h3><StatusBadge status={appointment.status} /></div><p>{new Intl.DateTimeFormat(getLocale(), { year: 'numeric', timeZone: 'America/Vancouver' }).format(start)} · {formatSalonTime(start)}</p></div>
+                {appointment.referenceImages.length > 0 && <div className="client-appointment-media-column"><ReferencePhotoPicker files={[]} onChange={() => undefined} existingImages={appointment.referenceImages} allowUpload={false} /></div>}
                 {nailSet ? <button className="history-photo-button" onClick={() => openNailSet(nailSet)}><img src={nailSet.images[0]?.url} alt="" /><span>{t("View")}{nailSet.images.length} {t("photo")}{getLocale() === 'en-US' && nailSet.images.length !== 1 ? 's' : ''}</span></button> : <span className="no-history-photos">{t("No photos added")}</span>}
               </article>
             );

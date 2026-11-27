@@ -146,6 +146,7 @@ export function AppointmentManagementModal({ appointment, nailSet, onClose, onUp
         }),
       });
       publish(updated);
+      onClose();
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : 'Unable to save appointment details.');
     } finally {

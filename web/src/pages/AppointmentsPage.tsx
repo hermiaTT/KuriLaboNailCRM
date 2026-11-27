@@ -115,8 +115,8 @@ export function AppointmentsPage() {
           <p>{appointment.serviceName}</p>
           {appointment.note && <small>{t("Client: “")}{appointment.note}”</small>}
           {appointment.serviceNotes && <small className="admin-note-preview">{t("Admin note:")}{appointment.serviceNotes}</small>}
-          {appointment.referenceImages.length > 0 && <ReferencePhotoPicker files={[]} onChange={() => undefined} existingImages={appointment.referenceImages} allowUpload={false} />}
         </div>
+        {appointment.referenceImages.length > 0 && <div className="appointment-media-column"><ReferencePhotoPicker files={[]} onChange={() => undefined} existingImages={appointment.referenceImages} allowUpload={false} /></div>}
         <div className="appointment-admin-meta">
           {(appointment.status === 'COMPLETED' ? appointment.finalPrice : appointment.estimatedPrice) != null && <span className="price-pill">${Number(appointment.status === 'COMPLETED' ? appointment.finalPrice : appointment.estimatedPrice).toFixed(2)}</span>}
           <button className="details-button" onClick={() => openDetails(appointment)}>{t("Visit details")}</button>
