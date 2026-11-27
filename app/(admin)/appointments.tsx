@@ -1,12 +1,12 @@
 import { weekDayLabels, statusLabel, t, getLocale, useLanguage } from '../../shared/i18n';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Doodle, EyebrowTitle, Field, HandButton, HandChip, HandRect, Icons, NailCardModal, Screen, ScreenHeader, StatusBadge } from '../../components/ui';
 import { colors, fonts, letterSpacing, radius, spacing, typeScale, type StatusKey } from '../../constants/theme';
 import { api, ApiError, mediaUrl } from '../../lib/api';
-import type { AdminAppointment, AdminUser, Appointment } from '../../types/api';
+import type { AdminAppointment, AdminUser, Appointment, ServiceDefinition } from '../../types/api';
 
 type Filter = 'ALL' | Appointment['status'];
 type ViewMode = 'LIST' | 'CALENDAR';
@@ -59,6 +59,7 @@ export default function AdminAppointmentsScreen() {
   const router = useRouter();
   const [appointments, setAppointments] = useState<AdminAppointment[]>([]);
   const [clients, setClients] = useState<AdminUser[]>([]);
+  const [services, setServices] = useState<ServiceDefinition[]>([]);
   const [filter, setFilter] = useState<Filter>('ALL');
   const [viewMode, setViewMode] = useState<ViewMode>('LIST');
   const [calendarDate, setCalendarDate] = useState(salonDateKey());
@@ -76,10 +77,12 @@ export default function AdminAppointmentsScreen() {
     Promise.all([
       api<AdminAppointment[]>('/api/v1/admin/appointments'),
       api<AdminUser[]>('/api/v1/admin/users'),
+      api<ServiceDefinition[]>('/api/v1/admin/services'),
     ])
-      .then(([items, users]) => {
+      .then(([items, users, serviceItems]) => {
         setAppointments(items.sort((a, b) => b.startAt.localeCompare(a.startAt)));
         setClients(users);
+        setServices(serviceItems);
       })
       .catch(() => setError("Unable to load appointments."))
       .finally(() => setLoading(false));
@@ -126,7 +129,9 @@ export default function AdminAppointmentsScreen() {
 
   function openDetails(item: AdminAppointment) {
     setSelected(item);
-    setPrice(item.finalPrice == null ? '' : String(item.finalPrice));
+    const servicePrice = services.find((service) => service.id === item.serviceId)?.price;
+    const appointmentPrice = item.status === 'COMPLETED' ? item.finalPrice : item.estimatedPrice;
+    setPrice(appointmentPrice == null ? servicePrice == null ? '' : Number(servicePrice).toFixed(2) : Number(appointmentPrice).toFixed(2));
     setNotes(item.serviceNotes ?? '');
   }
 
@@ -136,7 +141,11 @@ export default function AdminAppointmentsScreen() {
     try {
       const updated = await api<AdminAppointment>(`/api/v1/admin/appointments/${selected.id}/visit-details`, {
         method: 'PUT',
-        body: JSON.stringify({ finalPrice: price.trim() ? Number(price) : null, serviceNotes: notes.trim() || null }),
+        body: JSON.stringify({
+          estimatedPrice: selected.status === 'COMPLETED' ? selected.estimatedPrice : price.trim() ? Number(price) : null,
+          finalPrice: selected.status === 'COMPLETED' && price.trim() ? Number(price) : null,
+          serviceNotes: notes.trim() || null,
+        }),
       });
       setAppointments((current) => current.map((item) => item.id === updated.id ? updated : item));
       setSelected(null);
@@ -151,19 +160,23 @@ export default function AdminAppointmentsScreen() {
 
   function appointmentCard(item: AdminAppointment, showDate = true) {
     return <HandRect key={item.id} padding={15} radius={radius.lg}>
-      <View style={styles.head}>
-        {showDate && <View style={styles.dateBlock}><Text style={styles.dateDay}>{dateParts(item.startAt).day}</Text><Text style={styles.dateMonth}>{dateParts(item.startAt).month}</Text></View>}
-        <View style={styles.timeBlock}><Text style={styles.timeText}>{timeLabel(item.startAt)}</Text><Text style={styles.durationText}>{item.durationMinutes} {t("min")}</Text></View>
-        <View style={styles.main}>
-          <Text style={styles.client}>{item.customerName ?? names.get(item.customerId) ?? t("Client")}</Text>
-          <Text style={styles.when}>{dateLabel(item.startAt)} {t("· ends")}{timeLabel(item.endAt)}</Text>
-          <Text style={styles.service}>{item.serviceName}</Text>
+      <View style={styles.cardContent}>
+        <View style={styles.cardCopy}>
+          <View style={styles.head}>
+            {showDate && <View style={styles.dateBlock}><Text style={styles.dateDay}>{dateParts(item.startAt).day}</Text><Text style={styles.dateMonth}>{dateParts(item.startAt).month}</Text></View>}
+            <View style={styles.timeBlock}><Text style={styles.timeText}>{timeLabel(item.startAt)}</Text><Text style={styles.durationText}>{item.durationMinutes} {t("min")}</Text></View>
+            <View style={styles.main}>
+              <Text style={styles.client}>{item.customerName ?? names.get(item.customerId) ?? t("Client")}</Text>
+              <StatusBadge status={uiStatus(item.status)} />
+              <Text style={styles.when}>{dateLabel(item.startAt)} {t("· ends")}{timeLabel(item.endAt)}</Text>
+              <Text style={styles.service}>{item.serviceName}</Text>
+            </View>
+          </View>
+          {item.note && <Text style={styles.note}>{t("Client note ·")}{item.note}</Text>}
+          {item.serviceNotes && <Text style={styles.adminNote}>{t("Admin note ·")}{item.serviceNotes}</Text>}
         </View>
-        <StatusBadge status={uiStatus(item.status)} />
+        {item.referenceImages.length > 0 && <Pressable style={styles.referenceColumn} onPress={() => setReferenceAppointment(item)}>{item.referenceImages.map((image) => <Image key={image.id} source={{ uri: mediaUrl(image.url) }} style={styles.referenceImage} />)}</Pressable>}
       </View>
-      {item.note && <Text style={styles.note}>{t("Client note ·")}{item.note}</Text>}
-      {item.serviceNotes && <Text style={styles.adminNote}>{t("Admin note ·")}{item.serviceNotes}</Text>}
-      {item.referenceImages.length > 0 && <Pressable style={styles.references} onPress={() => setReferenceAppointment(item)}><View style={styles.referenceStack}>{item.referenceImages.slice(0, 3).map((image, index) => <View key={image.id} style={[styles.referenceDot, { marginLeft: index ? -10 : 0 }]}><Text style={styles.referencePaw}>🐾</Text></View>)}</View><Text style={styles.referenceText}>{item.referenceImages.length} {t("client reference")}{getLocale() === 'en-US' && item.referenceImages.length !== 1 ? 's' : ''} {t("· tap to view")}</Text></Pressable>}
       <View style={styles.actions}>
         <Pressable onPress={() => openDetails(item)}><Text style={styles.actionText}>{t("visit details")}</Text></Pressable>
         {item.status === 'PENDING_CONFIRMATION' && <><HandButton size="sm" color={colors.inkFaint} disabled={busy === item.id} onPress={() => action(item, 'reject', 'Rejected from iOS')}>{t("Reject")}</HandButton><HandButton size="sm" color={colors.pinkInk} disabled={busy === item.id} onPress={() => action(item, 'confirm', 'Confirmed from iOS')}>{t("Confirm")}</HandButton></>}
@@ -199,7 +212,7 @@ export default function AdminAppointmentsScreen() {
               <Text style={styles.modalTitle}>{t("Visit details")}</Text>
               <Text style={styles.modalText}>{t("Private pricing and notes are visible only to admins.")}</Text>
               <View style={{ gap: 10, marginVertical: 16 }}>
-                <Field placeholder={t("Final price (CAD)")} keyboardType="decimal-pad" value={price} onChangeText={setPrice} />
+                <Field placeholder={selected?.status === 'COMPLETED' ? t("Final price (CAD)") : t("Estimated price (CAD)")} keyboardType="decimal-pad" value={price} onChangeText={setPrice} />
                 <Field placeholder={t("Internal service notes")} multiline value={notes} onChangeText={setNotes} />
               </View>
               <HandButton color={colors.pinkInk} full disabled={busy === selected?.id} onPress={saveDetails}>{t("Save details")}</HandButton>
@@ -219,6 +232,8 @@ const styles = StyleSheet.create({
   viewSwitch: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm, alignItems: 'flex-end' },
   filters: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md, flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   list: { paddingHorizontal: spacing.lg, gap: 10 },
+  cardContent: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  cardCopy: { flex: 1, minWidth: 0 },
   head: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   main: { flex: 1, minWidth: 0 },
   dateBlock: { width: 46, height: 56, borderRadius: 15, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.blueInk, backgroundColor: colors.blueSoft, alignItems: 'center', justifyContent: 'center' },
@@ -232,11 +247,8 @@ const styles = StyleSheet.create({
   service: { marginTop: 4, fontFamily: fonts.body, fontSize: 12, color: colors.inkSoft },
   note: { marginTop: 10, fontFamily: fonts.body, fontSize: 12, color: colors.inkSoft },
   adminNote: { marginTop: 5, fontFamily: fonts.body, fontSize: 12, color: colors.blueInk },
-  references: { marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 9 },
-  referenceStack: { flexDirection: 'row' },
-  referenceDot: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: colors.ink, backgroundColor: colors.creamCard, alignItems: 'center', justifyContent: 'center' },
-  referencePaw: { fontSize: 13 },
-  referenceText: { flex: 1, fontFamily: fonts.body, fontSize: 10, color: colors.pinkInk },
+  referenceColumn: { width: 77, flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
+  referenceImage: { width: 36, height: 36, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.creamHair },
   actions: { marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderStyle: 'dashed', borderTopColor: colors.creamHair, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   actionText: { fontFamily: fonts.mono, fontSize: 9, color: colors.pinkInk, textTransform: 'uppercase' },
   error: { paddingHorizontal: spacing.lg, textAlign: 'center', fontFamily: fonts.body, color: '#c0554f' },

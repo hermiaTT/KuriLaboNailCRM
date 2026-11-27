@@ -31,6 +31,7 @@ export type Appointment = {
 
 export type AdminAppointment = Appointment & {
   serviceNotes: string | null;
+  estimatedPrice: number | null;
   finalPrice: number | null;
 };
 

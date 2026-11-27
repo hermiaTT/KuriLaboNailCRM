@@ -1,4 +1,5 @@
 import { t, getLocale, useLanguage } from '../../shared/i18n';
+import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useState } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -75,6 +76,7 @@ export default function AppointmentsScreen() {
   const [cancelTarget, setCancelTarget] = useState<Visit | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [busy, setBusy] = useState(false);
+  const [uploadingReferenceId, setUploadingReferenceId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useFocusEffect(
@@ -119,6 +121,38 @@ export default function AppointmentsScreen() {
     finally { setBusy(false); }
   }
 
+  async function addReferencePhotos(visit: Visit) {
+    const remaining = 6 - visit.referenceImages.length;
+    if (remaining <= 0) return;
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) { setError("Photo library access is required."); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsMultipleSelection: true,
+      orderedSelection: true,
+      quality: 0.85,
+      selectionLimit: remaining,
+    });
+    if (result.canceled || result.assets.length === 0) return;
+    const body = new FormData();
+    result.assets.forEach((asset, index) => body.append('files', {
+      uri: asset.uri,
+      name: asset.fileName || `reference-${index + 1}.jpg`,
+      type: asset.mimeType || 'image/jpeg',
+    } as any));
+    setUploadingReferenceId(visit.id);
+    setError(null);
+    try {
+      const updated = await api<Appointment>(`/api/v1/appointments/${visit.id}/references`, { method: 'POST', body });
+      setVisits((current) => current.map((item) => item.id === updated.id ? { ...item, ...updated } : item));
+      setReferenceVisit(null);
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : "Unable to upload reference photos.");
+    } finally {
+      setUploadingReferenceId(null);
+    }
+  }
+
   return (
     <Screen>
       <ScreenHeader
@@ -149,46 +183,38 @@ export default function AppointmentsScreen() {
             const contactOnly = v.status === 'CONFIRMED' && new Date(v.startAt).getTime() > Date.now() && !canCancel;
             return (
               <HandRect key={v.id} padding={16} radius={radius.lg}>
-                <View style={styles.head}>
-                  <View>
-                    <Text style={styles.date}>{fmtDate(v.startAt)}</Text>
-                    <Text style={styles.time}>
-                      {fmtTime(v.startAt)} – {fmtTime(v.endAt)}
-                    </Text>
-                  </View>
-                  <StatusBadge status={uiStatus(v.status)}/>
-                </View>
-                <View style={styles.divider}/>
-                <View style={styles.foot}>
-                  <Text style={styles.tag}>{timeTag(v)}</Text>
-                  {canCancel ? <Pressable style={styles.detailBtn} onPress={() => setCancelTarget(v)}><Text style={styles.cancelText}>{t("request cancellation")}</Text></Pressable> : hasImages && (
-                    <Pressable style={styles.detailBtn} onPress={() => setActiveVisit(v)}>
-                      <Text style={styles.detailText}>{t("details")}</Text>
-                      <Icons.Chev color={colors.pinkInk} size={14}/>
-                    </Pressable>
-                  )}
-                </View>
-                {v.status === 'CANCELLATION_REQUESTED' && <Text style={styles.hint}>{t("Cancellation requested — this time remains reserved until Kuri reviews it.")}</Text>}
-                {contactOnly && <Text style={styles.hint}>{t("Within 24 hours — contact Kuri directly if you need help.")}</Text>}
-                {v.referenceImages.length > 0 && (
-                  <Pressable style={styles.referenceInfo} onPress={() => setReferenceVisit(v)}>
-                    <Text style={styles.referenceLabel}>{t("Reference photos")}</Text>
-                    <View style={styles.thumbRow}>
-                      {v.referenceImages.slice(0, 4).map((img) => (
-                        <Image key={img.id} source={{ uri: mediaUrl(img.url) }} style={styles.thumb} />
-                      ))}
+                <View style={styles.visitContent}>
+                  <View style={styles.visitCopy}>
+                    <View style={styles.head}>
+                      <View>
+                        <Text style={styles.date}>{fmtDate(v.startAt)}</Text>
+                        <Text style={styles.time}>{fmtTime(v.startAt)} – {fmtTime(v.endAt)}</Text>
+                      </View>
+                      <StatusBadge status={uiStatus(v.status)}/>
                     </View>
-                  </Pressable>
-                )}
-                {v.status === 'COMPLETED' && hasImages && (
-                  <View style={styles.doneInfo}>
-                    <Pressable style={styles.thumbRow} onPress={() => setActiveVisit(v)}>
-                      {v.images.slice(0, 4).map((img) => (
-                        <Image key={img.id} source={{ uri: mediaUrl(img.url) }} style={styles.thumb} />
-                      ))}
-                    </Pressable>
+                    <View style={styles.divider}/>
+                    <View style={styles.foot}>
+                      <Text style={styles.tag}>{timeTag(v)}</Text>
+                      {canCancel ? <Pressable style={styles.detailBtn} onPress={() => setCancelTarget(v)}><Text style={styles.cancelText}>{t("request cancellation")}</Text></Pressable> : hasImages && (
+                        <Pressable style={styles.detailBtn} onPress={() => setActiveVisit(v)}>
+                          <Text style={styles.detailText}>{t("details")}</Text>
+                          <Icons.Chev color={colors.pinkInk} size={14}/>
+                        </Pressable>
+                      )}
+                    </View>
+                    {v.status === 'CANCELLATION_REQUESTED' && <Text style={styles.hint}>{t("Cancellation requested — this time remains reserved until Kuri reviews it.")}</Text>}
+                    {contactOnly && <Text style={styles.hint}>{t("Within 24 hours — contact Kuri directly if you need help.")}</Text>}
+                    {v.status === 'COMPLETED' && hasImages && (
+                      <View style={styles.doneInfo}>
+                        <Pressable style={styles.thumbRow} onPress={() => setActiveVisit(v)}>
+                          {v.images.slice(0, 4).map((img) => <Image key={img.id} source={{ uri: mediaUrl(img.url) }} style={styles.thumb} />)}
+                        </Pressable>
+                      </View>
+                    )}
                   </View>
-                )}
+                  {v.referenceImages.length > 0 && <Pressable style={styles.referenceColumn} onPress={() => setReferenceVisit(v)}>{v.referenceImages.map((img) => <Image key={img.id} source={{ uri: mediaUrl(img.url) }} style={styles.referenceThumb} />)}</Pressable>}
+                </View>
+                {(v.status === 'PENDING_CONFIRMATION' || v.status === 'CONFIRMED') && v.referenceImages.length < 6 && <Pressable disabled={uploadingReferenceId !== null} style={styles.addReferenceButton} onPress={() => void addReferencePhotos(v)}><Text style={styles.addReferenceText}>{uploadingReferenceId === v.id ? t("Uploading photos…") : t("+ Add photos")}</Text></Pressable>}
               </HandRect>
             );
           })}
@@ -251,6 +277,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     gap: 12,
   },
+  visitContent: { flexDirection: 'row', alignItems: 'flex-start', gap: 9 },
+  visitCopy: { flex: 1, minWidth: 0 },
   head: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -297,8 +325,10 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   doneInfo: { marginTop: 10, gap: 6 },
-  referenceInfo: { marginTop: 10, gap: 4 },
-  referenceLabel: { fontFamily: fonts.mono, fontSize: 8, color: colors.blueInk, textTransform: 'uppercase' },
+  referenceColumn: { width: 77, flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
+  referenceThumb: { width: 36, height: 36, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.creamHair },
+  addReferenceButton: { alignSelf: 'flex-end', marginTop: 10, paddingVertical: 7, paddingHorizontal: 11, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.blueInk, borderRadius: 999, backgroundColor: colors.blueSoft },
+  addReferenceText: { fontFamily: fonts.mono, fontSize: 8, color: colors.blueInk, textTransform: 'uppercase' },
   priceText: {
     fontFamily: fonts.display, fontSize: 15, color: colors.ink, letterSpacing: letterSpacing.display,
   },
