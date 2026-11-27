@@ -3,12 +3,18 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 
 import { NailSetViewer } from '../../components/NailSetGallery';
+import { ReferencePhotoPicker } from '../../components/ReferencePhotoPicker';
 import { EmptyState, PageHeading, PaperCard, StatusBadge } from '../../components/UI';
 import { formatSalonTime } from '../../lib/dates';
 import { api, ApiError } from '../../lib/api';
 import type { Appointment, NailSet, SalonContact } from '../../types';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const HISTORY_STATUSES = new Set<Appointment['status']>(['CANCELLED', 'REJECTED', 'COMPLETED', 'NO_SHOW']);
+
+function isPastAppointment(appointment: Appointment, now: number) {
+  return HISTORY_STATUSES.has(appointment.status) || new Date(appointment.endAt).getTime() < now;
+}
 
 function appointmentDay(start: Date) {
   return new Intl.DateTimeFormat(getLocale(), { day: 'numeric', timeZone: 'America/Vancouver' }).format(start);
@@ -30,6 +36,8 @@ export function ClientAppointmentsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [referenceTarget, setReferenceTarget] = useState<Appointment | null>(null);
+  const [referenceFiles, setReferenceFiles] = useState<File[]>([]);
 
   useEffect(() => {
     Promise.all([
@@ -47,8 +55,8 @@ export function ClientAppointmentsPage() {
   }, []);
 
   const now = Date.now();
-  const upcoming = appointments.filter((appointment) => new Date(appointment.endAt).getTime() >= now);
-  const past = appointments.filter((appointment) => new Date(appointment.endAt).getTime() < now);
+  const upcoming = appointments.filter((appointment) => !isPastAppointment(appointment, now));
+  const past = appointments.filter((appointment) => isPastAppointment(appointment, now));
   const setsByAppointment = useMemo(() => new Map(nailSets.filter((item) => item.appointmentId).map((item) => [item.appointmentId, item])), [nailSets]);
   const unlinkedHistory = nailSets.filter((item) => !item.appointmentId);
 
@@ -84,6 +92,31 @@ export function ClientAppointmentsPage() {
     setOpenSet(item);
   }
 
+  function openReferences(appointment: Appointment) {
+    setError(null);
+    setReferenceFiles([]);
+    setReferenceTarget(appointment);
+  }
+
+  async function uploadReferences(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!referenceTarget || referenceFiles.length === 0) return;
+    const body = new FormData();
+    referenceFiles.forEach((file) => body.append('files', file));
+    setBusy(true);
+    setError(null);
+    try {
+      const updated = await api<Appointment>(`/api/v1/appointments/${referenceTarget.id}/references`, { method: 'POST', body });
+      setAppointments((current) => current.map((appointment) => appointment.id === updated.id ? updated : appointment));
+      setReferenceTarget(updated);
+      setReferenceFiles([]);
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : 'Unable to upload reference photos.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="client-page">
       <PageHeading eyebrow={t("YOUR VISITS")} title={t("My appointments")} action={<Link className="primary-button compact" to="/client/book">{t("+ Book")}</Link>} />
@@ -106,7 +139,9 @@ export function ClientAppointmentsPage() {
                   {appointment.note && <small>{appointment.note}</small>}
                   {appointment.status === 'CANCELLATION_REQUESTED' && <p className="appointment-hint pending-hint">{t("Cancellation requested—your time stays reserved until Kuri reviews it.")}</p>}
                   {confirmed && future && !outsideWindow && <p className="appointment-hint contact-hint">{t("Within 24 hours—please contact Kuri directly if you need help.")}</p>}
+                  {appointment.referenceImages.length > 0 && <div className="client-reference-thumbnails">{appointment.referenceImages.slice(0, 4).map((image) => <img src={image.url} alt={t('Reference photo')} key={image.id} />)}</div>}
                 </div>
+                {(appointment.status === 'PENDING_CONFIRMATION' || appointment.status === 'CONFIRMED') && <button className="reference-manage-button" onClick={() => openReferences(appointment)}>{appointment.referenceImages.length ? t('Reference photos') : t('Upload photos')}</button>}
                 {confirmed && future && outsideWindow && <button className="cancel-request-button" onClick={() => setCancelTarget(appointment)}>{t("Request cancellation")}</button>}
               </article>
             );
@@ -123,7 +158,8 @@ export function ClientAppointmentsPage() {
             return (
               <article key={appointment.id} className="client-appointment-row past-appointment-row">
                 <div className="date-block"><strong>{appointmentDay(start)}</strong><small>{appointmentMonth(start)}</small></div>
-                <div className="client-appt-copy"><div><h3>{appointment.serviceName}</h3><StatusBadge status={appointment.status} /></div><p>{new Intl.DateTimeFormat(getLocale(), { year: 'numeric', timeZone: 'America/Vancouver' }).format(start)} · {formatSalonTime(start)}</p></div>
+                <div className="client-appt-copy"><div><h3>{appointment.serviceName}</h3><StatusBadge status={appointment.status} /></div><p>{new Intl.DateTimeFormat(getLocale(), { year: 'numeric', timeZone: 'America/Vancouver' }).format(start)} · {formatSalonTime(start)}</p>{appointment.referenceImages.length > 0 && <div className="client-reference-thumbnails">{appointment.referenceImages.slice(0, 4).map((image) => <img src={image.url} alt={t('Reference photo')} key={image.id} />)}</div>}</div>
+                {appointment.referenceImages.length > 0 && <button className="reference-manage-button" onClick={() => openReferences(appointment)}>{t('Reference photos')}</button>}
                 {nailSet ? <button className="history-photo-button" onClick={() => openNailSet(nailSet)}><img src={nailSet.images[0]?.url} alt="" /><span>{t("View")}{nailSet.images.length} {t("photo")}{getLocale() === 'en-US' && nailSet.images.length !== 1 ? 's' : ''}</span></button> : <span className="no-history-photos">{t("No photos added")}</span>}
               </article>
             );
@@ -138,6 +174,7 @@ export function ClientAppointmentsPage() {
       </PaperCard>
 
       {cancelTarget && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCancelTarget(null); }}><PaperCard className="cancel-modal"><button className="modal-close" onClick={() => setCancelTarget(null)} aria-label={t("Close")}>×</button><p className="eyebrow">{t("CANCELLATION REQUEST")}</p><h2>{t("Ask Kuri to cancel?")}</h2><p className="modal-subtitle">{cancelTarget.serviceName} · {appointmentMonth(new Date(cancelTarget.startAt))} {appointmentDay(new Date(cancelTarget.startAt))} {t("at")}{formatSalonTime(cancelTarget.startAt)}</p><div className="cancellation-note">{t("Your appointment remains reserved until Kuri approves this request.")}</div><form onSubmit={requestCancellation}><label>{t("Reason")}<span className="optional">{t("optional")}</span><textarea name="reason" maxLength={1000} placeholder={t("Let Kuri know what changed…")} /></label><button className="primary-button" disabled={busy}>{busy ? t("Sending…") : t("Send cancellation request")}</button></form></PaperCard></div>}
+      {referenceTarget && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setReferenceTarget(null); }}><PaperCard className="reference-photo-modal"><button className="modal-close" disabled={busy} onClick={() => setReferenceTarget(null)} aria-label={t('Close')}>×</button><p className="eyebrow">{t('YOUR APPOINTMENT')}</p><h2>{t('Reference photos')}</h2><p className="modal-subtitle">{referenceTarget.serviceName} · {t('Shared with you and the studio.')}</p>{error && <div className="form-notice">{t(error)}</div>}<form onSubmit={uploadReferences}><ReferencePhotoPicker files={referenceFiles} onChange={setReferenceFiles} existingImages={referenceTarget.referenceImages} disabled={busy} allowUpload={referenceTarget.status === 'PENDING_CONFIRMATION' || referenceTarget.status === 'CONFIRMED'} />{(referenceTarget.status === 'PENDING_CONFIRMATION' || referenceTarget.status === 'CONFIRMED') && referenceFiles.length > 0 && <button className="primary-button" disabled={busy}>{busy ? t('Uploading photos…') : t('Upload photos')}</button>}</form></PaperCard></div>}
       {openSet && <NailSetViewer item={openSet} activeImage={activeImage} setActiveImage={setActiveImage} onClose={() => setOpenSet(null)} />}
     </div>
   );

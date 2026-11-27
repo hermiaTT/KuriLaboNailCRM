@@ -41,8 +41,11 @@ function fmtDate(iso: string) {
   });
 }
 
-function timeTag(iso: string) {
-  const start = new Date(iso).getTime();
+const HISTORY_STATUSES = new Set<Appointment['status']>(['CANCELLED', 'REJECTED', 'COMPLETED', 'NO_SHOW']);
+
+function timeTag(visit: Appointment) {
+  if (HISTORY_STATUSES.has(visit.status)) return 'past';
+  const start = new Date(visit.startAt).getTime();
   if (Math.abs(start - Date.now()) < 24 * 60 * 60 * 1000) return 'today';
   return start > Date.now() ? 'upcoming' : 'past';
 }
@@ -65,6 +68,7 @@ export default function AppointmentsScreen() {
   const [loading, setLoading] = useState(true);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [activeVisit, setActiveVisit] = useState<Visit | null>(null);
+  const [referenceVisit, setReferenceVisit] = useState<Visit | null>(null);
   const [unlinkedSets, setUnlinkedSets] = useState<NailSet[]>([]);
   const [activeSet, setActiveSet] = useState<NailSet | null>(null);
   const [contact, setContact] = useState<SalonContact | null>(null);
@@ -156,7 +160,7 @@ export default function AppointmentsScreen() {
                 </View>
                 <View style={styles.divider}/>
                 <View style={styles.foot}>
-                  <Text style={styles.tag}>{timeTag(v.startAt)}</Text>
+                  <Text style={styles.tag}>{timeTag(v)}</Text>
                   {canCancel ? <Pressable style={styles.detailBtn} onPress={() => setCancelTarget(v)}><Text style={styles.cancelText}>{t("request cancellation")}</Text></Pressable> : hasImages && (
                     <Pressable style={styles.detailBtn} onPress={() => setActiveVisit(v)}>
                       <Text style={styles.detailText}>{t("details")}</Text>
@@ -166,6 +170,16 @@ export default function AppointmentsScreen() {
                 </View>
                 {v.status === 'CANCELLATION_REQUESTED' && <Text style={styles.hint}>{t("Cancellation requested — this time remains reserved until Kuri reviews it.")}</Text>}
                 {contactOnly && <Text style={styles.hint}>{t("Within 24 hours — contact Kuri directly if you need help.")}</Text>}
+                {v.referenceImages.length > 0 && (
+                  <Pressable style={styles.referenceInfo} onPress={() => setReferenceVisit(v)}>
+                    <Text style={styles.referenceLabel}>{t("Reference photos")}</Text>
+                    <View style={styles.thumbRow}>
+                      {v.referenceImages.slice(0, 4).map((img) => (
+                        <Image key={img.id} source={{ uri: mediaUrl(img.url) }} style={styles.thumb} />
+                      ))}
+                    </View>
+                  </Pressable>
+                )}
                 {v.status === 'COMPLETED' && hasImages && (
                   <View style={styles.doneInfo}>
                     <Pressable style={styles.thumbRow} onPress={() => setActiveVisit(v)}>
@@ -211,6 +225,11 @@ export default function AppointmentsScreen() {
         visible={!!activeVisit || !!activeSet}
         onClose={() => { setActiveVisit(null); setActiveSet(null); }}
         images={(activeVisit?.images ?? activeSet?.images ?? []).map((image) => ({ id: image.id, image_url: mediaUrl(image.url) }))}
+      />
+      <NailCardModal
+        visible={Boolean(referenceVisit)}
+        onClose={() => setReferenceVisit(null)}
+        images={(referenceVisit?.referenceImages ?? []).map((image) => ({ id: image.id, image_url: mediaUrl(image.url) }))}
       />
 
       <Modal transparent visible={Boolean(cancelTarget)} animationType="fade" onRequestClose={() => setCancelTarget(null)}><Pressable style={styles.backdrop} onPress={() => setCancelTarget(null)}><Pressable style={styles.modal} onPress={() => undefined}><HandRect padding={20} radius={radius.xl}><Text style={styles.modalTitle}>{t("Request cancellation")}</Text><Text style={styles.modalBody}>{t("Kuri will review the request. Your appointment remains reserved until it is approved.")}</Text><Field containerStyle={{ marginVertical: 14 }} placeholder={t("Reason (optional)")} multiline value={cancelReason} onChangeText={setCancelReason} /><HandButton full color={colors.pinkInk} disabled={busy} onPress={requestCancellation}>{busy ? t("Sending…") : t("Send request")}</HandButton></HandRect></Pressable></Pressable></Modal>
@@ -278,6 +297,8 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   doneInfo: { marginTop: 10, gap: 6 },
+  referenceInfo: { marginTop: 10, gap: 4 },
+  referenceLabel: { fontFamily: fonts.mono, fontSize: 8, color: colors.blueInk, textTransform: 'uppercase' },
   priceText: {
     fontFamily: fonts.display, fontSize: 15, color: colors.ink, letterSpacing: letterSpacing.display,
   },

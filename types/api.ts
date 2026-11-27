@@ -78,6 +78,10 @@ export type Availability = {
   slots: AvailabilitySlot[];
 };
 
+export type BlockedDates = {
+  dates: string[];
+};
+
 export type AdminUser = {
   id: string;
   accountId: string | null;

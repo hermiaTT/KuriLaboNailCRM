@@ -27,5 +27,13 @@ public class AvailabilityController {
     ) {
         return availabilityService.getAvailability(date, serviceId);
     }
+
+    @GetMapping("/blocked-dates")
+    BlockedDatesResponse getBlockedDates(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
+    ) {
+        return availabilityService.getBlockedDates(from, to);
+    }
 }
 

@@ -4,6 +4,7 @@ import com.kurilabo.appointment.domain.AppointmentStatus;
 import com.kurilabo.appointment.infrastructure.AppointmentRepository;
 import com.kurilabo.availability.api.AvailabilityResponse;
 import com.kurilabo.availability.api.AdminScheduleAvailabilityResponse;
+import com.kurilabo.availability.api.BlockedDatesResponse;
 import com.kurilabo.appointment.domain.Appointment;
 import com.kurilabo.availability.domain.AvailabilityBlock;
 import com.kurilabo.availability.domain.SalonSetting;
@@ -86,6 +87,28 @@ public class AvailabilityService {
                 service.getDurationMinutes(),
                 List.copyOf(slots)
         );
+    }
+
+    @Transactional(readOnly = true)
+    public BlockedDatesResponse getBlockedDates(LocalDate from, LocalDate to) {
+        if (to.isBefore(from) || to.isAfter(from.plusYears(1))) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Availability range must be between 1 day and 1 year.");
+        }
+        SalonSetting settings = getSettings();
+        ZoneId zone = ZoneId.of(settings.getTimezone());
+        Instant rangeStart = from.atStartOfDay(zone).toInstant();
+        Instant rangeEnd = to.plusDays(1).atStartOfDay(zone).toInstant();
+        List<AvailabilityBlock> blocks = availabilityBlockRepository
+                .findByStartAtLessThanAndEndAtGreaterThanOrderByStartAtAsc(rangeEnd, rangeStart);
+        List<LocalDate> dates = from.datesUntil(to.plusDays(1))
+                .filter(date -> {
+                    Instant dayStart = date.atStartOfDay(zone).toInstant();
+                    Instant dayEnd = date.plusDays(1).atStartOfDay(zone).toInstant();
+                    return blocks.stream().anyMatch(block ->
+                            !block.getStartAt().isAfter(dayStart) && !block.getEndAt().isBefore(dayEnd));
+                })
+                .toList();
+        return new BlockedDatesResponse(dates);
     }
 
     @Transactional(readOnly = true)

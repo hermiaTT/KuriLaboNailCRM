@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 
 import { AppointmentManagementModal } from '../components/admin/AppointmentManagementModal';
 import { DatePicker } from '../components/DatePicker';
+import { ReferencePhotoPicker } from '../components/ReferencePhotoPicker';
 import { EmptyState, PageHeading, PaperCard, StatusBadge } from '../components/UI';
 import { addDays, calendarDays, formatSalonTime, longDateLabel, monthLabel, parseDateKey, salonDateKey, todayInSalon } from '../lib/dates';
 import { api, ApiError } from '../lib/api';
@@ -114,7 +115,7 @@ export function AppointmentsPage() {
           <p>{appointment.serviceName}</p>
           {appointment.note && <small>{t("Client: “")}{appointment.note}”</small>}
           {appointment.serviceNotes && <small className="admin-note-preview">{t("Admin note:")}{appointment.serviceNotes}</small>}
-          {appointment.referenceImages.length > 0 && <div className="appointment-reference-strip">{appointment.referenceImages.map((image) => <span key={image.id}><img src={image.url} alt={t("Client reference")} /><a href={`${image.url}?download=true`} download aria-label={t("Download reference photo")}>🐾</a></span>)}</div>}
+          {appointment.referenceImages.length > 0 && <ReferencePhotoPicker files={[]} onChange={() => undefined} existingImages={appointment.referenceImages} allowUpload={false} />}
         </div>
         <div className="appointment-admin-meta">
           {(appointment.status === 'COMPLETED' ? appointment.finalPrice : appointment.estimatedPrice) != null && <span className="price-pill">${Number(appointment.status === 'COMPLETED' ? appointment.finalPrice : appointment.estimatedPrice).toFixed(2)}</span>}

@@ -103,6 +103,10 @@ export type Availability = {
   }>;
 };
 
+export type BlockedDates = {
+  dates: string[];
+};
+
 export type AdminScheduleAvailability = {
   date: string;
   timezone: string;

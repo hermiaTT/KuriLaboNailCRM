@@ -5,6 +5,7 @@ import com.kurilabo.appointment.domain.Appointment;
 import com.kurilabo.appointment.domain.AppointmentStatus;
 import com.kurilabo.appointment.infrastructure.AppointmentRepository;
 import com.kurilabo.auth.domain.AppUser;
+import com.kurilabo.auth.domain.UserRole;
 import com.kurilabo.auth.infrastructure.AppUserRepository;
 import com.kurilabo.portfolio.application.LocalMediaStorage;
 import com.kurilabo.portfolio.domain.MediaAsset;
@@ -39,18 +40,31 @@ public class AppointmentReferenceService {
     }
 
     @Transactional
-    public AppointmentResponse upload(UUID userId, UUID appointmentId, List<MultipartFile> files) {
+    public AppointmentResponse uploadForClient(UUID userId, UUID appointmentId, List<MultipartFile> files) {
+        return upload(userId, appointmentId, files, true);
+    }
+
+    @Transactional
+    public AppointmentResponse uploadForAdmin(UUID adminId, UUID appointmentId, List<MultipartFile> files) {
+        return upload(adminId, appointmentId, files, false);
+    }
+
+    private AppointmentResponse upload(UUID userId, UUID appointmentId, List<MultipartFile> files, boolean requireOwnership) {
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Appointment was not found."));
-        if (appointment.getStatus() != AppointmentStatus.PENDING_CONFIRMATION) {
-            throw new ApiException(HttpStatus.CONFLICT, "Reference photos can only be added while the appointment is pending.");
+        if (appointment.getStatus() != AppointmentStatus.PENDING_CONFIRMATION &&
+                appointment.getStatus() != AppointmentStatus.CONFIRMED) {
+            throw new ApiException(HttpStatus.CONFLICT, "Reference photos can only be added to pending or confirmed appointments.");
         }
         if (files == null || files.isEmpty() || appointment.getReferenceMedia().size() + files.size() > MAX_IMAGES) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Choose 1 to 6 reference photos.");
         }
         AppUser user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "User no longer exists."));
-        if (user.getClient() == null || !appointment.getCustomer().getId().equals(user.getClient().getId())) {
+        if (!requireOwnership && user.getRole() != UserRole.ADMIN) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Administrator access is required.");
+        }
+        if (requireOwnership && (user.getClient() == null || !appointment.getCustomer().getId().equals(user.getClient().getId()))) {
             throw new ApiException(HttpStatus.FORBIDDEN, "You cannot update this appointment.");
         }
         List<String> storedKeys = new ArrayList<>();

@@ -15,7 +15,7 @@ function buildMonth(year: number, month: number) {
   return cells;
 }
 
-export function BookingCalendar({ value, minDate, onChange }: { value: string; minDate: string; onChange: (date: string) => void }) {
+export function BookingCalendar({ value, minDate, blockedDates = new Set<string>(), onChange }: { value: string; minDate: string; blockedDates?: ReadonlySet<string>; onChange: (date: string) => void }) {
   useLanguage();
   const selected = parseDateKey(value);
   const minimum = parseDateKey(minDate);
@@ -53,15 +53,16 @@ export function BookingCalendar({ value, minDate, onChange }: { value: string; m
           const key = toDateKey(new Date(viewYear, viewMonth, day, 12));
           const isSelected = key === value;
           const isToday = key === minDate;
-          const disabled = key < minDate;
+          const isBlocked = blockedDates.has(key);
+          const disabled = key < minDate || isBlocked;
           return (
-            <button type="button" key={key} disabled={disabled} className={`${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''}`} onClick={() => onChange(key)}>
+            <button type="button" key={key} disabled={disabled} className={`${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''} ${isBlocked ? 'blocked' : ''}`} onClick={() => onChange(key)} aria-label={isBlocked ? t('{date} is blocked', { date: key }) : undefined}>
               <span>{day}</span>
             </button>
           );
         })}
       </div>
-      <div className="booking-calendar-footer"><span><i className="selected-key" />{t("selected")}</span><span><i className="today-key" />{t("today")}</span></div>
+      <div className="booking-calendar-footer"><span><i className="selected-key" />{t("selected")}</span><span><i className="today-key" />{t("today")}</span><span><i className="blocked-key" />{t("blocked")}</span></div>
     </PaperCard>
   );
 }

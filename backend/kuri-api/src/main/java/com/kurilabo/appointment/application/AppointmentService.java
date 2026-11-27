@@ -513,6 +513,28 @@ public class AppointmentService {
     }
 
     @Transactional
+    public AppointmentResponse cancelByAdmin(UUID adminId, UUID appointmentId, String reason) {
+        AppUser admin = getUser(adminId);
+        Appointment appointment = getAppointment(appointmentId);
+        AppointmentStatus previous = appointment.getStatus();
+        Instant now = clock.instant();
+        try {
+            appointment.cancelByAdmin(now);
+        } catch (IllegalStateException exception) {
+            throw new ApiException(HttpStatus.CONFLICT, exception.getMessage());
+        }
+        recordTransition(appointment, previous, reason, admin, now, "AppointmentCancelledByAdminV1");
+        notificationService.notifyClient(
+                appointment.getCustomer(),
+                "APPOINTMENT_CANCELLED",
+                "Appointment cancelled",
+                "Your " + appointment.getServiceNameSnapshot() + " appointment has been cancelled. Please contact Kuri if you need help.",
+                appointment.getId()
+        );
+        return AppointmentResponse.from(appointment);
+    }
+
+    @Transactional
     public AppointmentResponse complete(UUID adminId, UUID appointmentId, String reason) {
         AppUser admin = getUser(adminId);
         Appointment appointment = getAppointment(appointmentId);

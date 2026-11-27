@@ -1,6 +1,7 @@
 package com.kurilabo.portfolio.application;
 
 import com.kurilabo.appointment.domain.Appointment;
+import com.kurilabo.appointment.domain.AppointmentStatus;
 import com.kurilabo.appointment.infrastructure.AppointmentRepository;
 import com.kurilabo.auth.domain.AppUser;
 import com.kurilabo.auth.domain.UserRole;
@@ -91,6 +92,7 @@ public class NailSetService {
         if (appointmentId != null) {
             appointment = appointmentRepository.findById(appointmentId)
                     .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Appointment was not found."));
+            requireCompletedAppointment(appointment);
             if (nailSetRepository.existsByAppointment_Id(appointmentId)) {
                 throw new ApiException(HttpStatus.CONFLICT, "That appointment already has a nail set.");
             }
@@ -184,6 +186,11 @@ public class NailSetService {
         if (request.appointmentId() != null) {
             appointment = appointmentRepository.findById(request.appointmentId())
                     .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Appointment was not found."));
+            boolean keepsLegacyAppointmentLink = nailSet.getAppointment() != null
+                    && nailSet.getAppointment().getId().equals(request.appointmentId());
+            if (!keepsLegacyAppointmentLink) {
+                requireCompletedAppointment(appointment);
+            }
             if (nailSetRepository.existsByAppointment_IdAndIdNot(request.appointmentId(), nailSetId)) {
                 throw new ApiException(HttpStatus.CONFLICT, "That appointment already has a nail set.");
             }
@@ -237,6 +244,12 @@ public class NailSetService {
     private NailSet getNailSet(UUID id) {
         return nailSetRepository.findById(id)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Nail set was not found."));
+    }
+
+    private void requireCompletedAppointment(Appointment appointment) {
+        if (appointment.getStatus() != AppointmentStatus.COMPLETED) {
+            throw new ApiException(HttpStatus.CONFLICT, "Nail work can only be linked to a completed appointment.");
+        }
     }
 
     private Set<UUID> favoriteIds(UUID clientId) {

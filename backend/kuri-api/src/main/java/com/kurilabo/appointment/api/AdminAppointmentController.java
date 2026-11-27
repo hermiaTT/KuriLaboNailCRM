@@ -1,6 +1,7 @@
 package com.kurilabo.appointment.api;
 
 import com.kurilabo.appointment.application.AppointmentService;
+import com.kurilabo.appointment.application.AppointmentReferenceService;
 import jakarta.validation.Valid;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -11,6 +12,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.MediaType;
 
 import java.util.UUID;
 import java.util.List;
@@ -23,9 +26,20 @@ import com.kurilabo.availability.api.AdminScheduleAvailabilityResponse;
 public class AdminAppointmentController {
 
     private final AppointmentService appointmentService;
+    private final AppointmentReferenceService referenceService;
 
-    public AdminAppointmentController(AppointmentService appointmentService) {
+    public AdminAppointmentController(AppointmentService appointmentService, AppointmentReferenceService referenceService) {
         this.appointmentService = appointmentService;
+        this.referenceService = referenceService;
+    }
+
+    @PostMapping(value = "/{appointmentId}/references", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    AppointmentResponse uploadReferences(
+            JwtAuthenticationToken authentication,
+            @PathVariable UUID appointmentId,
+            @RequestParam("files") List<MultipartFile> files
+    ) {
+        return referenceService.uploadForAdmin(currentUserId(authentication), appointmentId, files);
     }
 
     @GetMapping
@@ -102,6 +116,15 @@ public class AdminAppointmentController {
             @Valid @RequestBody ReviewAppointmentRequest request
     ) {
         return appointmentService.reject(currentUserId(authentication), appointmentId, request.reason());
+    }
+
+    @PostMapping("/{appointmentId}/cancel")
+    AppointmentResponse cancel(
+            JwtAuthenticationToken authentication,
+            @PathVariable UUID appointmentId,
+            @Valid @RequestBody ReviewAppointmentRequest request
+    ) {
+        return appointmentService.cancelByAdmin(currentUserId(authentication), appointmentId, request.reason());
     }
 
     @PostMapping("/{appointmentId}/complete")

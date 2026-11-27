@@ -32,7 +32,7 @@ public class AppointmentController {
     @PostMapping(value = "/{appointmentId}/references", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     AppointmentResponse uploadReferences(JwtAuthenticationToken authentication, @PathVariable UUID appointmentId,
                                          @RequestParam("files") java.util.List<MultipartFile> files) {
-        return referenceService.upload(currentUserId(authentication), appointmentId, files);
+        return referenceService.uploadForClient(currentUserId(authentication), appointmentId, files);
     }
 
     @PostMapping

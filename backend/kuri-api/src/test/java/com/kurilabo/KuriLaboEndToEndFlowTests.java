@@ -221,6 +221,38 @@ class KuriLaboEndToEndFlowTests {
                 .andReturn().getResponse().getContentAsString());
         String guestAppointmentId = guestAppointment.get("id").asText();
 
+        MockMultipartFile adminReferenceImage = new MockMultipartFile(
+                "files", "admin-reference.png", "image/png", new byte[] {7, 6, 5}
+        );
+        mvc.perform(multipart("/api/v1/admin/appointments/" + guestAppointmentId + "/references")
+                        .file(adminReferenceImage)
+                        .header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CONFIRMED"))
+                .andExpect(jsonPath("$.referenceImages.length()").value(1));
+
+        LocalDate adminCancelledDate = adminBookingDate.plusDays(1);
+        JsonNode adminCancelledAppointment = json(postJson("/api/v1/admin/appointments", adminToken, Map.of(
+                "customerId", guestId,
+                "serviceId", basicServiceId,
+                "customServiceName", "",
+                "date", adminCancelledDate.toString(),
+                "startTime", "10:00",
+                "endTime", "12:00",
+                "note", "E2E admin cancellation"
+        )).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        String adminCancelledAppointmentId = adminCancelledAppointment.get("id").asText();
+        postJson("/api/v1/admin/appointments/" + adminCancelledAppointmentId + "/cancel", adminToken, Map.of(
+                "reason", "E2E cancelled by admin"
+        )).andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"));
+        mvc.perform(get("/api/v1/availability")
+                        .param("date", adminCancelledDate.toString())
+                        .param("serviceId", basicServiceId)
+                        .header("Authorization", bearer(clientToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.slots[?(@.startTime == '10:00:00')].available", hasItem(true)));
+
         LocalDate rangeStart = bookingDate.plusDays(20);
         LocalDate rangeEnd = rangeStart.plusDays(6);
         postJson("/api/v1/admin/availability-blocks", adminToken, Map.of(
@@ -235,10 +267,30 @@ class KuriLaboEndToEndFlowTests {
                         .header("Authorization", bearer(clientToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.slots[?(@.available == true)]").isEmpty());
+        mvc.perform(get("/api/v1/availability/blocked-dates")
+                        .param("from", rangeStart.minusDays(1).toString())
+                        .param("to", rangeEnd.plusDays(1).toString())
+                        .header("Authorization", bearer(clientToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dates.length()").value(7))
+                .andExpect(jsonPath("$.dates[0]").value(rangeStart.toString()))
+                .andExpect(jsonPath("$.dates[6]").value(rangeEnd.toString()));
+
+        MockMultipartFile rejectedGuestWork = new MockMultipartFile(
+                "files", "rejected-guest-work.png", "image/png", new byte[] {5, 6, 7}
+        );
+        mvc.perform(multipart("/api/v1/admin/nail-sets")
+                        .file(rejectedGuestWork)
+                        .param("appointmentId", guestAppointmentId)
+                        .param("title", "Confirmed appointment work")
+                        .header("Authorization", bearer(adminToken)))
+                .andExpect(status().isConflict());
 
         MockMultipartFile guestImage = new MockMultipartFile("files", "guest.png", "image/png", new byte[] {5, 6, 7});
         mvc.perform(multipart("/api/v1/admin/nail-sets")
-                        .file(guestImage).param("appointmentId", guestAppointmentId).param("title", "Guest history set")
+                        .file(guestImage)
+                        .param("clientId", guestId)
+                        .param("title", "Guest history set")
                         .header("Authorization", bearer(adminToken)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.clientId").value(guestId));
 
@@ -251,7 +303,8 @@ class KuriLaboEndToEndFlowTests {
                 .andExpect(jsonPath("$[?(@.id == '" + guestAppointmentId + "')].customerId", hasItem(clientId)));
         mvc.perform(get("/api/v1/nail-sets/mine").header("Authorization", bearer(clientToken)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.appointmentId == '" + guestAppointmentId + "')].title", hasItem("Guest history set")));
+                .andExpect(jsonPath("$[*].title", hasItem("Guest history set")))
+                .andExpect(jsonPath("$[?(@.title == 'Guest history set')].clientId", hasItem(clientId)));
 
         JsonNode pastVisit = json(postJson("/api/v1/admin/appointments/history", adminToken, Map.of(
                 "customerId", clientId,

@@ -4,12 +4,13 @@ import { Link } from 'react-router-dom';
 import { formatSalonTime, salonDateKey, salonMinutes, todayInSalon } from '../../lib/dates';
 import { formatClock, getLocale, statusLabel, t, useLanguage } from '../../lib/i18n';
 import { api, ApiError } from '../../lib/api';
-import type { AdminAppointment, AdminScheduleAvailability, AdminUserDetail, Appointment, NailSet } from '../../types';
+import type { AdminAppointment, AdminScheduleAvailability, AdminUserDetail, Appointment, NailSet, ServiceDefinition } from '../../types';
 import { ConfirmModal } from '../ConfirmModal';
 import { DatePicker } from '../DatePicker';
+import { ReferencePhotoPicker } from '../ReferencePhotoPicker';
 import { PaperCard, StatusBadge } from '../UI';
 
-type Confirmation = 'reject' | 'approve-cancellation' | 'no-show' | null;
+type Confirmation = 'reject' | 'approve-cancellation' | 'admin-cancel' | 'no-show' | null;
 
 type AppointmentManagementModalProps = {
   appointment: AdminAppointment;
@@ -41,6 +42,7 @@ export function AppointmentManagementModal({ appointment, nailSet, onClose, onUp
   const [current, setCurrent] = useState(appointment);
   const [client, setClient] = useState<AdminUserDetail | null>(null);
   const [estimatedPrice, setEstimatedPrice] = useState(appointment.estimatedPrice == null ? '' : Number(appointment.estimatedPrice).toFixed(2));
+  const [estimatedPriceTouched, setEstimatedPriceTouched] = useState(false);
   const [finalPrice, setFinalPrice] = useState(appointment.finalPrice == null ? '' : Number(appointment.finalPrice).toFixed(2));
   const [serviceNotes, setServiceNotes] = useState(appointment.serviceNotes ?? '');
   const [date, setDate] = useState(salonDateKey(appointment.startAt));
@@ -53,12 +55,28 @@ export function AppointmentManagementModal({ appointment, nailSet, onClose, onUp
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
+  const [referenceFiles, setReferenceFiles] = useState<File[]>([]);
+  const [uploadingReferences, setUploadingReferences] = useState(false);
 
   useEffect(() => {
     api<AdminUserDetail>(`/api/v1/admin/users/${appointment.customerId}`)
       .then(setClient)
       .catch((cause) => setError(cause instanceof ApiError ? cause.message : 'Unable to load client details.'));
   }, [appointment.customerId]);
+
+  useEffect(() => {
+    if (appointment.estimatedPrice != null || !appointment.serviceId || estimatedPriceTouched) return;
+    let active = true;
+    api<ServiceDefinition[]>('/api/v1/admin/services')
+      .then((services) => {
+        const service = services.find((item) => item.id === appointment.serviceId);
+        if (active && service && !estimatedPriceTouched) {
+          setEstimatedPrice(Number(service.price).toFixed(2));
+        }
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [appointment.estimatedPrice, appointment.serviceId, estimatedPriceTouched]);
 
   useEffect(() => {
     if (!showReschedule || (current.status !== 'PENDING_CONFIRMATION' && current.status !== 'CONFIRMED')) return;
@@ -95,6 +113,7 @@ export function AppointmentManagementModal({ appointment, nailSet, onClose, onUp
     : null;
   const canReschedule = current.status === 'PENDING_CONFIRMATION' || current.status === 'CONFIRMED';
   const isCompleted = current.status === 'COMPLETED';
+  const canUploadReferences = current.status === 'PENDING_CONFIRMATION' || current.status === 'CONFIRMED';
   const canEditDetails = ['PENDING_CONFIRMATION', 'CONFIRMED', 'CANCELLATION_REQUESTED', 'COMPLETED'].includes(current.status);
   const appointmentEnded = new Date(current.endAt).getTime() <= Date.now();
   const appointmentStarted = new Date(current.startAt).getTime() <= Date.now();
@@ -154,7 +173,7 @@ export function AppointmentManagementModal({ appointment, nailSet, onClose, onUp
     }
   }
 
-  async function transition(action: 'confirm' | 'reject' | 'complete' | 'no-show') {
+  async function transition(action: 'confirm' | 'reject' | 'cancel' | 'complete' | 'no-show') {
     setBusy(true);
     setError(null);
     try {
@@ -188,10 +207,33 @@ export function AppointmentManagementModal({ appointment, nailSet, onClose, onUp
     }
   }
 
+  async function uploadReferences(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (referenceFiles.length === 0) return;
+    const body = new FormData();
+    referenceFiles.forEach((file) => body.append('files', file));
+    setUploadingReferences(true);
+    setError(null);
+    try {
+      const updated = await api<Appointment>(`/api/v1/admin/appointments/${current.id}/references`, {
+        method: 'POST',
+        body,
+      });
+      publish({ ...current, ...updated });
+      setReferenceFiles([]);
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : 'Unable to upload reference photos.');
+    } finally {
+      setUploadingReferences(false);
+    }
+  }
+
   const confirmationContent = confirmation === 'reject'
     ? { title: t('Reject booking request'), message: t('Reject this booking request? The client will be notified to choose another time.'), label: t('Reject appointment') }
     : confirmation === 'approve-cancellation'
       ? { title: t('Approve cancellation'), message: t('Cancel this appointment and release the reserved time?'), label: t('Approve cancellation') }
+      : confirmation === 'admin-cancel'
+        ? { title: t('Cancel appointment'), message: t('Cancel this appointment and release the reserved time?'), label: t('Cancel appointment') }
       : { title: t('Mark as no show'), message: t('Mark this appointment as a no show?'), label: t('Mark no show') };
 
   return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !confirmation) onClose(); }}>
@@ -201,7 +243,6 @@ export function AppointmentManagementModal({ appointment, nailSet, onClose, onUp
         <div><p className="eyebrow">{t('APPOINTMENT MANAGEMENT')}</p><h2 id="appointment-management-title">{current.customerName || client?.name || t('Client')}</h2></div>
         <StatusBadge status={current.status} />
       </div>
-      <p className="modal-subtitle">{t('Manage this appointment based on its current status: {status}.', { status: statusCopy })}</p>
       {error && <div className="form-notice">{t(error)}</div>}
 
       <div className="visit-summary appointment-management-summary">
@@ -265,26 +306,30 @@ export function AppointmentManagementModal({ appointment, nailSet, onClose, onUp
       </section>}
 
       {canEditDetails && <section className="appointment-management-section">
-        <div className="appointment-section-copy"><p className="eyebrow">{t('ADMIN ONLY')}</p><h3>{isCompleted ? t('Payment and visit notes') : t('Estimate and appointment notes')}</h3><p>{t('These prices and notes are never shown to the client.')}</p></div>
-        <form onSubmit={saveDetails}>
-          {!isCompleted && <label>{t('Estimated price (CAD)')}<span className="optional">{t('admin reference only')}</span><div className="money-input"><span>$</span><input type="number" min="0" max="99999999.99" step="0.01" inputMode="decimal" value={estimatedPrice} onChange={(event) => setEstimatedPrice(event.target.value)} placeholder="0.00" /></div></label>}
+        <div className="appointment-section-copy"><p className="eyebrow">{t('ADMIN ONLY')}</p></div>
+        <form id="appointment-details-form" onSubmit={saveDetails}>
+          {!isCompleted && <label>{t('Estimated price (CAD)')}<span className="optional">{t('admin reference only')}</span><div className="money-input"><span>$</span><input type="number" min="0" max="99999999.99" step="0.01" inputMode="decimal" value={estimatedPrice} onChange={(event) => { setEstimatedPriceTouched(true); setEstimatedPrice(event.target.value); }} placeholder="0.00" /></div></label>}
           {isCompleted && <label>{t('Final price paid (CAD)')}<div className="money-input"><span>$</span><input type="number" min="0" max="99999999.99" step="0.01" inputMode="decimal" value={finalPrice} onChange={(event) => setFinalPrice(event.target.value)} placeholder="0.00" /></div></label>}
           <label>{t('Internal service notes')}<span className="optional">{t('admin only')}</span><textarea value={serviceNotes} onChange={(event) => setServiceNotes(event.target.value)} maxLength={5000} placeholder={t('Products, colors, technique, adjustments…')} /></label>
-          <button className="primary-button" disabled={busy}>{busy ? t('Saving…') : t('Save appointment details')}</button>
         </form>
       </section>}
 
-      {current.referenceImages.length > 0 && <div className="visit-reference-section"><p className="eyebrow">{t('CLIENT REFERENCES')}</p><div className="appointment-reference-strip large">{current.referenceImages.map((image) => <span key={image.id}><img src={image.url} alt={t('Client reference')} /><a href={`${image.url}?download=true`} download aria-label={t('Download reference photo')}>🐾</a></span>)}</div></div>}
+      {(current.referenceImages.length > 0 || canUploadReferences) && <div className="visit-reference-section"><p className="eyebrow">{t('CLIENT REFERENCES')}</p><p className="reference-shared-note">{t('Shared with the client and studio.')}</p><ReferencePhotoPicker files={referenceFiles} onChange={setReferenceFiles} existingImages={current.referenceImages} disabled={uploadingReferences} allowUpload={canUploadReferences} />{canUploadReferences && referenceFiles.length > 0 && <form className="appointment-reference-upload" onSubmit={uploadReferences}><button className="secondary-button" disabled={uploadingReferences}>{uploadingReferences ? t('Uploading photos…') : t('Upload photos')}</button></form>}</div>}
 
-      <div className="visit-photo-section appointment-linked-photos">
+      {(isCompleted || nailSet) && <div className="visit-photo-section appointment-linked-photos">
         <div><p className="eyebrow">{t('NAIL SET')}</p><h3>{nailSet ? t('{count} linked photos', { count: nailSet.images.length }) : t('No photos linked yet')}</h3></div>
         {nailSet && <div className="appointment-linked-photo-strip">{nailSet.images.slice(0, 4).map((image) => <span key={image.id}><img src={image.url} alt={nailSet.title} /><a href={`${image.url}?download=true`} download aria-label={t('Download photo')}>🐾</a></span>)}</div>}
-        <Link className="details-button" to={`/inspiration?appointmentId=${current.id}`}>{nailSet ? t('Manage photos') : t('+ Add photos')}</Link>
-      </div>
+        {isCompleted && <Link className="details-button" to={`/inspiration?appointmentId=${current.id}`}>{nailSet ? t('Manage photos') : t('+ Add nail work')}</Link>}
+      </div>}
 
       {current.status === 'CONFIRMED' && appointmentStarted && <div className="appointment-modal-actions appointment-completion-actions">
         <button type="button" className="secondary-button" disabled={busy} onClick={() => setConfirmation('no-show')}>{t('No show')}</button>
         <button type="button" className="primary-button" disabled={busy || !appointmentEnded} onClick={() => void transition('complete')}>{t('Complete')}</button>
+      </div>}
+
+      {canEditDetails && <div className={`appointment-footer-actions ${current.status === 'CONFIRMED' ? 'with-cancel' : ''}`}>
+        {current.status === 'CONFIRMED' && <button type="button" className="secondary-button appointment-cancel-button" disabled={busy} onClick={() => setConfirmation('admin-cancel')}>{t('Cancel appointment')}</button>}
+        <button type="submit" form="appointment-details-form" className="primary-button" disabled={busy}>{busy ? t('Saving…') : t('Save appointment details')}</button>
       </div>}
 
       <ConfirmModal
@@ -295,7 +340,7 @@ export function AppointmentManagementModal({ appointment, nailSet, onClose, onUp
         confirmLabel={confirmationContent.label}
         pending={busy}
         onCancel={() => setConfirmation(null)}
-        onConfirm={() => void (confirmation === 'reject' ? transition('reject') : confirmation === 'approve-cancellation' ? reviewCancellation('approve') : transition('no-show'))}
+        onConfirm={() => void (confirmation === 'reject' ? transition('reject') : confirmation === 'approve-cancellation' ? reviewCancellation('approve') : confirmation === 'admin-cancel' ? transition('cancel') : transition('no-show'))}
       />
     </PaperCard>
   </div>;

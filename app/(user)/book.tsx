@@ -24,7 +24,7 @@ import {
 } from '../../components/ui';
 import { colors, fonts, letterSpacing, radius, spacing, typeScale } from '../../constants/theme';
 import { api, ApiError } from '../../lib/api';
-import type { Appointment, Availability, ServiceDefinition } from '../../types/api';
+import type { Appointment, Availability, BlockedDates, ServiceDefinition } from '../../types/api';
 
 
 
@@ -39,6 +39,12 @@ function dateKey(year: number, month: number, day: number) {
 function todayKey() {
   const now = new Date();
   return dateKey(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+function addDaysKey(value: string, amount: number) {
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(year, month - 1, day + amount, 12);
+  return dateKey(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
 function buildMonthWeeks(year: number, month: number) {
@@ -86,6 +92,7 @@ export default function BookScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<Appointment | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [blockedDates, setBlockedDates] = useState<Set<string>>(new Set());
 
   const selectedDate = dateKey(viewYear, viewMonth, day);
   const weeks = useMemo(() => buildMonthWeeks(viewYear, viewMonth), [viewYear, viewMonth]);
@@ -104,6 +111,27 @@ export default function BookScreen() {
   }, []);
 
   useFocusEffect(loadServices);
+
+  useEffect(() => {
+    const from = todayKey();
+    api<BlockedDates>(`/api/v1/availability/blocked-dates?from=${from}&to=${addDaysKey(from, 365)}`)
+      .then((result) => setBlockedDates(new Set(result.dates)))
+      .catch(() => setError("Unable to load blocked dates."));
+  }, []);
+
+  useEffect(() => {
+    if (!blockedDates.has(selectedDate)) return;
+    for (let offset = 1; offset <= 366; offset += 1) {
+      const candidate = addDaysKey(selectedDate, offset);
+      if (!blockedDates.has(candidate)) {
+        const [year, month, nextDay] = candidate.split('-').map(Number);
+        setViewYear(year);
+        setViewMonth(month - 1);
+        setDay(nextDay);
+        break;
+      }
+    }
+  }, [blockedDates, selectedDate]);
 
   useEffect(() => {
     if (!serviceId || selectedDate < todayKey()) return;
@@ -238,8 +266,9 @@ export default function BookScreen() {
               {week.map((value, columnIndex) => {
                 if (!value) return <View key={columnIndex} style={styles.dayCell} />;
                 const key = dateKey(viewYear, viewMonth, value);
-                const disabled = key < todayKey();
-                const active = value === day;
+                const blocked = blockedDates.has(key);
+                const disabled = key < todayKey() || blocked;
+                const active = value === day && !blocked;
                 return (
                   <Pressable
                     key={columnIndex}
@@ -248,6 +277,7 @@ export default function BookScreen() {
                     style={[styles.dayCell, active && styles.dayCellActive]}
                   >
                     <Text style={[styles.dayText, disabled && styles.dayTextDisabled, active && styles.dayTextActive]}>{value}</Text>
+                    {blocked && <View style={styles.blockedCrossout} />}
                   </Pressable>
                 );
               })}
@@ -361,6 +391,7 @@ const styles = StyleSheet.create({
   dayText: { fontFamily: fonts.body, fontSize: 13, color: colors.ink },
   dayTextActive: { color: colors.white, fontWeight: '700' },
   dayTextDisabled: { color: colors.inkFaint, opacity: 0.4 },
+  blockedCrossout: { position: 'absolute', width: 25, height: 2, borderRadius: 1, backgroundColor: colors.blueInk, transform: [{ rotate: '-36deg' }] },
   sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   selectedDate: { fontFamily: fonts.body, fontSize: 11, color: colors.inkSoft },
   slotGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

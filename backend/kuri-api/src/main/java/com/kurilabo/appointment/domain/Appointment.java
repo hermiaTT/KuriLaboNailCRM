@@ -192,6 +192,15 @@ public class Appointment {
         updatedAt = now;
     }
 
+    public void cancelByAdmin(Instant now) {
+        if (status != AppointmentStatus.CONFIRMED) {
+            throw new IllegalStateException("Only a confirmed appointment can be cancelled by an admin.");
+        }
+        status = AppointmentStatus.CANCELLED;
+        cancelledAt = now;
+        updatedAt = now;
+    }
+
     public void complete(Instant now) {
         requireConfirmed();
         status = AppointmentStatus.COMPLETED;

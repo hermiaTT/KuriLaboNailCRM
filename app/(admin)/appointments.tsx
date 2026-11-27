@@ -203,7 +203,8 @@ export default function AdminAppointmentsScreen() {
                 <Field placeholder={t("Internal service notes")} multiline value={notes} onChangeText={setNotes} />
               </View>
               <HandButton color={colors.pinkInk} full disabled={busy === selected?.id} onPress={saveDetails}>{t("Save details")}</HandButton>
-              <HandButton color={colors.blueInk} full disabled={!selected} onPress={() => selected && router.push({ pathname: '/(admin)/upload', params: { appointmentId: selected.id, clientId: selected.customerId } })}>{t("Upload photos")}</HandButton>
+              {(selected?.status === 'PENDING_CONFIRMATION' || selected?.status === 'CONFIRMED') && <HandButton color={colors.blueInk} full onPress={() => router.push({ pathname: '/(admin)/upload', params: { appointmentId: selected.id, clientId: selected.customerId, mode: 'reference' } })}>{t("Upload reference photos")}</HandButton>}
+              {selected?.status === 'COMPLETED' && <HandButton color={colors.blueInk} full onPress={() => router.push({ pathname: '/(admin)/upload', params: { appointmentId: selected.id, clientId: selected.customerId, mode: 'nail-set' } })}>{t("Upload nail work")}</HandButton>}
             </HandRect>
           </Pressable>
         </Pressable>

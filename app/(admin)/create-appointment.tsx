@@ -113,7 +113,7 @@ export default function AdminCreateAppointmentScreen() {
       const created = await api<AdminAppointment>(mode === 'UPCOMING' ? '/api/v1/admin/appointments' : '/api/v1/admin/appointments/history', {
         method: 'POST', body: JSON.stringify(body),
       });
-      router.replace({ pathname: '/(admin)/upload', params: { appointmentId: created.id, clientId: created.customerId } });
+      router.replace({ pathname: '/(admin)/upload', params: { appointmentId: created.id, clientId: created.customerId, mode: mode === 'HISTORY' ? 'nail-set' : 'reference' } });
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "Unable to create this appointment.");
     } finally {
